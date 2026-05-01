@@ -1,26 +1,74 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg0: #0e0f11;
+  --bg1: #16181c;
+  --bg2: #1e2026;
+  --bg3: #262830;
+  --border:  #2e3038;
+  --border2: #3a3d48;
+  --text:  #e2e4ea;
+  --text2: #8b8fa8;
+  --text3: #555a6e;
+  --accent:     #5b7cf6;
+  --accent2:    #3d5bd9;
+  --accent-dim: #1e2a5e;
+  --green:     #3ecf7a;
+  --green-dim: #1a3d2e;
+  --amber:     #f0a430;
+  --amber-dim: #3a2a10;
+  --red:     #f05050;
+  --red-dim: #3a1818;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg0);
+  color: var(--text);
+  font-family: 'IBM Plex Sans', 'Inter', sans-serif;
+  font-size: 14px;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg0); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+.select {
+  width: 100%;
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23555a6e'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.select:focus { border-color: var(--accent); }
+
+.sub-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 9px 11px; margin-bottom: 7px;
+  transition: border-color .15s; position: relative;
+}
+.sub-card.warn  { border-color: #5a3800; }
+.sub-card.error { border-color: #5a1a1a; }
+.sub-card.editable { cursor: pointer; }
+.sub-card.editable:hover { border-color: var(--accent); }
+.sub-card.editing { border-color: var(--accent); background: var(--bg3); }
+
+.diff-del { color: var(--amber); text-decoration: line-through; opacity: .75; }
+.diff-ins { color: var(--green); }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner {
+  display: inline-block; width: 10px; height: 10px;
+  border: 1.5px solid var(--border2); border-top-color: var(--accent);
+  border-radius: 50%; animation: spin .6s linear infinite;
 }
