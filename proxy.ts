@@ -4,22 +4,26 @@ import { NextResponse, type NextRequest } from 'next/server'
 export async function proxy(request: NextRequest) {
   let response = NextResponse.next({ request })
 
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        getAll: () => request.cookies.getAll(),
-        setAll: (cs) => {
-          cs.forEach(({ name, value }) => request.cookies.set(name, value))
-          response = NextResponse.next({ request })
-          cs.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+  try {
+    const supabase = createServerClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll: () => request.cookies.getAll(),
+          setAll: (cs) => {
+            cs.forEach(({ name, value }) => request.cookies.set(name, value))
+            response = NextResponse.next({ request })
+            cs.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
+          },
         },
       },
-    },
-  )
+    )
+    await supabase.auth.getUser()
+  } catch {
+    // Let the request through — auth state will be checked per-route
+  }
 
-  await supabase.auth.getUser()
   return response
 }
 
