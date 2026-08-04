@@ -1,0 +1,83 @@
+import { query, queryOne, requireOrg } from './client.ts'
+
+export interface MediaRow {
+  id: string
+  org_id: string
+  project_id: string | null
+  storage_key: string
+  filename: string | null
+  bytes: string | null
+  duration_seconds: string | null
+  created_by: string | null
+  created_at: string
+}
+
+export async function createMedia(
+  orgId: string,
+  input: {
+    projectId?: string | null
+    storageKey: string
+    filename?: string | null
+    bytes?: number | null
+    durationSeconds?: number | null
+    createdBy?: string | null
+  },
+): Promise<MediaRow> {
+  const rows = await query<MediaRow>(
+    `insert into media (org_id, project_id, storage_key, filename, bytes, duration_seconds, created_by)
+     values ($1, $2, $3, $4, $5, $6, $7)
+     returning *`,
+    [
+      requireOrg(orgId),
+      input.projectId ?? null,
+      input.storageKey,
+      input.filename ?? null,
+      input.bytes ?? null,
+      input.durationSeconds ?? null,
+      input.createdBy ?? null,
+    ],
+  )
+  return rows[0]
+}
+
+export async function getMedia(orgId: string, id: string): Promise<MediaRow | null> {
+  return queryOne<MediaRow>(`select * from media where org_id = $1 and id = $2`, [
+    requireOrg(orgId),
+    id,
+  ])
+}
+
+export async function listProjectMedia(orgId: string, projectId: string): Promise<MediaRow[]> {
+  return query<MediaRow>(
+    `select * from media where org_id = $1 and project_id = $2 order by created_at desc`,
+    [requireOrg(orgId), projectId],
+  )
+}
+
+export async function deleteMedia(orgId: string, id: string): Promise<string | null> {
+  const rows = await query<{ storage_key: string }>(
+    `delete from media where org_id = $1 and id = $2 returning storage_key`,
+    [requireOrg(orgId), id],
+  )
+  // Caller must delete the object too; the row going away does not free the bytes.
+  return rows[0]?.storage_key ?? null
+}
+
+/**
+ * Uploads that never got attached to a project.
+ *
+ * Deleting a project cascades its media rows but leaves the objects in the
+ * bucket, and an abandoned upload never had a project to begin with. Both are a
+ * bill nobody is watching and an unmet erasure request, so a sweeper needs to
+ * be able to find them.
+ */
+export async function orphanedStorageKeys(orgId: string, limit = 500): Promise<string[]> {
+  const rows = await query<{ storage_key: string }>(
+    `select storage_key from media
+      where org_id = $1 and project_id is null and created_at < now() - interval '24 hours'
+      order by created_at
+      limit $2`,
+    [requireOrg(orgId), limit],
+  )
+  return rows.map(r => r.storage_key)
+}
