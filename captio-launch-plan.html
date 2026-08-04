@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Captio Studio — Launch Plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cabinet+Grotesk:wght@400;500;700;800;900&family=Instrument+Serif:ital@0;1&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --coral:#f06a3e;--coral2:#d9541f;--coral-soft:#fef0e8;--coral-mid:#fccfb8;
+  --teal:#2db89c;--teal2:#1f9e84;--teal-soft:#e0f7f2;
+  --navy:#1a2b3c;--navy2:#0f1e2d;
+  --cream:#faf7f2;--cream2:#f2ede4;--cream3:#e6dfd3;
+  --white:#fff;--ink:#1a1614;--text2:#5c5248;--text3:#9e9488;
+  --amber:#e8960e;--amber-soft:#fef5e0;
+  --display:'Cabinet Grotesk',sans-serif;
+  --serif:'Instrument Serif',serif;
+  --body:'Cabinet Grotesk',sans-serif;
+  --mono:'DM Mono',monospace;
+}
+
+html{scroll-behavior:smooth}
+body{background:var(--cream);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.6;min-height:100vh}
+
+/* ── Top bar ── */
+.topbar{
+  position:sticky;top:0;z-index:100;
+  background:rgba(250,247,242,.92);backdrop-filter:blur(20px);
+  border-bottom:1px solid var(--cream3);
+  padding:0 40px;height:60px;
+  display:flex;align-items:center;justify-content:space-between;
+}
+.tb-logo{display:flex;align-items:center;gap:9px;text-decoration:none}
+.tb-mark{width:32px;height:32px;background:var(--coral);border-radius:9px;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(240,106,62,.28)}
+.tb-mark svg{width:17px;height:17px}
+.tb-name{font-family:var(--display);font-weight:900;font-size:17px;letter-spacing:-.03em;color:var(--ink)}
+.tb-name span{color:var(--coral)}
+.tb-title{font-family:var(--display);font-weight:900;font-size:15px;letter-spacing:-.02em;color:var(--text2)}
+.tb-right{display:flex;align-items:center;gap:12px}
+.tb-progress{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--text3);font-family:var(--mono)}
+.tb-prog-bar{width:120px;height:6px;background:var(--cream3);border-radius:3px;overflow:hidden}
+.tb-prog-fill{height:100%;background:linear-gradient(90deg,var(--coral),var(--teal));border-radius:3px;transition:width .5s cubic-bezier(.22,1,.36,1)}
+.reset-btn{font-size:11px;color:var(--text3);background:none;border:none;cursor:pointer;font-family:var(--mono);transition:color .15s;padding:4px 8px;border-radius:6px}
+.reset-btn:hover{color:var(--coral);background:var(--coral-soft)}
+
+/* ── Hero ── */
+.hero{max-width:900px;margin:0 auto;padding:56px 40px 40px;text-align:center}
+.hero-eyebrow{
+  display:inline-flex;align-items:center;gap:7px;
+  background:var(--coral-soft);border:1px solid var(--coral-mid);
+  color:var(--coral2);padding:5px 14px 5px 8px;border-radius:100px;
+  font-size:12px;font-weight:700;letter-spacing:.04em;
+  margin-bottom:22px;
+}
+.eyebrow-dot{width:18px;height:18px;background:var(--coral);border-radius:50%;display:flex;align-items:center;justify-content:center;color:white;font-size:10px;flex-shrink:0}
+.hero-title{
+  font-family:var(--display);font-weight:900;
+  font-size:clamp(36px,5vw,58px);
+  line-height:.97;letter-spacing:-.04em;color:var(--ink);
+  margin-bottom:14px;
+}
+.hero-title em{font-family:'Instrument Serif',serif;font-style:italic;font-weight:400;color:var(--coral);display:block}
+.hero-sub{font-size:16px;color:var(--text2);max-width:520px;margin:0 auto 32px;line-height:1.65}
+.hero-stats{
+  display:flex;align-items:center;justify-content:center;gap:32px;
+  padding:20px;background:var(--white);border:1px solid var(--cream3);
+  border-radius:16px;max-width:500px;margin:0 auto;
+}
+.hs{text-align:center}
+.hs-val{font-family:var(--display);font-weight:900;font-size:28px;letter-spacing:-.05em;color:var(--ink);line-height:1}
+.hs-val.coral{color:var(--coral)}
+.hs-val.teal{color:var(--teal2)}
+.hs-lbl{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-top:3px}
+.hs-div{width:1px;height:36px;background:var(--cream3)}
+
+/* ── Phases ── */
+.phases{max-width:900px;margin:0 auto;padding:0 40px 80px;display:flex;flex-direction:column;gap:40px}
+
+.phase{background:var(--white);border:1px solid var(--cream3);border-radius:20px;overflow:hidden;transition:box-shadow .2s}
+.phase:hover{box-shadow:0 8px 40px rgba(26,22,20,.06)}
+.phase.done{border-color:var(--teal);background:linear-gradient(135deg,#f9fffe 0%,var(--white) 100%)}
+
+.phase-header{
+  padding:24px 28px;display:flex;align-items:flex-start;gap:16px;
+  border-bottom:1px solid var(--cream3);cursor:pointer;
+  transition:background .15s;
+}
+.phase-header:hover{background:var(--cream)}
+.phase.done .phase-header{border-bottom-color:rgba(45,184,156,.15)}
+
+.phase-num{
+  width:40px;height:40px;border-radius:12px;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--display);font-weight:900;font-size:15px;
+  background:var(--cream2);color:var(--text3);
+  border:1.5px solid var(--cream3);transition:all .3s;
+}
+.phase.active-phase .phase-num{background:var(--coral);color:white;border-color:var(--coral);box-shadow:0 4px 14px rgba(240,106,62,.28)}
+.phase.done .phase-num{background:var(--teal);color:white;border-color:var(--teal);box-shadow:0 4px 14px rgba(45,184,156,.28)}
+
+.phase-info{flex:1;min-width:0}
+.phase-label{font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:var(--mono);margin-bottom:4px}
+.phase.active-phase .phase-label{color:var(--coral)}
+.phase.done .phase-label{color:var(--teal2)}
+.phase-title{font-family:var(--display);font-weight:900;font-size:20px;letter-spacing:-.03em;color:var(--ink);margin-bottom:4px}
+.phase-sub{font-size:13px;color:var(--text2)}
+
+.phase-meta{display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0}
+.phase-count{font-size:11px;font-weight:700;font-family:var(--mono);color:var(--text3);background:var(--cream2);border:1px solid var(--cream3);padding:3px 10px;border-radius:100px;white-space:nowrap}
+.phase.done .phase-count{background:var(--teal-soft);color:var(--teal2);border-color:rgba(45,184,156,.2)}
+.phase-mini-bar{width:80px;height:4px;background:var(--cream3);border-radius:2px;overflow:hidden}
+.phase-mini-fill{height:100%;border-radius:2px;background:var(--coral);transition:width .5s cubic-bezier(.22,1,.36,1)}
+.phase.done .phase-mini-fill{background:var(--teal)}
+
+.phase-body{padding:8px 28px 20px}
+
+/* ── Task items ── */
+.task-group{margin-top:16px}
+.task-group-label{
+  font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--text3);font-family:var(--mono);
+  padding:8px 0 6px;border-bottom:1px solid var(--cream3);margin-bottom:4px;
+}
+
+.task{
+  display:flex;align-items:flex-start;gap:12px;
+  padding:10px 0;
+  border-bottom:1px solid var(--cream3);
+  cursor:pointer;transition:all .15s;
+  position:relative;
+}
+.task:last-child{border-bottom:none}
+.task:hover{padding-left:4px}
+
+.task-check{
+  width:20px;height:20px;border-radius:6px;flex-shrink:0;
+  border:2px solid var(--cream3);background:var(--cream);
+  display:flex;align-items:center;justify-content:center;
+  transition:all .25s cubic-bezier(.22,1,.36,1);margin-top:2px;
+}
+.task.done .task-check{background:var(--teal);border-color:var(--teal);transform:scale(1.05)}
+.task-check svg{opacity:0;transition:opacity .2s}
+.task.done .task-check svg{opacity:1}
+
+.task-content{flex:1;min-width:0}
+.task-title{font-size:14px;font-weight:600;color:var(--ink);transition:color .15s;line-height:1.3;margin-bottom:2px}
+.task.done .task-title{color:var(--text3);text-decoration:line-through;text-decoration-color:var(--cream3)}
+.task-desc{font-size:12px;color:var(--text3);line-height:1.5}
+.task.done .task-desc{color:var(--cream3)}
+
+.task-tag{
+  flex-shrink:0;font-size:10px;font-weight:700;font-family:var(--mono);
+  padding:2px 8px;border-radius:100px;white-space:nowrap;margin-top:3px;
+}
+.tt-design{background:var(--coral-soft);color:var(--coral2);border:1px solid var(--coral-mid)}
+.tt-dev{background:#e8edf2;color:#3a5a7a;border:1px solid #c8d4de}
+.tt-content{background:var(--amber-soft);color:var(--amber);border:1px solid rgba(232,150,14,.2)}
+.tt-biz{background:var(--teal-soft);color:var(--teal2);border:1px solid rgba(45,184,156,.2)}
+.tt-done{background:var(--cream2);color:var(--text3);border:1px solid var(--cream3)}
+
+/* Confetti burst */
+.confetti{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:9999}
+.c-particle{position:absolute;width:8px;height:8px;border-radius:2px;animation:fall 1.2s ease-out forwards}
+@keyframes fall{
+  0%{transform:translateY(-20px) rotate(0deg);opacity:1}
+  100%{transform:translateY(100vh) rotate(720deg);opacity:0}
+}
+
+/* Complete banner */
+.complete-banner{
+  max-width:900px;margin:0 auto 40px;padding:0 40px;display:none;
+}
+.complete-inner{
+  background:var(--teal);border-radius:20px;padding:28px 32px;
+  display:flex;align-items:center;gap:20px;
+}
+.complete-icon{font-size:40px;flex-shrink:0}
+.complete-text .ctitle{font-family:var(--display);font-weight:900;font-size:22px;letter-spacing:-.03em;color:white;margin-bottom:4px}
+.complete-text .csub{font-size:14px;color:rgba(255,255,255,.7)}
+.complete-cta{flex-shrink:0;padding:11px 22px;background:white;color:var(--teal2);border-radius:100px;font-size:14px;font-weight:700;text-decoration:none;border:none;cursor:pointer;transition:all .2s;font-family:var(--body)}
+.complete-cta:hover{background:var(--cream);transform:translateY(-1px)}
+</style>
+</head>
+<body>
+
+<!-- Topbar -->
+<div class="topbar">
+  <a href="#" class="tb-logo">
+    <div class="tb-mark">
+      <svg viewBox="0 0 18 18" fill="none">
+        <rect x="1" y="4" width="16" height="2.5" rx="1.25" fill="white"/>
+        <rect x="1" y="9" width="11" height="2.5" rx="1.25" fill="white" opacity=".7"/>
+        <rect x="1" y="14" width="7" height="2.5" rx="1.25" fill="white" opacity=".4"/>
+      </svg>
+    </div>
+    <span class="tb-name">captio<span>.</span>studio</span>
+  </a>
+  <div style="font-family:var(--display);font-weight:800;font-size:14px;color:var(--text2);letter-spacing:-.02em">Launch Plan</div>
+  <div class="tb-right">
+    <div class="tb-progress">
+      <span id="prog-label">0 / 42 done</span>
+      <div class="tb-prog-bar"><div class="tb-prog-fill" id="prog-fill" style="width:0%"></div></div>
+    </div>
+    <button class="reset-btn" onclick="resetAll()">Reset</button>
+  </div>
+</div>
+
+<!-- Hero -->
+<div class="hero">
+  <div class="hero-eyebrow"><span class="eyebrow-dot">✦</span>From idea to launch</div>
+  <h1 class="hero-title">Your launch roadmap.<br><em>Step by step.</em></h1>
+  <p class="hero-sub">Everything you need to go from brand design to live product. Check off each task as you complete it — progress is saved automatically.</p>
+  <div class="hero-stats">
+    <div class="hs"><div class="hs-val" id="stat-done">0</div><div class="hs-lbl">Completed</div></div>
+    <div class="hs-div"></div>
+    <div class="hs"><div class="hs-val coral" id="stat-left">42</div><div class="hs-lbl">Remaining</div></div>
+    <div class="hs-div"></div>
+    <div class="hs"><div class="hs-val teal" id="stat-pct">0%</div><div class="hs-lbl">Progress</div></div>
+  </div>
+</div>
+
+<!-- Complete banner -->
+<div class="complete-banner" id="complete-banner">
+  <div class="complete-inner">
+    <div class="complete-icon">🚀</div>
+    <div class="complete-text">
+      <div class="ctitle">You're live. Captio Studio is launched!</div>
+      <div class="csub">Every step completed. Time to get your first paying users.</div>
+    </div>
+    <button class="complete-cta" onclick="window.open('https://captio.studio')">Open captio.studio →</button>
+  </div>
+</div>
+
+<!-- Phases -->
+<div class="phases" id="phases-container">
+</div>
+
+<div class="confetti" id="confetti"></div>
+
+<script>
+const PHASES = [
+  {
+    id: 'brand',
+    label: 'Phase 1',
+    title: 'Brand & Identity',
+    sub: 'Lock the visual identity before touching a single line of product code.',
+    groups: [
+      {
+        label: 'Naming & positioning',
+        tasks: [
+          { id: 'b1', title: 'Finalise product name', desc: 'Decision made: Captio Studio. Register social handles.', tag: 'biz' },
+          { id: 'b2', title: 'Define tagline', desc: '"Captions, made simple" — confirm and lock.', tag: 'biz' },
+          { id: 'b3', title: 'Register captio.studio domain', desc: 'Already purchased ✓ — point DNS to hosting.', tag: 'biz' },
+          { id: 'b4', title: 'Define target audiences', desc: 'Primary: production companies. Secondary: indie creators. Document personas.', tag: 'biz' },
+        ]
+      },
+      {
+        label: 'Visual identity',
+        tasks: [
+          { id: 'b5', title: 'Finalise logo mark', desc: 'Choose between the geometric parrot (P mark) or the subtitle-bar Captio mark. Get SVG files.', tag: 'design' },
+          { id: 'b6', title: 'Lock colour palette', desc: 'Coral #f06a3e · Teal #2db89c · Navy #1a2b3c · Cream #faf7f2', tag: 'design' },
+          { id: 'b7', title: 'Set typography', desc: 'Cabinet Grotesk (display) + Instrument Serif (italic accents) + DM Mono (UI)', tag: 'design' },
+          { id: 'b8', title: 'Create favicon set', desc: '512px SVG + 32px + 16px + Apple touch icon. All backgrounds.', tag: 'design' },
+          { id: 'b9', title: 'Build brand guidelines doc', desc: 'Logo usage, colours, type scale, do/don\'t. Share with team.', tag: 'design' },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'design',
+    label: 'Phase 2',
+    title: 'UI / UX Design',
+    sub: 'Design all surfaces before writing backend code. Align the vision before building it.',
+    groups: [
+      {
+        label: 'Marketing site',
+        tasks: [
+          { id: 'd1', title: 'Landing page design', desc: 'Hero, features, how it works, pricing, waitlist CTA, footer. ✓ Done in this session.', tag: 'design' },
+          { id: 'd2', title: 'Pricing page', desc: 'Full pricing breakdown, FAQ, annual/monthly toggle, Studio contact form.', tag: 'design' },
+          { id: 'd3', title: 'About page', desc: 'The production company origin story. Builds trust with studio clients.', tag: 'design' },
+        ]
+      },
+      {
+        label: 'App surfaces',
+        tasks: [
+          { id: 'd4', title: 'Auth pages — login & signup', desc: 'Full screen split layout. Google OAuth + email. ✓ Done in this session.', tag: 'design' },
+          { id: 'd5', title: 'Onboarding flow', desc: '3-step wizard: role, language pair, first file. ✓ Done in this session.', tag: 'design' },
+          { id: 'd6', title: 'Dashboard', desc: 'Left sidebar + usage, projects, team, activity. ✓ Done in this session.', tag: 'design' },
+          { id: 'd7', title: 'The subtitle editor', desc: 'Rebrand the existing sub.translate tool with Captio identity.', tag: 'design' },
+          { id: 'd8', title: 'Billing & settings pages', desc: 'Plan management, invoice history, API key management, team seats.', tag: 'design' },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'backend',
+    label: 'Phase 3',
+    title: 'Backend & Infrastructure',
+    sub: 'The plumbing that makes subscriptions, auth, and usage tracking work reliably.',
+    groups: [
+      {
+        label: 'Database & auth',
+        tasks: [
+          { id: 'bk1', title: 'Audit existing Node.js project', desc: 'Read all routes, understand current structure. Claude Code: "Read the project and summarise."', tag: 'dev' },
+          { id: 'bk2', title: 'Set up Supabase schema', desc: 'Tables: users, projects, translations, subtitles. Enable Row Level Security.', tag: 'dev' },
+          { id: 'bk3', title: 'Implement Supabase Auth', desc: 'Email + password + Google OAuth. Session middleware on all /app/* routes.', tag: 'dev' },
+          { id: 'bk4', title: 'User row auto-creation', desc: 'On signup: create users row with plan=free, subtitles_limit=200.', tag: 'dev' },
+        ]
+      },
+      {
+        label: 'Usage & billing',
+        tasks: [
+          { id: 'bk5', title: 'Usage tracking middleware', desc: 'Check limit before translation. Increment counter after. Block at limit with upgrade prompt.', tag: 'dev' },
+          { id: 'bk6', title: 'Complete Stripe integration', desc: 'Webhook handler for checkout.completed, subscription.updated, subscription.deleted.', tag: 'dev' },
+          { id: 'bk7', title: 'Plan → limit mapping', desc: 'Free:200 · Starter:5K · Pro:25K · Studio:100K. Applied on Stripe webhook.', tag: 'dev' },
+          { id: 'bk8', title: 'Server-side API proxy', desc: 'Move Gemini/Groq calls to backend. Keys in env vars. Never in browser.', tag: 'dev' },
+          { id: 'bk9', title: 'Daily hard cap safety', desc: 'Max 3× monthly limit per day per user. Protects against runaway usage.', tag: 'dev' },
+        ]
+      },
+      {
+        label: 'Project persistence',
+        tasks: [
+          { id: 'bk10', title: 'Project CRUD endpoints', desc: 'POST /projects · GET /projects · GET /projects/:id · PATCH /projects/:id', tag: 'dev' },
+          { id: 'bk11', title: 'Auto-save translation state', desc: 'Persist subtitle JSON to database on every translation batch completion.', tag: 'dev' },
+          { id: 'bk12', title: 'File storage setup', desc: 'Supabase Storage for uploaded audio/video. Auto-delete after transcription.', tag: 'dev' },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'product',
+    label: 'Phase 4',
+    title: 'Product Integration',
+    sub: 'Wire the existing working tool to the new auth, usage, and data systems.',
+    groups: [
+      {
+        label: 'Core integration',
+        tasks: [
+          { id: 'p1', title: 'Apply Captio brand to the editor', desc: 'Update colours, fonts, logo in subtitle-translator.html to match the new identity.', tag: 'design' },
+          { id: 'p2', title: 'Wire editor to auth session', desc: 'Redirect to /login if not authenticated. Pass user context to the tool.', tag: 'dev' },
+          { id: 'p3', title: 'Connect usage counter', desc: 'Editor calls /api/translate endpoint (not Gemini directly). Middleware tracks usage.', tag: 'dev' },
+          { id: 'p4', title: 'Add project saving', desc: 'Auto-save on each translation. "Open recent" loads from database.', tag: 'dev' },
+          { id: 'p5', title: 'Build upgrade prompt', desc: 'When limit hit: modal with plan comparison and Stripe checkout link.', tag: 'dev' },
+        ]
+      },
+      {
+        label: 'Dashboard wiring',
+        tasks: [
+          { id: 'p6', title: 'Connect dashboard to real data', desc: 'Pull projects, usage stats, activity from Supabase. Replace mock data.', tag: 'dev' },
+          { id: 'p7', title: 'Team invite flow', desc: 'Email invite → signup → join workspace. Studio tier only.', tag: 'dev' },
+          { id: 'p8', title: 'Billing page', desc: 'Show current plan, Stripe portal link for invoice/cancellation management.', tag: 'dev' },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'content',
+    label: 'Phase 5',
+    title: 'Content & SEO',
+    sub: 'The content that gets people to the door. Do this in parallel with backend work.',
+    groups: [
+      {
+        label: 'Website content',
+        tasks: [
+          { id: 'c1', title: 'Write landing page copy', desc: 'Headlines, feature descriptions, pricing copy, testimonial placeholders.', tag: 'content' },
+          { id: 'c2', title: 'Record product demo video', desc: 'Short 60–90 second walkthrough. Shows transcribe → translate → export flow.', tag: 'content' },
+          { id: 'c3', title: 'Collect first testimonials', desc: 'Get quotes from 3 people who used the prototype. Even informal feedback works.', tag: 'biz' },
+          { id: 'c4', title: 'Write About page story', desc: 'The production company origin. Why this tool was built. Personal and specific.', tag: 'content' },
+        ]
+      },
+      {
+        label: 'SEO basics',
+        tasks: [
+          { id: 'c5', title: 'Keyword research', desc: '"translate SRT file online" · "subtitle translator" · "SRT translator AI". Target 5 core terms.', tag: 'content' },
+          { id: 'c6', title: 'Meta tags & OG images', desc: 'Title, description, og:image for all pages. OG image should show the tool UI.', tag: 'dev' },
+          { id: 'c7', title: 'Submit sitemap to Google', desc: 'Generate sitemap.xml. Submit via Google Search Console. Set up analytics.', tag: 'dev' },
+        ]
+      }
+    ]
+  },
+  {
+    id: 'launch',
+    label: 'Phase 6',
+    title: 'Launch',
+    sub: 'Getting real people to see it, sign up, and pay.',
+    groups: [
+      {
+        label: 'Pre-launch',
+        tasks: [
+          { id: 'l1', title: 'Set up waitlist', desc: 'Tally.so form embedded in landing page. Collect 50+ emails before going live.', tag: 'biz' },
+          { id: 'l2', title: 'Deploy to captio.studio', desc: 'Marketing site live at root. App at app.captio.studio. SSL confirmed.', tag: 'dev' },
+          { id: 'l3', title: 'End-to-end QA', desc: 'Signup → onboarding → translate → export → upgrade → billing. Full flow on a real device.', tag: 'dev' },
+          { id: 'l4', title: 'Set up error monitoring', desc: 'Sentry free tier. Get notified of crashes before users complain.', tag: 'dev' },
+          { id: 'l5', title: 'Announce to waitlist', desc: 'Email to everyone who signed up. Early access link. 3-month discount code.', tag: 'biz' },
+        ]
+      },
+      {
+        label: 'Launch day',
+        tasks: [
+          { id: 'l6', title: 'ProductHunt submission', desc: 'Schedule for Tuesday–Thursday at 00:01 SF time. Have hunter lined up.', tag: 'biz' },
+          { id: 'l7', title: 'Post in communities', desc: 'r/videoproduction, r/editors, r/NewTubers, Indie Hackers, relevant Discords.', tag: 'biz' },
+          { id: 'l8', title: 'Reach out to production contacts', desc: 'Personal email to 10 studios/agencies you know. Most valuable acquisition channel.', tag: 'biz' },
+          { id: 'l9', title: 'Monitor and respond', desc: 'Watch for signups, reply to every comment and support request on launch day.', tag: 'biz' },
+        ]
+      },
+      {
+        label: 'Post-launch',
+        tasks: [
+          { id: 'l10', title: 'Review first week metrics', desc: 'Signups, conversions, where users drop off, which features are used most.', tag: 'biz' },
+          { id: 'l11', title: 'Get on a call with first 5 users', desc: '15-minute Zoom. What do they love, what\'s broken, what would make them pay more?', tag: 'biz' },
+          { id: 'l12', title: 'Publish first changelog entry', desc: 'Show the product is alive. List what launched and what\'s coming next.', tag: 'content' },
+        ]
+      }
+    ]
+  }
+];
+
+const TAG_LABELS = { design:'Design', dev:'Dev', content:'Content', biz:'Business', done:'Done' };
+const TAG_CLASSES = { design:'tt-design', dev:'tt-dev', content:'tt-content', biz:'tt-biz' };
+
+// State
+let state = {};
+try { state = JSON.parse(localStorage.getItem('captio-launch-plan') || '{}'); } catch(e) { state = {}; }
+
+function save() { try { localStorage.setItem('captio-launch-plan', JSON.stringify(state)); } catch(e) {} }
+
+function getAllTasks() {
+  return PHASES.flatMap(p => p.groups.flatMap(g => g.tasks));
+}
+
+function getTotalCount() { return getAllTasks().length; }
+function getDoneCount() { return getAllTasks().filter(t => state[t.id]).length; }
+
+function getPhaseTaskCount(phase) {
+  return phase.groups.flatMap(g => g.tasks).length;
+}
+function getPhaseDoneCount(phase) {
+  return phase.groups.flatMap(g => g.tasks).filter(t => state[t.id]).length;
+}
+
+function toggleTask(id) {
+  state[id] = !state[id];
+  save();
+  const wasComplete = getDoneCount() === getTotalCount();
+  render();
+  if (!wasComplete && getDoneCount() === getTotalCount()) celebrate();
+  if (state[id]) sparkle(id);
+}
+
+function sparkle(id) {
+  const el = document.getElementById('task-' + id);
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const colors = ['#f06a3e','#2db89c','#1a2b3c','#fccfb8','#e0f7f2'];
+  const container = document.getElementById('confetti');
+  for (let i = 0; i < 8; i++) {
+    const p = document.createElement('div');
+    p.className = 'c-particle';
+    p.style.cssText = `
+      left:${cx + (Math.random()-0.5)*60}px;
+      top:${cy}px;
+      background:${colors[i % colors.length]};
+      animation-duration:${0.6 + Math.random()*0.4}s;
+      animation-delay:${Math.random()*0.1}s;
+    `;
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 1200);
+  }
+}
+
+function celebrate() {
+  const container = document.getElementById('confetti');
+  const colors = ['#f06a3e','#2db89c','#1a2b3c','#fccfb8','#e0f7f2','#f5721a','#faf7f2'];
+  for (let i = 0; i < 80; i++) {
+    const p = document.createElement('div');
+    p.className = 'c-particle';
+    p.style.cssText = `
+      left:${Math.random()*100}vw;
+      top:-20px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      width:${6+Math.random()*8}px;
+      height:${6+Math.random()*8}px;
+      animation-duration:${1+Math.random()*1.5}s;
+      animation-delay:${Math.random()*0.8}s;
+    `;
+    container.appendChild(p);
+    setTimeout(() => p.remove(), 3000);
+  }
+  document.getElementById('complete-banner').style.display = 'block';
+  document.getElementById('complete-banner').scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+function resetAll() {
+  if (!confirm('Reset all progress? This cannot be undone.')) return;
+  state = {};
+  save();
+  document.getElementById('complete-banner').style.display = 'none';
+  render();
+}
+
+function render() {
+  const total = getTotalCount();
+  const done  = getDoneCount();
+  const pct   = Math.round(done / total * 100);
+
+  document.getElementById('prog-label').textContent = `${done} / ${total} done`;
+  document.getElementById('prog-fill').style.width  = pct + '%';
+  document.getElementById('stat-done').textContent  = done;
+  document.getElementById('stat-left').textContent  = total - done;
+  document.getElementById('stat-pct').textContent   = pct + '%';
+
+  const container = document.getElementById('phases-container');
+  container.innerHTML = '';
+
+  PHASES.forEach((phase, pi) => {
+    const pTotal = getPhaseTaskCount(phase);
+    const pDone  = getPhaseDoneCount(phase);
+    const pPct   = Math.round(pDone / pTotal * 100);
+    const isDone = pDone === pTotal;
+    const isActive = pDone > 0 && !isDone;
+
+    const phaseEl = document.createElement('div');
+    phaseEl.className = 'phase' + (isDone ? ' done' : '') + (isActive ? ' active-phase' : '');
+
+    phaseEl.innerHTML = `
+      <div class="phase-header" onclick="togglePhase('pb-${phase.id}')">
+        <div class="phase-num">${isDone ? '✓' : pi + 1}</div>
+        <div class="phase-info">
+          <div class="phase-label">${phase.label}</div>
+          <div class="phase-title">${phase.title}</div>
+          <div class="phase-sub">${phase.sub}</div>
+        </div>
+        <div class="phase-meta">
+          <div class="phase-count">${pDone} / ${pTotal}</div>
+          <div class="phase-mini-bar"><div class="phase-mini-fill" style="width:${pPct}%"></div></div>
+        </div>
+      </div>
+      <div class="phase-body" id="pb-${phase.id}" style="${pi > 0 && pDone === 0 ? 'display:none' : ''}">
+        ${phase.groups.map(g => `
+          <div class="task-group">
+            <div class="task-group-label">${g.label}</div>
+            ${g.tasks.map(t => `
+              <div class="task${state[t.id] ? ' done' : ''}" id="task-${t.id}" onclick="toggleTask('${t.id}')">
+                <div class="task-check">
+                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
+                    <path d="M1 4l3 3 5-6" stroke="white" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </div>
+                <div class="task-content">
+                  <div class="task-title">${t.title}</div>
+                  <div class="task-desc">${t.desc}</div>
+                </div>
+                <div class="task-tag ${state[t.id] ? 'tt-done' : TAG_CLASSES[t.tag]}">${state[t.id] ? '✓' : TAG_LABELS[t.tag]}</div>
+              </div>
+            `).join('')}
+          </div>
+        `).join('')}
+      </div>
+    `;
+
+    container.appendChild(phaseEl);
+  });
+}
+
+function togglePhase(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+
+render();
+</script>
+</body>
+</html>
