@@ -8,6 +8,8 @@ export interface ProjectRow {
   target_langs: string[]
   fps: string
   data: unknown
+  /** Bumped by trigger on every update; the token for optimistic locking. */
+  version: number
   created_by: string | null
   created_at: string
   updated_at: string
@@ -17,7 +19,7 @@ export interface ProjectRow {
 export type ProjectSummary = Omit<ProjectRow, 'data'>
 
 const SUMMARY_COLS =
-  'id, org_id, name, source_lang, target_langs, fps, created_by, created_at, updated_at'
+  'id, org_id, name, source_lang, target_langs, fps, version, created_by, created_at, updated_at'
 
 export async function listProjects(orgId: string): Promise<ProjectSummary[]> {
   return query<ProjectSummary>(
@@ -71,9 +73,14 @@ export class ConflictError extends Error {
 /**
  * Update a project, optionally only if nobody else has touched it since.
  *
- * `expectedUpdatedAt` makes the check part of the UPDATE rather than a read
+ * `expectedVersion` makes the check part of the UPDATE rather than a read
  * followed by a write: two editors saving in the same instant can both pass a
  * prior SELECT, but only one can pass this.
+ *
+ * The token is the integer `version`, not `updated_at`. Timestamps look like
+ * they would work and do not: Postgres keeps microseconds, a JavaScript Date
+ * keeps milliseconds, so a timestamp sent back by the client never equals the
+ * stored one and every save would report a conflict that never happened.
  *
  * Returns `null` when the project does not exist **or** belongs to another
  * organisation — callers must not distinguish the two, or the API becomes an
@@ -89,7 +96,7 @@ export async function updateProject(
     fps?: number
     data?: unknown
   },
-  opts: { expectedUpdatedAt?: string } = {},
+  opts: { expectedVersion?: number } = {},
 ): Promise<ProjectRow | null> {
   const sets: string[] = []
   const params: unknown[] = [requireOrg(orgId), id]
@@ -108,9 +115,9 @@ export async function updateProject(
   if (!sets.length) return getProject(orgId, id)
 
   let guard = ''
-  if (opts.expectedUpdatedAt) {
-    params.push(opts.expectedUpdatedAt)
-    guard = ` and updated_at = $${params.length}`
+  if (opts.expectedVersion !== undefined) {
+    params.push(opts.expectedVersion)
+    guard = ` and version = $${params.length}`
   }
 
   const rows = await query<ProjectRow>(
@@ -123,7 +130,7 @@ export async function updateProject(
   if (rows.length) return rows[0]
 
   // No row updated: either it is gone, or someone else saved first.
-  if (opts.expectedUpdatedAt && (await getProject(orgId, id))) throw new ConflictError()
+  if (opts.expectedVersion !== undefined && (await getProject(orgId, id))) throw new ConflictError()
   return null
 }
 

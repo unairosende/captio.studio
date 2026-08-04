@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --test \"tests/**/*.test.ts\"",
-    "typecheck": "tsc --noEmit"
+    "test:db": "node --env-file=.env.local --test \"tests/**/*.test.ts\"",
+    "typecheck": "tsc --noEmit",
+    "migrate": "node --env-file=.env.local db/migrate.ts"
   },
   "dependencies": {
     "@stripe/stripe-js": "^9.3.1",
