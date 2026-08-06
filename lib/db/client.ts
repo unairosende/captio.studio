@@ -13,12 +13,19 @@ import { Pool } from 'pg'
 // leaks a pool and the connection limit is reached within minutes.
 const globalForDb = globalThis as unknown as { __captioPool?: Pool }
 
+/**
+ * The pool.
+ *
+ * Constructing it must never throw. `next build` evaluates module scope while
+ * collecting route config, so anything that demands a secret at import time
+ * fails the build on a machine that legitimately has no database — which is
+ * every build machine. `new Pool()` opens no socket, so an unusable pool costs
+ * nothing until something actually queries it.
+ */
 export function db(): Pool {
   if (!globalForDb.__captioPool) {
-    const connectionString = process.env.DATABASE_URL
-    if (!connectionString) throw new Error('DATABASE_URL is not set')
     globalForDb.__captioPool = new Pool({
-      connectionString,
+      connectionString: process.env.DATABASE_URL,
       // Fluid Compute reuses instances across concurrent requests, so a small
       // pool per instance is plenty and keeps well clear of Postgres limits.
       max: 5,
@@ -28,7 +35,21 @@ export function db(): Pool {
   return globalForDb.__captioPool
 }
 
+/**
+ * Fail loudly, at the point of use.
+ *
+ * Without this, a missing DATABASE_URL lets `pg` fall back to libpq's own
+ * environment defaults and try to reach a local socket — the error then blames
+ * a connection nobody configured instead of the variable nobody set.
+ */
+function assertConfigured(): void {
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is not set — the database cannot be reached')
+  }
+}
+
 export async function query<T = unknown>(text: string, params: unknown[] = []): Promise<T[]> {
+  assertConfigured()
   const res = await db().query(text, params)
   return res.rows as T[]
 }
@@ -43,6 +64,7 @@ export async function queryOne<T = unknown>(
 
 /** Run several statements atomically. Used where a write must not half-apply. */
 export async function transaction<T>(fn: (run: typeof query) => Promise<T>): Promise<T> {
+  assertConfigured()
   const client = await db().connect()
   try {
     await client.query('BEGIN')
