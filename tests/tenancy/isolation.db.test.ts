@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
-import { after, describe, it } from 'node:test'
+import { after, before, describe, it } from 'node:test'
 
 import { db, query } from '../../lib/db/client.ts'
 import {
@@ -36,14 +36,25 @@ const HAS_DB = Boolean(process.env.DATABASE_URL)
 const orgA = `test_org_${randomBytes(6).toString('hex')}`
 const orgB = `test_org_${randomBytes(6).toString('hex')}`
 
-after(async () => {
+// org_id is a foreign key to Better Auth's `organization`, so these have to be
+// real rows. That is the point: the test now exercises the same referential
+// rules production does, instead of inventing ids the database would reject.
+before(async () => {
   if (!HAS_DB) return
   for (const org of [orgA, orgB]) {
-    await query('delete from usage_events where org_id = $1', [org])
-    await query('delete from comments where org_id = $1', [org])
-    await query('delete from project_versions where org_id = $1', [org])
-    await query('delete from projects where org_id = $1', [org])
+    await query(
+      'insert into "organization" ("id", "name", "slug", "createdAt") values ($1, $2, $3, now())',
+      [org, `Productora ${org.slice(-4)}`, org],
+    )
   }
+})
+
+after(async () => {
+  if (!HAS_DB) return
+  // Deleting the organisation is enough — projects, versions, comments, media
+  // and metering all cascade from it. If that ever stops being true, rows will
+  // pile up here and the next run will notice.
+  await query('delete from "organization" where id = any($1)', [[orgA, orgB]])
   await db().end()
 })
 
