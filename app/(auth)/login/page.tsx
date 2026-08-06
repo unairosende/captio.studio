@@ -1,58 +1,120 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { Suspense, useState } from 'react'
 
-export default function LoginPage() {
-  const [email,    setEmail]    = useState('')
+import {
+  AuthCard,
+  FormError,
+  buttonStyle,
+  inputStyle,
+  labelStyle,
+} from '@/components/auth/AuthCard'
+import { signIn } from '@/lib/auth/client'
+
+function LoginForm() {
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error,    setError]    = useState('')
-  const [loading,  setLoading]  = useState(false)
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const params = useSearchParams()
+
+  /**
+   * Where to go after signing in.
+   *
+   * Only same-site paths are honoured. Taking the raw parameter would let a
+   * crafted link send someone from our login straight to an attacker's page
+   * with our brand still in their head — the classic open redirect.
+   */
+  const raw = params.get('next') ?? ''
+  const next = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/translate'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true); setError('')
-    const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) { setError(error.message); setLoading(false); return }
-    router.push('/translate')
+    setLoading(true)
+    setError('')
+
+    const { error } = await signIn.email({ email, password })
+
+    if (error) {
+      // Better Auth reports an unverified account through this code; the generic
+      // message would send people hunting for a typo in a correct password.
+      setError(
+        error.code === 'EMAIL_NOT_VERIFIED'
+          ? 'Confirma tu correo antes de entrar. Revisa tu bandeja.'
+          : (error.message ?? 'No se pudo iniciar sesión.'),
+      )
+      setLoading(false)
+      return
+    }
+
+    // Where they end up is still the app layout's call: it sends anyone without
+    // an organisation to onboarding regardless of this destination.
+    router.push(next)
+    router.refresh()
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 380 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 22, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em', marginBottom: 8 }}>
-            Captio
-          </div>
-          <div style={{ fontSize: 14, color: 'var(--text2)' }}>Sign in to your account</div>
+    <AuthCard
+      title="Iniciar sesión"
+      subtitle="Entra en tu cuenta"
+      footer={
+        <>
+          ¿No tienes cuenta?{' '}
+          <Link href="/signup" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+            Crear una
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <label htmlFor="email" style={labelStyle}>
+            Correo
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label htmlFor="password" style={labelStyle}>
+            Contraseña
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="current-password"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            style={inputStyle}
+          />
         </div>
 
-        <form onSubmit={handleSubmit} style={{ background: 'var(--bg1)', border: '1px solid var(--border)', borderRadius: 10, padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-              style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 14, outline: 'none' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required
-              style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 14, outline: 'none' }} />
-          </div>
-          {error && <div style={{ fontSize: 12, color: 'var(--red)', padding: '8px 12px', background: 'var(--red-dim)', borderRadius: 6 }}>{error}</div>}
-          <button type="submit" disabled={loading}
-            style={{ padding: '10px 0', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', border: 'none', background: 'var(--accent)', color: '#fff', opacity: loading ? .6 : 1, transition: 'all .15s' }}>
-            {loading ? 'Signing in…' : 'Sign in'}
-          </button>
-          <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
-            Don&apos;t have an account?{' '}
-            <Link href="/signup" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sign up</Link>
-          </div>
-        </form>
-      </div>
-    </div>
+        <FormError>{error}</FormError>
+
+        <button type="submit" disabled={loading} style={buttonStyle(loading)}>
+          {loading ? 'Entrando…' : 'Entrar'}
+        </button>
+      </form>
+    </AuthCard>
+  )
+}
+
+export default function LoginPage() {
+  // useSearchParams needs a Suspense boundary, or the whole route opts out of
+  // static rendering at build time.
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   )
 }

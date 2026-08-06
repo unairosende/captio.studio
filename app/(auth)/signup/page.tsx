@@ -1,72 +1,125 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase/client'
+import { useState } from 'react'
+
+import {
+  AuthCard,
+  FormError,
+  buttonStyle,
+  inputStyle,
+  labelStyle,
+} from '@/components/auth/AuthCard'
+import { signUp } from '@/lib/auth/client'
 
 export default function SignupPage() {
-  const [email,    setEmail]    = useState('')
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error,    setError]    = useState('')
-  const [loading,  setLoading]  = useState(false)
-  const [done,     setDone]     = useState(false)
-  const router = useRouter()
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [sent, setSent] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setLoading(true); setError('')
-    const supabase = createClient()
-    const { error } = await supabase.auth.signUp({
-      email, password,
-      options: { emailRedirectTo: `${window.location.origin}/translate` },
-    })
-    if (error) { setError(error.message); setLoading(false); return }
-    setDone(true)
+    setLoading(true)
+    setError('')
+
+    const { error } = await signUp.email({ name, email, password })
+
+    if (error) {
+      setError(error.message ?? 'No se pudo crear la cuenta.')
+      setLoading(false)
+      return
+    }
+
+    // No redirect: the account exists but cannot sign in until the address is
+    // confirmed, so sending them to the app would only bounce them back.
+    setSent(true)
+    setLoading(false)
   }
 
-  if (done) return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ textAlign: 'center', maxWidth: 380 }}>
-        <div style={{ fontSize: 40, marginBottom: 16 }}>📬</div>
-        <div style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)', marginBottom: 8 }}>Check your email</div>
-        <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.6 }}>We sent a confirmation link to <b>{email}</b>. Click it to activate your account, then choose a plan.</div>
-      </div>
-    </div>
-  )
+  if (sent) {
+    return (
+      <AuthCard title="Revisa tu correo" subtitle="Ya casi está">
+        <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text2)' }}>
+          Hemos enviado un enlace de confirmación a{' '}
+          <strong style={{ color: 'var(--text)' }}>{email}</strong>. Ábrelo para activar tu cuenta.
+        </p>
+        <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text3)', marginTop: 14 }}>
+          Si no llega en unos minutos, mira en spam.
+        </p>
+      </AuthCard>
+    )
+  }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div style={{ width: '100%', maxWidth: 380 }}>
-        <div style={{ textAlign: 'center', marginBottom: 32 }}>
-          <div style={{ fontFamily: 'var(--mono)', fontSize: 22, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em', marginBottom: 8 }}>
-            Captio
+    <AuthCard
+      title="Crear cuenta"
+      subtitle="Empieza a subtitular"
+      footer={
+        <>
+          ¿Ya tienes cuenta?{' '}
+          <Link href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+            Entrar
+          </Link>
+        </>
+      }
+    >
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <label htmlFor="name" style={labelStyle}>
+            Nombre
+          </label>
+          <input
+            id="name"
+            type="text"
+            autoComplete="name"
+            value={name}
+            onChange={e => setName(e.target.value)}
+            required
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label htmlFor="email" style={labelStyle}>
+            Correo
+          </label>
+          <input
+            id="email"
+            type="email"
+            autoComplete="email"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            style={inputStyle}
+          />
+        </div>
+        <div>
+          <label htmlFor="password" style={labelStyle}>
+            Contraseña
+          </label>
+          <input
+            id="password"
+            type="password"
+            autoComplete="new-password"
+            minLength={8}
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            style={inputStyle}
+          />
+          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
+            Mínimo 8 caracteres.
           </div>
-          <div style={{ fontSize: 14, color: 'var(--text2)' }}>Create your account</div>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ background: 'var(--bg1)', border: '1px solid var(--border)', borderRadius: 10, padding: 28, display: 'flex', flexDirection: 'column', gap: 16 }}>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Email</label>
-            <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-              style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 14, outline: 'none' }} />
-          </div>
-          <div>
-            <label style={{ fontSize: 12, color: 'var(--text2)', display: 'block', marginBottom: 6 }}>Password</label>
-            <input type="password" value={password} onChange={e => setPassword(e.target.value)} required minLength={8}
-              style={{ width: '100%', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 6, padding: '8px 12px', color: 'var(--text)', fontSize: 14, outline: 'none' }} />
-          </div>
-          {error && <div style={{ fontSize: 12, color: 'var(--red)', padding: '8px 12px', background: 'var(--red-dim)', borderRadius: 6 }}>{error}</div>}
-          <button type="submit" disabled={loading}
-            style={{ padding: '10px 0', borderRadius: 6, fontSize: 14, fontWeight: 500, cursor: loading ? 'not-allowed' : 'pointer', border: 'none', background: 'var(--accent)', color: '#fff', opacity: loading ? .6 : 1, transition: 'all .15s' }}>
-            {loading ? 'Creating account…' : 'Create account'}
-          </button>
-          <div style={{ fontSize: 13, color: 'var(--text3)', textAlign: 'center' }}>
-            Already have an account?{' '}
-            <Link href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>Sign in</Link>
-          </div>
-        </form>
-      </div>
-    </div>
+        <FormError>{error}</FormError>
+
+        <button type="submit" disabled={loading} style={buttonStyle(loading)}>
+          {loading ? 'Creando…' : 'Crear cuenta'}
+        </button>
+      </form>
+    </AuthCard>
   )
 }

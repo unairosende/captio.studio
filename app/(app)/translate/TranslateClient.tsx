@@ -3,7 +3,7 @@
 import Sidebar from '@/components/sidebar/Sidebar'
 import LangTabsBar from '@/components/editor/LangTabsBar'
 import EditorArea from '@/components/editor/EditorArea'
-import { createClient } from '@/lib/supabase/client'
+import { signOut as endSession } from '@/lib/auth/client'
 import { useRouter } from 'next/navigation'
 
 interface Props {
@@ -15,9 +15,11 @@ export default function TranslateClient({ user, plan }: Props) {
   const router = useRouter()
 
   async function signOut() {
-    const supabase = createClient()
-    await supabase.auth.signOut()
+    await endSession()
     router.push('/login')
+    // Server components cache the session; without this the next render could
+    // still be the signed-in one.
+    router.refresh()
   }
 
   return (

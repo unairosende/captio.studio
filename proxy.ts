@@ -1,30 +1,43 @@
-import { createServerClient } from '@supabase/ssr'
+import { getSessionCookie } from 'better-auth/cookies'
 import { NextResponse, type NextRequest } from 'next/server'
 
-export async function proxy(request: NextRequest) {
-  let response = NextResponse.next({ request })
+/**
+ * Cheap gate in front of every request.
+ *
+ * This only checks that a session cookie is present. It does NOT verify it —
+ * a cookie can be forged, expired, or belong to a user who was removed from
+ * their organisation an hour ago. Verification belongs in app/(app)/layout.tsx,
+ * which reads the session and re-checks membership against the database.
+ *
+ * The split is on purpose: middleware runs on every page request, so putting a
+ * database round-trip here would tax the whole site to save a redirect. What it
+ * buys is bouncing obvious signed-out traffic before it costs a render.
+ */
 
-  try {
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        cookies: {
-          getAll: () => request.cookies.getAll(),
-          setAll: (cs) => {
-            cs.forEach(({ name, value }) => request.cookies.set(name, value))
-            response = NextResponse.next({ request })
-            cs.forEach(({ name, value, options }) => response.cookies.set(name, value, options))
-          },
-        },
-      },
-    )
-    await supabase.auth.getUser()
-  } catch {
-    // Let the request through — auth state will be checked per-route
+const PUBLIC_PATHS = ['/', '/login', '/signup', '/pricing']
+
+function isPublic(pathname: string): boolean {
+  if (PUBLIC_PATHS.includes(pathname)) return true
+  // Auth endpoints must stay open or signing in becomes impossible.
+  if (pathname.startsWith('/api/auth/')) return true
+  return false
+}
+
+export async function proxy(request: NextRequest) {
+  const { pathname, search } = request.nextUrl
+
+  if (isPublic(pathname)) return NextResponse.next()
+
+  if (!getSessionCookie(request)) {
+    const login = new URL('/login', request.url)
+    // Remember where they were headed. An invitation link that drops someone on
+    // a blank login screen and forgets the invitation is the first thing a new
+    // customer would hit.
+    login.searchParams.set('next', pathname + search)
+    return NextResponse.redirect(login)
   }
 
-  return response
+  return NextResponse.next()
 }
 
 export const config = {
