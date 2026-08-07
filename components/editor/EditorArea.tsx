@@ -2,8 +2,7 @@
 
 import { useRef } from 'react'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
-import { maxLen } from '@/lib/exporters'
-import { charStatus, reflowText } from '@/lib/reflow'
+import { charStatus, qcForMode, reflowText } from '@/lib/subtitles'
 import SubtitleCard from './SubtitleCard'
 
 export default function EditorArea() {
@@ -17,14 +16,17 @@ export default function EditorArea() {
     setBackTranslateJob,
   } = useSubtitleStore()
 
-  const limit      = maxLen(outputMode)
+  // One source of truth for the thresholds, so the character bar, the QC counts
+  // and the reflow limit cannot disagree about what fits.
+  const qc         = qcForMode(outputMode)
+  const limit      = qc.maxChars
   const isSource   = activeTab === 'source'
   const hasTrans   = !isSource && !!translations[activeTab]
   const activeSubs = isSource ? subtitles : (hasTrans ? getFinalSubs(activeTab) : [])
   const bt         = hasTrans ? bts[activeTab] : undefined
 
-  const warns = activeSubs.filter(s => charStatus(s.text, limit) === 'warn').length
-  const errs  = activeSubs.filter(s => charStatus(s.text, limit) === 'error').length
+  const warns = activeSubs.filter(s => charStatus(s.text, qc) === 'warn').length
+  const errs  = activeSubs.filter(s => charStatus(s.text, qc) === 'error').length
 
   const leftRef  = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
@@ -38,7 +40,7 @@ export default function EditorArea() {
     if (isSource || !hasTrans) return
     const lang = activeTab
     const subs = translations[lang]
-    const toFix = subs.filter(s => charStatus(s.text, limit) === 'error')
+    const toFix = subs.filter(s => charStatus(s.text, qc) === 'error')
     if (!toFix.length) return
 
     if (!allowRephrase) {

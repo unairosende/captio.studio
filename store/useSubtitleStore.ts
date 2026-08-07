@@ -5,7 +5,7 @@ import type {
   Subtitle, TranslationStore, BackTranslationStore,
   OutputMode, ViewMode, ProviderId,
 } from '@/types/subtitle'
-import { getFinalSubs } from '@/lib/exporters'
+import { finalSubs, qcForMode } from '@/lib/subtitles'
 import { PROVIDERS } from '@/lib/providers'
 
 interface TranslationJob {
@@ -142,6 +142,8 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   getFinalSubs: lang => {
     const { translations, outputMode } = get()
     const subs = translations[lang] ?? []
-    return getFinalSubs(subs, outputMode)
+    // The thresholds follow the output mode, so the narrow vertical layout
+    // splits where the wide one does not.
+    return finalSubs(subs, outputMode, qcForMode(outputMode))
   },
 }))

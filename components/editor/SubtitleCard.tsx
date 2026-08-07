@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import type { Subtitle } from '@/types/subtitle'
-import { charStatus, wordDiff } from '@/lib/reflow'
+import { DEFAULT_QC, charStatus, wordDiff } from '@/lib/subtitles'
 
 interface Props {
   sub: Subtitle
@@ -18,7 +18,10 @@ export default function SubtitleCard({ sub, limit, editable, backSub, sourceSub,
   const [draft,   setDraft]   = useState(sub.text)
   const taRef = useRef<HTMLTextAreaElement>(null)
 
-  const st      = charStatus(sub.text, limit)
+  // The card is handed a width by its parent; the rest of the thresholds are
+  // the standard ones.
+  const qc      = { ...DEFAULT_QC, maxChars: limit }
+  const st      = charStatus(sub.text, qc)
   const longest = Math.max(...sub.text.split('\n').map(l => l.length))
   const pct     = Math.min(100, Math.round(longest / limit * 100))
 
@@ -42,7 +45,7 @@ export default function SubtitleCard({ sub, limit, editable, backSub, sourceSub,
     setDraft(sub.text)
   }
 
-  const draftSt      = charStatus(draft, limit)
+  const draftSt      = charStatus(draft, qc)
   const draftLongest = Math.max(...draft.split('\n').map(l => l.length))
   const draftPct     = Math.min(100, Math.round(draftLongest / limit * 100))
   const draftBarColor = draftSt === 'error' ? 'var(--red)' : draftSt === 'warn' ? 'var(--amber)' : 'var(--green)'

@@ -83,6 +83,9 @@ export function parseTxt(text: string): Subtitle[] {
     }))
 }
 
+/** What the importer was told the file is, if anything. */
+export type ParseHint = 'auto' | 'srt' | 'csv' | 'txt'
+
 /**
  * Pick a parser from an explicit hint, falling back to the file extension and
  * finally to SRT.
@@ -90,7 +93,7 @@ export function parseTxt(text: string): Subtitle[] {
 export function parseContent(
   text: string,
   filename: string,
-  hint: 'auto' | 'srt' | 'csv' | 'txt' = 'auto',
+  hint: ParseHint = 'auto',
   fps: number = DEFAULT_FPS,
 ): Subtitle[] {
   const ext = (filename.split('.').pop() ?? '').toLowerCase()

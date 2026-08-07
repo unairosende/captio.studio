@@ -2,10 +2,18 @@
 
 import { useState, useRef } from 'react'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
-import { parseContent } from '@/lib/parsers'
 import { PROVIDERS, SOURCE_LANGUAGES, TARGET_LANGUAGES, QUICK_LANGS, LANG_CODES } from '@/lib/providers'
-import { getFinalSubs, toSRT, toTXT, toCSV, toVTT, maxLen } from '@/lib/exporters'
-import { secToSrt } from '@/lib/timecode'
+import {
+  type ParseHint,
+  type SubtitleFormat,
+  bomFor,
+  finalSubs,
+  formatSubs,
+  parseContent,
+  qcForMode,
+  secToSrt,
+  slugify,
+} from '@/lib/subtitles'
 import type { ProviderId } from '@/types/subtitle'
 
 export default function Sidebar() {
@@ -19,8 +27,9 @@ export default function Sidebar() {
   } = store
 
   const [importTab,  setImportTab]  = useState<'import' | 'transcribe'>('import')
-  const [hint,       setHint]       = useState('auto')
-  const [exportFmt,  setExportFmt]  = useState<'srt' | 'txt' | 'csv' | 'vtt'>('srt')
+  const [hint,       setHint]       = useState<ParseHint>('auto')
+  // The formatter also writes ASS and TTML; the select just has not caught up.
+  const [exportFmt,  setExportFmt]  = useState<SubtitleFormat>('srt')
   const [xcProvider, setXcProvider] = useState<'groq' | 'openai'>('groq')
   const [xcFile,     setXcFile]     = useState<File | null>(null)
   const [langCustom, setLangCustom] = useState('')
@@ -31,7 +40,7 @@ export default function Sidebar() {
 
   const hasSubs  = subtitles.length > 0
   const hasTrans = activeTab !== 'source' && !!translations[activeTab]
-  const limit    = maxLen(outputMode)
+  const limit    = qcForMode(outputMode).maxChars
 
   // ── Import ──
   function handleFile(f: File) {
@@ -135,9 +144,12 @@ export default function Sidebar() {
   // ── Export ──
   function doExport() {
     if (!hasTrans) return
-    const subs = getFinalSubs(translations[activeTab], outputMode)
-    const content = exportFmt === 'srt' ? toSRT(subs) : exportFmt === 'txt' ? toTXT(subs) : exportFmt === 'vtt' ? toVTT(subs) : toCSV(subs)
-    const slug  = activeTab.toLowerCase().replace(/[^a-z]/g, '_')
+    const subs = finalSubs(translations[activeTab], outputMode, qcForMode(outputMode))
+    // The BOM matters: Excel misreads accented characters in UTF-8 CSV without
+    // one, and some players expect it in SRT.
+    const content =
+      bomFor(exportFmt) + formatSubs(subs, exportFmt, { lang: activeTab, title: activeTab })
+    const slug  = slugify(activeTab)
     const blob  = new Blob([content], { type: 'text/plain;charset=utf-8' })
     const a     = document.createElement('a')
     a.href      = URL.createObjectURL(blob)
@@ -183,7 +195,11 @@ export default function Sidebar() {
             </button>
             <div style={{ marginTop: 9 }}>
               <div style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 5 }}>Hint format</div>
-              <select className="select" value={hint} onChange={e => setHint(e.target.value)}>
+              <select
+                className="select"
+                value={hint}
+                onChange={e => setHint(e.target.value as ParseHint)}
+              >
                 <option value="auto">Auto-detect</option>
                 <option value="srt">SRT</option>
                 <option value="txt">TXT (one per line)</option>
