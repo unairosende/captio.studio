@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict'
 import { randomBytes } from 'node:crypto'
-import { after, describe, it } from 'node:test'
+import { after, before, describe, it } from 'node:test'
+
+import { requireDisposableDatabase } from '../support/disposable-db.ts'
 
 import { auth } from '../../lib/auth/server.ts'
 import { db, query } from '../../lib/db/client.ts'
@@ -23,6 +25,13 @@ const HAS_DB = Boolean(process.env.DATABASE_URL)
 const stamp = randomBytes(5).toString('hex')
 const emails = [`captio-test-a-${stamp}@example.invalid`, `captio-test-b-${stamp}@example.invalid`]
 const PASSWORD = `Pw-${randomBytes(12).toString('hex')}`
+
+before(async () => {
+  if (!HAS_DB) return
+  // These tests create real accounts. Make the database confirm it is
+  // disposable before any of them exist.
+  await requireDisposableDatabase()
+})
 
 after(async () => {
   if (!HAS_DB) return

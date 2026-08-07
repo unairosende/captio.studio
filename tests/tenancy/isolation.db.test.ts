@@ -16,6 +16,7 @@ import {
 } from '../../lib/db/projects.ts'
 import { createComment, deleteComment, listComments } from '../../lib/db/comments.ts'
 import { currentMonthCostUsd, logUsage } from '../../lib/db/billing.ts'
+import { requireDisposableDatabase } from '../support/disposable-db.ts'
 
 /**
  * Isolation, proven against a real Postgres.
@@ -41,6 +42,8 @@ const orgB = `test_org_${randomBytes(6).toString('hex')}`
 // rules production does, instead of inventing ids the database would reject.
 before(async () => {
   if (!HAS_DB) return
+  // Before writing anything, make the database confirm it is disposable.
+  await requireDisposableDatabase()
   for (const org of [orgA, orgB]) {
     await query(
       'insert into "organization" ("id", "name", "slug", "createdAt") values ($1, $2, $3, now())',
