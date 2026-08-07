@@ -63,7 +63,6 @@ export default function Sidebar() {
     const lang    = showCustom ? langCustom.trim() : tgtLang
     if (!lang || !subtitles.length) return
 
-    const srcNote = srcLang !== 'Auto-detect' ? ` from ${srcLang}` : ''
     const cfg     = PROVIDERS[activeProvider]
     const BATCH   = cfg.batchSize
     const PAUSE   = cfg.pauseMs
@@ -80,14 +79,28 @@ export default function Sidebar() {
         }
       }
       const batch  = subtitles.slice(i, i + BATCH)
-      const prompt = `You are a professional subtitle translator. Translate each subtitle${srcNote} to ${lang}.\nRules:\n- Preserve meaning and natural spoken rhythm\n- Keep line breaks using \\n if the source has them\n- Return ONLY a JSON array of strings, one per subtitle, in order\n- No explanations, no markdown, no extra text\n\nSource subtitles (JSON array):\n${JSON.stringify(batch.map(s => s.text))}`
 
       try {
-        const res  = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: activeProvider, model: activeModel, prompt }) })
+        // Cues, not prose. The server composes the prompt, so a subscription
+        // cannot be turned into a general-purpose model.
+        const res  = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task: 'translate',
+            provider: activeProvider,
+            model: activeModel,
+            cues: batch.map(s => s.text),
+            targetLang: lang,
+            sourceLang: srcLang,
+            outputMode,
+          }),
+        })
         const data = await res.json()
         if (data.error) throw new Error(data.error)
-        let parsed: string[]
-        try { parsed = JSON.parse(data.text.replace(/```json\n?|```\n?/g, '').trim()) } catch { parsed = batch.map(s => s.text) }
+        // No falling back to the source text. A cue left in the original
+        // language but presented as translated ships as finished work.
+        const parsed: string[] = data.translations
         batch.forEach((s, j) => result.push({ ...s, text: parsed[j] ?? s.text }))
         setTranslateJob({ progress: Math.round((i + batch.length) / subtitles.length * 100), message: `Translating… ${Math.min(i + BATCH, subtitles.length)}/${subtitles.length}` })
       } catch (e: unknown) {

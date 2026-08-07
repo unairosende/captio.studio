@@ -56,12 +56,23 @@ export default function EditorArea() {
     for (let i = 0; i < toFix.length; i += BATCH) {
       const batch = toFix.slice(i, i + BATCH)
       const srcTexts = batch.map(s => subtitles.find(o => o.index === s.index)?.text ?? '')
-      const prompt = `You are a professional subtitle editor. Each subtitle in ${lang} is too long (max ${limit} chars/line, max 2 lines). Rephrase each one slightly to fit — keep the exact same meaning. Split into 2 lines using \\n where natural. Return ONLY a JSON array of strings, one per subtitle, no extra text.\n\nSource texts:\n${JSON.stringify(srcTexts)}\n\nCurrent translations:\n${JSON.stringify(batch.map(s => s.text))}`
       try {
-        const res  = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: activeProvider, model: activeModel, prompt }) })
+        const res  = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task: 'shorten',
+            provider: activeProvider,
+            model: activeModel,
+            cues: batch.map(s => s.text),
+            sourceTexts: srcTexts,
+            targetLang: lang,
+            outputMode,
+          }),
+        })
         const data = await res.json()
-        let parsed: string[]
-        try { parsed = JSON.parse(data.text.replace(/```json\n?|```\n?/g, '').trim()) } catch { parsed = batch.map(s => s.text) }
+        if (data.error) throw new Error(data.error)
+        const parsed: string[] = data.translations
         batch.forEach((s, j) => { if (parsed[j]) updateSubtitle(lang, s.index, parsed[j]) })
         setTranslateJob({ progress: Math.round((i + batch.length) / toFix.length * 100) })
       } catch { break }
@@ -75,19 +86,28 @@ export default function EditorArea() {
     if (bts[lang]) { clearBackTranslation(lang); return }
 
     const subs    = translations[lang]
-    const srcLangLabel = srcLang === 'Auto-detect' ? 'the original language' : srcLang
     setBackTranslateJob({ running: true, message: 'Back-translating…', progress: 0, error: null })
 
     const BATCH = 30
     const result: typeof subs = []
     for (let i = 0; i < subs.length; i += BATCH) {
       const batch  = subs.slice(i, i + BATCH)
-      const prompt = `You are a professional subtitle translator. Translate each subtitle from ${lang} back to ${srcLangLabel}.\nRules:\n- Translate literally and accurately — this is for quality checking\n- Keep line breaks using \\n if the source has them\n- Return ONLY a JSON array of strings, one per subtitle, in order\n- No explanations, no markdown, no extra text\n\nSource subtitles (JSON array):\n${JSON.stringify(batch.map(s => s.text))}`
       try {
-        const res  = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ provider: activeProvider, model: activeModel, prompt }) })
+        const res  = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task: 'backTranslate',
+            provider: activeProvider,
+            model: activeModel,
+            cues: batch.map(s => s.text),
+            targetLang: lang,
+            sourceLang: srcLang,
+          }),
+        })
         const data = await res.json()
-        let parsed: string[]
-        try { parsed = JSON.parse(data.text.replace(/```json\n?|```\n?/g, '').trim()) } catch { parsed = batch.map(s => s.text) }
+        if (data.error) throw new Error(data.error)
+        const parsed: string[] = data.translations
         batch.forEach((s, j) => result.push({ ...s, text: parsed[j] ?? s.text }))
         setBackTranslateJob({ progress: Math.round((i + batch.length) / subs.length * 100) })
       } catch (e: unknown) {
