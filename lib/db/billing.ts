@@ -34,6 +34,24 @@ export async function hasActiveSubscription(orgId: string): Promise<boolean> {
 }
 
 /**
+ * The Stripe customer this organisation already has, if any.
+ *
+ * Deliberately ignores status: a cancelled subscription still identifies the
+ * customer, and creating a second Stripe customer for the same organisation
+ * splits its billing history and its saved payment methods in two.
+ */
+export async function getStripeCustomerId(orgId: string): Promise<string | null> {
+  const row = await queryOne<{ stripe_customer_id: string }>(
+    `select stripe_customer_id from subscriptions
+      where org_id = $1
+      order by created_at desc
+      limit 1`,
+    [requireOrg(orgId)],
+  )
+  return row?.stripe_customer_id ?? null
+}
+
+/**
  * Record what Stripe says, keyed by the Stripe subscription id.
  *
  * Webhooks arrive out of order and more than once, so this must be idempotent:

@@ -20,6 +20,10 @@ function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true
   // Auth endpoints must stay open or signing in becomes impossible.
   if (pathname.startsWith('/api/auth/')) return true
+  // Stripe has no session cookie. Redirecting its POST to the login page would
+  // mean subscriptions silently never get recorded — the request is
+  // authenticated by its signature, which the route itself verifies.
+  if (pathname.startsWith('/api/webhooks/')) return true
   return false
 }
 
