@@ -33,8 +33,17 @@ export interface Mail {
  */
 export async function sendMail(mail: Mail): Promise<boolean> {
   const from = process.env.EMAIL_FROM
-  if (!from) {
-    console.error('EMAIL_FROM is not set; not sending', mail.subject)
+  if (!from || !process.env.RESEND_API_KEY) {
+    // Outside production, print the message instead of sending it. Signing up
+    // requires a verified address, so with no mail provider configured a
+    // developer could not create a single account. Never in production: these
+    // bodies carry verification and password-reset links, and a log is not a
+    // private enough place to keep them.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[mail:dev] to ${mail.to} — ${mail.subject}\n${mail.text}`)
+      return true
+    }
+    console.error('mail is not configured; not sending', mail.subject)
     return false
   }
 
