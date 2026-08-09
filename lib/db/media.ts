@@ -81,3 +81,19 @@ export async function orphanedStorageKeys(orgId: string, limit = 500): Promise<s
   )
   return rows.map(r => r.storage_key)
 }
+
+/**
+ * Forget the rows whose objects the sweeper has just deleted.
+ *
+ * Called only after the bytes are gone, never before. The other order loses the
+ * only record of which keys exist, and an object nothing points at is invisible
+ * — it just accrues storage until somebody reads the bill closely.
+ */
+export async function deleteMediaByStorageKeys(orgId: string, keys: string[]): Promise<number> {
+  if (keys.length === 0) return 0
+  const rows = await query<{ id: string }>(
+    `delete from media where org_id = $1 and storage_key = any($2::text[]) returning id`,
+    [requireOrg(orgId), keys],
+  )
+  return rows.length
+}

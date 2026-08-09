@@ -127,17 +127,41 @@ export default function Sidebar() {
         audioBlob = await extractAudio(xcFile)
       }
 
-      setTranscribeJob({ message: 'Sending to Whisper…', progress: 65 })
-      const fd = new FormData()
-      fd.append('file', audioBlob, xcFile.name.replace(/\.[^.]+$/, '.mp3'))
-      fd.append('model', xcProvider === 'groq' ? 'whisper-large-v3' : 'whisper-1')
-      fd.append('response_format', 'verbose_json')
-      fd.append('timestamp_granularities[]', 'segment')
-      fd.append('xcProvider', xcProvider)
-      const lang = (document.getElementById('xcSourceLang') as HTMLSelectElement).value
-      if (lang !== 'auto') fd.append('language', lang)
+      setTranscribeJob({ message: 'Uploading audio…', progress: 55 })
+      const uploadName  = isVideo ? xcFile.name.replace(/\.[^.]+$/, '.mp3') : xcFile.name
+      const contentType = audioBlob.type || 'audio/mpeg'
 
-      const res  = await fetch('/api/transcribe', { method: 'POST', body: fd })
+      const grant     = await fetch('/api/media', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ filename: uploadName, contentType, bytes: audioBlob.size }),
+      })
+      const grantData = await grant.json()
+      if (!grant.ok) throw new Error(grantData.error ?? `HTTP ${grant.status}`)
+
+      // Straight to object storage. Routing this through our own API would cap
+      // the file at the platform's request-body limit — a couple of minutes of
+      // audio — and bill us for carrying bytes we only hand onwards.
+      const put = await fetch(grantData.uploadUrl, {
+        method:  'PUT',
+        body:    audioBlob,
+        headers: { 'Content-Type': contentType },
+      })
+      if (!put.ok) throw new Error(`Upload failed (HTTP ${put.status})`)
+
+      setTranscribeJob({ message: 'Sending to Whisper…', progress: 75 })
+      const lang = (document.getElementById('xcSourceLang') as HTMLSelectElement).value
+
+      const res  = await fetch('/api/transcribe', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          mediaId:  grantData.mediaId,
+          model:    xcProvider === 'groq' ? 'whisper-large-v3' : 'whisper-1',
+          xcProvider,
+          language: lang !== 'auto' ? lang : undefined,
+        }),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
 

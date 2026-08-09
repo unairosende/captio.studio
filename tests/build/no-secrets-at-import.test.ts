@@ -27,6 +27,7 @@ const MODULES = [
   'lib/db/index.ts',
   'lib/auth/server.ts',
   'lib/email/send.ts',
+  'lib/storage/r2.ts',
 ]
 
 const STRIPPED = [
@@ -38,6 +39,11 @@ const STRIPPED = [
   'GOOGLE_CLIENT_ID',
   'GOOGLE_CLIENT_SECRET',
   'STRIPE_SECRET_KEY',
+  'R2_ACCOUNT_ID',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+  'R2_BUCKET',
+  'CRON_SECRET',
 ]
 
 describe('modules import without configuration', () => {
