@@ -447,7 +447,7 @@ function TrialMeter({ entitlement }: { entitlement: Entitlement }) {
       translatedCues <= TRIAL.translatedCues * 0.2)
 
   return (
-    <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 11, lineHeight: 1.55, color: spent || low ? 'var(--red)' : 'var(--text3)' }}>
+    <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 11, lineHeight: 1.55, color: spent ? 'var(--red)' : low ? 'var(--amber)' : 'var(--text3)' }}>
       <div style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 500, marginBottom: 3 }}>
         Free trial
       </div>

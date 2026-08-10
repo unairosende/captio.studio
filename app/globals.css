@@ -19,6 +19,12 @@
   --amber-dim: #3a2a10;
   --red:     #f05050;
   --red-dim: #3a1818;
+
+  /* Self-hosted by next/font — see app/layout.tsx for why not Google's CDN.
+     --mono was referenced across the components but never declared, so every
+     monospaced number was quietly rendering in the sans face. */
+  --sans: var(--font-sans), 'Inter', sans-serif;
+  --mono: var(--font-mono), ui-monospace, 'SF Mono', monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -26,7 +32,7 @@ html, body { height: 100%; }
 body {
   background: var(--bg0);
   color: var(--text);
-  font-family: 'IBM Plex Sans', 'Inter', sans-serif;
+  font-family: var(--sans);
   font-size: 14px;
 }
 
