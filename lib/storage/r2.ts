@@ -26,6 +26,15 @@ export interface R2Config {
   accessKeyId: string
   secretAccessKey: string
   bucket: string
+  /**
+   * Data-residency jurisdiction the bucket was created in, if any.
+   *
+   * A jurisdictional bucket is only reachable through its own endpoint —
+   * `<account>.eu.r2.cloudflarestorage.com` for the EU — and the plain endpoint
+   * cannot see it at all. No header substitutes for this, and a bucket's
+   * jurisdiction cannot be changed after it is created.
+   */
+  jurisdiction?: string
 }
 
 /**
@@ -41,7 +50,27 @@ export function r2Config(): R2Config | null {
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
   const bucket = process.env.R2_BUCKET
   if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return null
-  return { accountId, accessKeyId, secretAccessKey, bucket }
+
+  const jurisdiction = process.env.R2_JURISDICTION?.trim().toLowerCase() || undefined
+  // This value ends up in a hostname. A typo would merely fail, but an
+  // unchecked one is somebody else's endpoint receiving customer audio.
+  if (jurisdiction && !/^[a-z]{2,10}$/.test(jurisdiction)) {
+    throw new Error(`R2_JURISDICTION is not a valid jurisdiction: ${jurisdiction}`)
+  }
+
+  return { accountId, accessKeyId, secretAccessKey, bucket, jurisdiction }
+}
+
+/**
+ * The S3 endpoint for a bucket.
+ *
+ * A bucket created under a jurisdiction lives behind that jurisdiction's own
+ * hostname and is invisible from the plain one, so getting this wrong reads as
+ * "bucket does not exist" rather than as a permissions error.
+ */
+export function endpointHost(config: R2Config): string {
+  const scope = config.jurisdiction ? `.${config.jurisdiction}` : ''
+  return `${config.accountId}${scope}.r2.cloudflarestorage.com`
 }
 
 /**
@@ -170,7 +199,7 @@ export function presign(
 
   return presignedUrl({
     method,
-    host: `${config.accountId}.r2.cloudflarestorage.com`,
+    host: endpointHost(config),
     // Path-style: R2 does not serve buckets as subdomains.
     canonicalUri: `/${encodePath(config.bucket)}/${encodePath(key)}`,
     accessKeyId: config.accessKeyId,

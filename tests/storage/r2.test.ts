@@ -98,6 +98,24 @@ describe('presign against R2', () => {
     assert.equal(url.pathname, '/captio-media/org1/file.mp3')
   })
 
+  it('uses the jurisdiction endpoint when the bucket has one', () => {
+    // A bucket created under a jurisdiction is invisible from the plain
+    // endpoint, so this is the difference between working and "no such bucket".
+    const url = new URL(presign('GET', 'org1/file.mp3', { config: { ...R2, jurisdiction: 'eu' } }))
+
+    assert.equal(url.host, 'acct123.eu.r2.cloudflarestorage.com')
+  })
+
+  it('signs the host, so the jurisdiction cannot be swapped in the URL', () => {
+    const plain = new URL(presign('GET', 'org1/file.mp3', { config: R2 }))
+    const eu = new URL(presign('GET', 'org1/file.mp3', { config: { ...R2, jurisdiction: 'eu' } }))
+
+    assert.notEqual(
+      plain.searchParams.get('X-Amz-Signature'),
+      eu.searchParams.get('X-Amz-Signature'),
+    )
+  })
+
   it('refuses to sign when nothing is configured', () => {
     const saved = { ...process.env }
     for (const key of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET']) {
