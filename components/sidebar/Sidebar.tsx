@@ -14,9 +14,11 @@ import {
   secToSrt,
   slugify,
 } from '@/lib/subtitles'
+import type { Entitlement } from '@/lib/entitlement'
+import { TRIAL } from '@/lib/plans'
 import type { ProviderId } from '@/types/subtitle'
 
-export default function Sidebar() {
+export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const store = useSubtitleStore()
   const {
     subtitles, translations, activeTab, outputMode,
@@ -201,6 +203,8 @@ export default function Sidebar() {
 
   return (
     <div style={{ width: 226, background: 'var(--bg1)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
+
+      <TrialMeter entitlement={entitlement} />
 
       {/* Import / Transcribe */}
       <div style={{ padding: '13px 12px 12px', borderBottom: '1px solid var(--border)' }}>
@@ -412,6 +416,49 @@ export default function Sidebar() {
           ↓ Export
         </button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * What is left of the trial, before any of it is spent.
+ *
+ * The paywall itself lives in the API routes, because a limit enforced by the
+ * component that draws the button is not a limit. This is the warning — and the
+ * warning is what decides whether reaching the limit feels like a product or an
+ * ambush. Without it, the first news of an exhausted trial arrives at the exact
+ * moment somebody pressed Translate on a deadline.
+ *
+ * Declared at module scope rather than inside Sidebar: a component defined
+ * during render is a new type on every render, and React throws away the
+ * subtree each time.
+ */
+function TrialMeter({ entitlement }: { entitlement: Entitlement }) {
+  // Nothing to say to somebody who already pays.
+  if (entitlement.status === 'subscribed') return null
+
+  const { transcribeSeconds, translatedCues } = entitlement.remaining
+  const spent = transcribeSeconds === 0 || translatedCues === 0
+  // Warned at a fifth left, which is still enough to finish something with.
+  // A warning that arrives at zero is not a warning.
+  const low =
+    !spent &&
+    (transcribeSeconds <= TRIAL.transcribeSeconds * 0.2 ||
+      translatedCues <= TRIAL.translatedCues * 0.2)
+
+  return (
+    <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 11, lineHeight: 1.55, color: spent || low ? 'var(--red)' : 'var(--text3)' }}>
+      <div style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 500, marginBottom: 3 }}>
+        Free trial
+      </div>
+      <div style={{ fontFamily: 'var(--mono)' }}>
+        {Math.floor(transcribeSeconds / 60)} min audio · {translatedCues.toLocaleString('en-GB')} subtitles
+      </div>
+      {(spent || low) && (
+        <a href="/pricing" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
+          {spent ? 'Used up — subscribe' : 'Subscribe'}
+        </a>
+      )}
     </div>
   )
 }

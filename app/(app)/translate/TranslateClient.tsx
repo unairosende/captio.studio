@@ -4,14 +4,15 @@ import Sidebar from '@/components/sidebar/Sidebar'
 import LangTabsBar from '@/components/editor/LangTabsBar'
 import EditorArea from '@/components/editor/EditorArea'
 import { signOut as endSession } from '@/lib/auth/client'
+import type { Entitlement } from '@/lib/entitlement'
 import { useRouter } from 'next/navigation'
 
 interface Props {
   user: { email: string }
-  plan: string
+  entitlement: Entitlement
 }
 
-export default function TranslateClient({ user, plan }: Props) {
+export default function TranslateClient({ user, entitlement }: Props) {
   const router = useRouter()
 
   async function signOut() {
@@ -30,7 +31,7 @@ export default function TranslateClient({ user, plan }: Props) {
           Captio
         </div>
         <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: 'var(--mono)', background: 'var(--accent-dim)', color: '#8ba8ff', marginLeft: 4 }}>
-          {plan}
+          {entitlement.plan}
         </span>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>{user.email}</span>
@@ -42,7 +43,7 @@ export default function TranslateClient({ user, plan }: Props) {
 
       {/* Main */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar />
+        <Sidebar entitlement={entitlement} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <LangTabsBar />
           <EditorArea />

@@ -36,12 +36,36 @@ export function remainingFrom(used: {
   }
 }
 
+/**
+ * Where an organisation stands, without asking about a particular job.
+ *
+ * The editor needs this to show what is left *before* anything is spent. A
+ * paywall nobody sees coming is the worst moment a product has: the wall
+ * arrives at the exact instant somebody was trying to work.
+ */
+export type Entitlement =
+  | { status: 'subscribed'; plan: string; remaining: null }
+  | { status: 'trial'; plan: 'free'; remaining: TrialRemaining }
+
+export async function getEntitlement(orgId: string): Promise<Entitlement> {
+  const subscription = await getLiveSubscription(orgId)
+  if (subscription) {
+    return { status: 'subscribed', plan: subscription.plan, remaining: null }
+  }
+  return {
+    status: 'trial',
+    plan: 'free',
+    remaining: remainingFrom(await trialConsumption(orgId)),
+  }
+}
+
 export async function checkAllowance(orgId: string, kind: UsageKind): Promise<Allowance> {
-  if (await getLiveSubscription(orgId)) {
+  const entitlement = await getEntitlement(orgId)
+  if (entitlement.status === 'subscribed') {
     return { allowed: true, status: 'subscribed', kind, remaining: null }
   }
 
-  const remaining = remainingFrom(await trialConsumption(orgId))
+  const { remaining } = entitlement
 
   // Checked against the matching limit only: the two are separate promises, and
   // running out of audio minutes must not block translating an imported file.

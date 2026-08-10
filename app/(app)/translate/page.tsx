@@ -1,5 +1,5 @@
 import { requireOrgContext, requireUser } from '@/lib/auth/session'
-import { getLiveSubscription } from '@/lib/db/billing'
+import { getEntitlement } from '@/lib/entitlement'
 
 import TranslateClient from './TranslateClient'
 
@@ -15,11 +15,13 @@ import TranslateClient from './TranslateClient'
 export default async function TranslatePage() {
   const [{ orgId }, user] = await Promise.all([requireOrgContext(), requireUser()])
 
-  // Deliberately not a paywall yet. Billing is not wired, so gating on an
-  // active subscription would lock every new organisation out of the product
-  // the moment it finished signing up. The gate goes in with the trial rules,
-  // not before them.
-  const subscription = await getLiveSubscription(orgId)
+  // Read here rather than from the browser: this page is already a server
+  // component doing a round trip, so the editor can render knowing what is left
+  // instead of finding out from the first request that gets refused.
+  //
+  // Not the gate itself. The gate lives in the API routes, because a limit
+  // enforced by the page that draws the button is not a limit.
+  const entitlement = await getEntitlement(orgId)
 
-  return <TranslateClient user={{ email: user.email }} plan={subscription?.plan ?? 'free'} />
+  return <TranslateClient user={{ email: user.email }} entitlement={entitlement} />
 }
