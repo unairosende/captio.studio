@@ -29,15 +29,27 @@ export const maxDuration = 300
  * would mean one outage takes the product down, and rate limits are routine; a
  * customer who never picked Gemini should not have to hear that it is busy.
  */
-const PRIMARY_MODEL = 'gemini-2.5-flash'
+/**
+ * Pinned, and checked against the live API rather than assumed.
+ *
+ * `gemini-2.5-flash` was here and answers 404 for a key created recently —
+ * "no longer available to new users". With a fallback in place that would not
+ * have failed loudly: Groq would have quietly served every translation, so the
+ * product would have looked fine while running on a provider the subprocessor
+ * list does not name as the primary one.
+ *
+ * `models.list` is not evidence — it still advertises 2.5-flash. Only a real
+ * generateContent call tells the truth.
+ */
+const PRIMARY_MODEL = 'gemini-3.6-flash'
 const FALLBACK_MODEL = 'llama-3.3-70b-versatile'
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
 /**
- * Gemini 2.5 spends output budget on its thinking pass before it writes a
- * single character of the answer. At 4096 the reply gets truncated mid-JSON on
- * an ordinary batch, and the failure reads as a malformed response rather than
+ * Gemini spends output budget on its thinking pass before writing a single
+ * character of the answer. At 4096 the reply gets truncated mid-JSON on an
+ * ordinary batch, and the failure reads as a malformed response rather than as
  * a budget that was too small.
  */
 const MAX_OUTPUT_TOKENS = 16_000
