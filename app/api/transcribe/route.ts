@@ -5,15 +5,18 @@ import { logUsage } from '@/lib/db/billing'
 import { getMedia } from '@/lib/db/media'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { StorageNotConfiguredError, presign } from '@/lib/storage/r2'
+import { cuesFromWords, qcForMode, type TimedWord } from '@/lib/subtitles'
 
 export const maxDuration = 300
 
-const ENDPOINTS = {
-  openai: 'https://api.openai.com/v1/audio/transcriptions',
-  groq: 'https://api.groq.com/openai/v1/audio/transcriptions',
-} as const
+const ENDPOINT = 'https://api.elevenlabs.io/v1/speech-to-text'
 
-type XcProvider = keyof typeof ENDPOINTS
+/**
+ * Scribe v2. Checked against v1 on the same audio: v1 heard the product name
+ * as "Capccio", v2 got it right. Proper nouns are the first thing a production
+ * company checks in a transcript.
+ */
+const MODEL = 'scribe_v2'
 
 /** Long enough for the provider to fetch a large object and start working. */
 const READ_WINDOW = 15 * 60
@@ -21,11 +24,15 @@ const READ_WINDOW = 15 * 60
 /**
  * Transcribe an object that is already in the bucket.
  *
- * The caller names an upload rather than sending one. Groq accepts a URL, so
- * for the default provider the audio goes straight from R2 to Groq and this
- * function only ever handles a few hundred bytes of JSON. OpenAI takes the file
- * and nothing else, so there this function has to fetch the object and forward
- * it — which is the reason Groq is the default and not merely the fallback.
+ * The caller names an upload rather than sending one, and the provider is given
+ * a signed URL and fetches it itself, so the audio travels from R2 to
+ * ElevenLabs without passing through this function.
+ *
+ * Scribe returns words rather than segments, which is the reason for choosing
+ * it. A recogniser's own segments are chosen for transcription and routinely
+ * run to a whole paragraph; per-word timings let the cue boundaries be decided
+ * by subtitling rules instead, and with diarisation on, split whenever the
+ * speaker changes. See lib/subtitles/cues.ts.
  */
 export async function POST(req: NextRequest) {
   let ctx
@@ -42,16 +49,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'mediaId is required' }, { status: 400 })
   }
 
-  // The provider is ours to choose, not the caller's to pass on: forwarding an
-  // unrecognised value would send the audio somewhere nobody vetted.
-  const provider: XcProvider = body?.xcProvider === 'openai' ? 'openai' : 'groq'
-  const model = typeof body?.model === 'string' && body.model ? body.model : provider
   const language = typeof body?.language === 'string' ? body.language : ''
   const projectId = typeof body?.projectId === 'string' && body.projectId ? body.projectId : null
+  const outputMode = body?.outputMode === 'vertical' ? 'vertical' : 'horizontal'
 
-  const key = provider === 'openai' ? process.env.OPENAI_API_KEY : process.env.GROQ_API_KEY
+  const key = process.env.ELEVENLABS_API_KEY
   if (!key) {
-    return NextResponse.json({ error: 'Transcription provider not configured' }, { status: 500 })
+    return NextResponse.json({ error: 'Transcription is not configured' }, { status: 500 })
   }
 
   // Scoped by organisation, so an id belonging to somebody else is simply not
@@ -75,49 +79,56 @@ export async function POST(req: NextRequest) {
   }
 
   const form = new FormData()
-  form.append('model', model)
-  form.append('response_format', 'verbose_json')
-  form.append('timestamp_granularities[]', 'segment')
-  if (language) form.append('language', language)
+  form.append('cloud_storage_url', readUrl)
+  form.append('model_id', MODEL)
+  // The point of this provider: without it, two people talking share a cue.
+  form.append('diarize', 'true')
+  form.append('timestamps_granularity', 'word')
+  if (language) form.append('language_code', language)
 
-  if (provider === 'groq') {
-    // The bytes go from R2 to Groq without touching this function.
-    form.append('url', readUrl)
-  } else {
-    const object = await fetch(readUrl)
-    if (!object.ok) {
-      return NextResponse.json({ error: 'Could not read the uploaded audio' }, { status: 502 })
-    }
-    form.append('file', await object.blob(), media.filename ?? 'audio.mp3')
-  }
-
-  const res = await fetch(ENDPOINTS[provider], {
+  const res = await fetch(ENDPOINT, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${key}` },
+    headers: { 'xi-api-key': key },
     body: form,
   })
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     return NextResponse.json(
-      { error: err?.error?.message ?? `HTTP ${res.status}` },
+      { error: err?.detail?.message ?? err?.detail ?? `HTTP ${res.status}` },
       { status: res.status },
     )
   }
 
   const data = await res.json()
 
-  // Transcription is billed by audio duration, so that is what gets metered.
-  // Only verbose_json carries it; without it the call still happened and is
-  // recorded at zero rather than not at all.
+  // Scribe interleaves spacing and audio-event entries with the words; only
+  // the words carry text worth showing.
+  const words: TimedWord[] = (Array.isArray(data?.words) ? data.words : [])
+    .filter((w: { type?: string }) => w?.type === 'word')
+    .map((w: { text: string; start: number; end: number; speaker_id?: string }) => ({
+      text: w.text,
+      start: w.start,
+      end: w.end,
+      speakerId: w.speaker_id ?? null,
+    }))
+
+  const segments = cuesFromWords(words, qcForMode(outputMode))
+
+  // Billed by audio duration, which Scribe does not report. The last word ends
+  // where the speech does, and silence at the tail is not worth charging for.
   await logUsage({
     orgId: ctx.orgId,
     userId: ctx.userId,
     projectId,
     kind: 'transcribe',
-    model,
-    unitsIn: Math.round(Number(data?.duration ?? 0)),
+    model: MODEL,
+    unitsIn: Math.round(words.at(-1)?.end ?? 0),
   })
 
-  return NextResponse.json(data)
+  return NextResponse.json({
+    segments,
+    language: data?.language_code ?? null,
+    text: data?.text ?? '',
+  })
 }
