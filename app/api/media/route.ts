@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { createMedia } from '@/lib/db/media'
+import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { StorageNotConfiguredError, newStorageKey, presign } from '@/lib/storage/r2'
 
 /**
@@ -48,6 +49,12 @@ export async function POST(req: NextRequest) {
       { status: 413 },
     )
   }
+
+  // Refused here rather than at transcription: an upload nobody may transcribe
+  // is storage we pay for to no purpose, and being told after the file has gone
+  // up is a worse way to learn the trial is over.
+  const allowance = await checkAllowance(ctx.orgId, 'transcribe')
+  if (!allowance.allowed) return paywallResponse(allowance)
 
   // The organisation comes from the session, never from the body, so one
   // customer cannot mint a URL inside another's prefix.

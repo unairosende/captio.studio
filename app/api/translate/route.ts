@@ -10,6 +10,7 @@ import {
   type GlossaryEntry,
 } from '@/lib/ai/prompt'
 import { logUsage } from '@/lib/db/billing'
+import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL } from '@/lib/subtitles'
 
 export const maxDuration = 300
@@ -186,6 +187,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unknown task' }, { status: 400 })
   }
 
+  // Last thing before spending money, and after every validation: a malformed
+  // request should hear why it is malformed, not that the trial is over.
+  const allowance = await checkAllowance(ctx.orgId, 'translate')
+  if (!allowance.allowed) return paywallResponse(allowance)
+
   try {
     const { text, tokensIn, tokensOut } = await callProvider(provider, model, prompt)
 
@@ -199,6 +205,10 @@ export async function POST(req: NextRequest) {
       model,
       unitsIn: tokensIn,
       unitsOut: tokensOut,
+      // What the trial is denominated in. Counted here rather than from the
+      // reply, so a batch that came back unusable still spends its allowance —
+      // the provider charged for it either way.
+      cues: cues.length,
     })
 
     return NextResponse.json({ translations: parseTranslationResponse(text, cues.length) })

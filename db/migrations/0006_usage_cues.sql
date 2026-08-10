@@ -1,0 +1,11 @@
+-- Count what the customer was promised, not only what the provider charged.
+--
+-- units_in/units_out hold provider tokens for a translation and seconds of
+-- audio for a transcription. That is what a bill needs, but nobody buys tokens:
+-- the trial promises subtitles, and "2,000 subtitles" cannot be read back out
+-- of a token count — it depends on the language, the model and how wordy the
+-- dialogue is.
+--
+-- Recorded alongside rather than instead: the token counts are still what makes
+-- the margin visible, and losing them would trade a known bill for a guess.
+alter table usage_events add column if not exists cues integer not null default 0;

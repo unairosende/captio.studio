@@ -103,6 +103,15 @@ export interface UsageEventInput {
   unitsIn?: number
   unitsOut?: number
   costUsd?: number
+  /**
+   * Subtitles handled, for a translation.
+   *
+   * Separate from the token counts because it answers a different question.
+   * Tokens say what the provider charged; cues say how much of what the
+   * customer was sold has been spent, and no arithmetic turns one into the
+   * other.
+   */
+  cues?: number
 }
 
 /**
@@ -117,8 +126,8 @@ export async function logUsage(input: UsageEventInput): Promise<void> {
   try {
     await query(
       `insert into usage_events
-         (org_id, project_id, user_id, kind, model, units_in, units_out, cost_usd)
-       values ($1, $2, $3, $4, $5, $6, $7, $8)`,
+         (org_id, project_id, user_id, kind, model, units_in, units_out, cost_usd, cues)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         requireOrg(input.orgId),
         input.projectId ?? null,
@@ -128,10 +137,42 @@ export async function logUsage(input: UsageEventInput): Promise<void> {
         input.unitsIn ?? 0,
         input.unitsOut ?? 0,
         input.costUsd ?? 0,
+        input.cues ?? 0,
       ],
     )
   } catch (err) {
     console.error('usage_events insert failed', err)
+  }
+}
+
+export interface TrialConsumption {
+  /** Seconds of audio transcribed. */
+  transcribeSeconds: number
+  /** Subtitles translated. */
+  translatedCues: number
+}
+
+/**
+ * Everything this organisation has ever spent against the free trial.
+ *
+ * Counted over the whole history rather than a window, because the trial has no
+ * clock: it is an amount, and an amount that refilled monthly would be a free
+ * plan with extra steps.
+ *
+ * The kinds are parameters rather than literals so this statement obeys the
+ * same rule as every other one here — see tests/tenancy/scoping.test.ts.
+ */
+export async function trialConsumption(orgId: string): Promise<TrialConsumption> {
+  const row = await queryOne<{ seconds: string; cues: string }>(
+    `select coalesce(sum(units_in) filter (where kind = $2), 0) as seconds,
+            coalesce(sum(cues)     filter (where kind = $3), 0) as cues
+       from usage_events
+      where org_id = $1`,
+    [requireOrg(orgId), 'transcribe' satisfies UsageKind, 'translate' satisfies UsageKind],
+  )
+  return {
+    transcribeSeconds: Number(row?.seconds ?? 0),
+    translatedCues: Number(row?.cues ?? 0),
   }
 }
 

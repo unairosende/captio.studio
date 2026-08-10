@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { logUsage } from '@/lib/db/billing'
 import { getMedia } from '@/lib/db/media'
+import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { StorageNotConfiguredError, presign } from '@/lib/storage/r2'
 
 export const maxDuration = 300
@@ -59,6 +60,9 @@ export async function POST(req: NextRequest) {
   if (!media) {
     return NextResponse.json({ error: 'Upload not found' }, { status: 404 })
   }
+
+  const allowance = await checkAllowance(ctx.orgId, 'transcribe')
+  if (!allowance.allowed) return paywallResponse(allowance)
 
   let readUrl: string
   try {
