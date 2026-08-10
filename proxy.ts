@@ -24,6 +24,12 @@ function isPublic(pathname: string): boolean {
   // mean subscriptions silently never get recorded — the request is
   // authenticated by its signature, which the route itself verifies.
   if (pathname.startsWith('/api/webhooks/')) return true
+  // The same reasoning, missed the first time: the scheduler sends a bearer
+  // token, not a session cookie. Redirecting it to the login page means the
+  // sweeper never runs, and a sweeper that never runs is invisible — no error
+  // anywhere, just orphaned audio and a bill that grows. The route checks
+  // CRON_SECRET itself, and refuses outright when it is unset.
+  if (pathname.startsWith('/api/cron/')) return true
   return false
 }
 
@@ -33,6 +39,13 @@ export async function proxy(request: NextRequest) {
   if (isPublic(pathname)) return NextResponse.next()
 
   if (!getSessionCookie(request)) {
+    // An API caller gets an answer it can read. Redirecting a fetch to an HTML
+    // login page makes the caller's res.json() throw, so a session that expired
+    // mid-edit surfaces as "Unexpected token <" rather than "not signed in".
+    if (pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Not signed in' }, { status: 401 })
+    }
+
     const login = new URL('/login', request.url)
     // Remember where they were headed. An invitation link that drops someone on
     // a blank login screen and forgets the invitation is the first thing a new
