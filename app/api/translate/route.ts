@@ -15,20 +15,24 @@ import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL } from '@/lib/subtitles'
 
 export const maxDuration = 300
 
-type Provider = 'gemini' | 'groq' | 'openrouter' | 'mistral'
+/**
+ * Translation runs on Gemini, and the customer does not choose.
+ *
+ * Five providers behind a dropdown was a hobbyist's control panel: a
+ * production company wants good subtitles, not a menu containing
+ * `qwen-qwq-32b`. Each one was also a row in the subprocessor table, a set of
+ * terms to read before anybody could say whether unreleased dialogue trains
+ * somebody's model, and a key to rotate — real cost, for a choice nobody
+ * wanted.
+ *
+ * Groq stays as a fallback that never appears in the interface. One provider
+ * would mean one outage takes the product down, and rate limits are routine; a
+ * customer who never picked Gemini should not have to hear that it is busy.
+ */
+const PRIMARY_MODEL = 'gemini-2.5-flash'
+const FALLBACK_MODEL = 'llama-3.3-70b-versatile'
 
-const ENDPOINTS: Record<Exclude<Provider, 'gemini'>, string> = {
-  groq: 'https://api.groq.com/openai/v1/chat/completions',
-  openrouter: 'https://openrouter.ai/api/v1/chat/completions',
-  mistral: 'https://api.mistral.ai/v1/chat/completions',
-}
-
-const PROVIDER_KEYS: Record<Provider, string | undefined> = {
-  gemini: process.env.GEMINI_API_KEY,
-  groq: process.env.GROQ_API_KEY,
-  openrouter: process.env.OPENROUTER_API_KEY,
-  mistral: process.env.MISTRAL_API_KEY,
-}
+const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
 /**
  * Gemini 2.5 spends output budget on its thinking pass before it writes a
@@ -49,38 +53,37 @@ interface ProviderResult {
   tokensOut: number
 }
 
-async function callProvider(
-  provider: Provider,
-  model: string,
-  prompt: string,
-): Promise<ProviderResult> {
-  const key = PROVIDER_KEYS[provider]
-  if (!key) throw new Error(`Provider ${provider} is not configured`)
+async function callGemini(prompt: string): Promise<ProviderResult> {
+  const key = process.env.GEMINI_API_KEY
+  if (!key) throw new Error('Gemini is not configured')
 
-  if (provider === 'gemini') {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${key}`
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
-      }),
-    })
-    const data = await res.json()
-    if (data.error) throw new Error(data.error.message)
-    return {
-      text: data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '',
-      tokensIn: data?.usageMetadata?.promptTokenCount ?? 0,
-      tokensOut: data?.usageMetadata?.candidatesTokenCount ?? 0,
-    }
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(PRIMARY_MODEL)}:generateContent?key=${key}`
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
+    }),
+  })
+  const data = await res.json()
+  if (data.error) throw new Error(data.error.message)
+  return {
+    text: data?.candidates?.[0]?.content?.parts?.[0]?.text ?? '',
+    tokensIn: data?.usageMetadata?.promptTokenCount ?? 0,
+    tokensOut: data?.usageMetadata?.candidatesTokenCount ?? 0,
   }
+}
 
-  const res = await fetch(ENDPOINTS[provider], {
+async function callGroq(prompt: string): Promise<ProviderResult> {
+  const key = process.env.GROQ_API_KEY
+  if (!key) throw new Error('Groq is not configured')
+
+  const res = await fetch(GROQ_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model,
+      model: FALLBACK_MODEL,
       temperature: 0.3,
       max_tokens: MAX_OUTPUT_TOKENS,
       messages: [{ role: 'user', content: prompt }],
@@ -95,13 +98,27 @@ async function callProvider(
   }
 }
 
+/**
+ * Gemini, then Groq once if Gemini would not answer.
+ *
+ * Bounded to a single retry: a prompt Gemini rejects will usually be rejected
+ * by anything, and a loop of fallbacks turns one bad request into a bill.
+ */
+async function translate(prompt: string): Promise<ProviderResult & { model: string }> {
+  try {
+    return { ...(await callGemini(prompt)), model: PRIMARY_MODEL }
+  } catch (primary) {
+    if (!process.env.GROQ_API_KEY) throw primary
+    console.warn('gemini failed, falling back to groq:', primary)
+    return { ...(await callGroq(prompt)), model: FALLBACK_MODEL }
+  }
+}
+
 /** The three things the editor asks a model for. There is no fourth. */
 type Task = 'translate' | 'backTranslate' | 'shorten'
 
 interface Body {
   task?: Task
-  provider?: Provider
-  model?: string
   cues?: unknown
   /** Original source texts, so `shorten` compresses without inventing. */
   sourceTexts?: string[]
@@ -131,13 +148,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json()) as Body
-  const provider = body.provider ?? 'gemini'
-  const model = body.model
 
-  if (!model) return NextResponse.json({ error: 'model is required' }, { status: 400 })
-  if (!(provider in PROVIDER_KEYS)) {
-    return NextResponse.json({ error: 'unknown provider' }, { status: 400 })
-  }
   if (!body.targetLang) {
     return NextResponse.json({ error: 'targetLang is required' }, { status: 400 })
   }
@@ -193,7 +204,7 @@ export async function POST(req: NextRequest) {
   if (!allowance.allowed) return paywallResponse(allowance)
 
   try {
-    const { text, tokensIn, tokensOut } = await callProvider(provider, model, prompt)
+    const { text, tokensIn, tokensOut, model } = await translate(prompt)
 
     // Metered before parsing: the tokens were spent whether or not the reply
     // was usable, and a bill that only counts successes under-reports cost.

@@ -12,7 +12,7 @@ export default function EditorArea() {
     updateSubtitle, getFinalSubs,
     setTranslateJob, translateJob, backTranslateJob,
     backTranslations: bts, setBackTranslation, clearBackTranslation,
-    activeProvider, activeModel, allowRephrase, srcLang, tgtLang,
+    allowRephrase, srcLang, tgtLang,
     setBackTranslateJob,
   } = useSubtitleStore()
 
@@ -62,8 +62,6 @@ export default function EditorArea() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             task: 'shorten',
-            provider: activeProvider,
-            model: activeModel,
             cues: batch.map(s => s.text),
             sourceTexts: srcTexts,
             targetLang: lang,
@@ -98,8 +96,6 @@ export default function EditorArea() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             task: 'backTranslate',
-            provider: activeProvider,
-            model: activeModel,
             cues: batch.map(s => s.text),
             targetLang: lang,
             sourceLang: srcLang,

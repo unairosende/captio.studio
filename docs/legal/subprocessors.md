@@ -36,11 +36,9 @@ interview asks the production company, not us.
 | **Cloudflare R2** | Media storage | EU jurisdiction | Uploaded audio |
 | **Resend** (on AWS SES) | Transactional email | Ireland (`eu-west-1`) | Email addresses, names in invitations |
 | **Stripe** | Payments | US / Ireland | Billing contact and payment data |
-| **Groq** | Transcription and translation | United States | Audio, subtitle text |
+| **ElevenLabs** | Transcription | United States | Audio |
 | **Google** (Gemini) | Translation | United States / global | Subtitle text |
-| **OpenAI** | Transcription | United States | Audio |
-| **Mistral** | Translation | France | Subtitle text |
-| **OpenRouter** | Routes to other AI providers | United States, then onward | Subtitle text |
+| **Groq** | Translation, only when Gemini is unavailable | United States | Subtitle text |
 
 Sources: `vercel.json` (`regions`), the `DATABASE_URL` host, `lib/storage/r2.ts`
 with `R2_JURISDICTION`, the MX record on `send.captio.studio`, `lib/stripe.ts`,
@@ -64,36 +62,30 @@ procurement review.
 
 ---
 
-## The two that need a decision
+## Resolved: OpenRouter is gone
 
-### OpenRouter cannot honestly be named as a subprocessor
+OpenRouter was a broker. It forwarded to whichever model provider it picked,
+and that provider was not known in advance and could change without notice. A
+DPA has to name its subprocessors and give notice before they change, and
+neither is possible for a party chosen per-request by somebody else.
 
-OpenRouter is a broker. It forwards the request to whichever model provider it
-picks, and that provider is not known in advance and can change without notice.
-A DPA has to name its subprocessors and give notice before they change; neither
-is possible for a party chosen per-request by somebody else.
+It was removed rather than disclosed, along with Mistral and OpenAI. Translation
+now runs on Gemini alone with Groq as a fallback that never appears in the
+interface, and transcription on ElevenLabs. Ten rows became eight, and the
+model dropdown — which asked a production company to choose between
+`qwen-qwq-32b` and `llama-3.3-70b-versatile` — is gone with it.
 
-Options, in order of preference:
-
-1. **Drop it from the provider list for customer work.** The direct providers
-   already cover transcription and translation, and one fewer row here is one
-   fewer procurement question.
-2. Keep it and disclose that the customer is selecting a routed provider whose
-   downstream processors are not enumerated — honest, and likely to fail a
-   broadcaster's review anyway.
-
-A product decision, not a legal one, which is why it is here and not in the DPA.
-
-### Audio and subtitle text leave the EU
+## Still to decide: audio and subtitle text leave the EU
 
 Storage, database and compute were all deliberately placed in the EU. The AI
-providers undo part of that: Groq, OpenAI and Google are US companies, and a
+providers undo part of that: ElevenLabs, Google and Groq are US companies, and a
 transcription hands them the recorded voices of everybody in the room.
 
 Not automatically a problem, but it is the first thing a European production
 company will ask about, and the answer has to be specific. See
 `review-checklist.md`.
 
-Mistral is the only translation provider inside the EU. If EU-only processing is
-ever sold as a feature, it is the one that can back it — and the shape of that
-feature already exists, since the provider is chosen per request.
+Consolidating removed the one EU-based translation provider there was. Mistral
+hosts in France, and if EU-only processing is ever sold as a feature it is the
+obvious thing to bring back — as a server-side choice for those customers, not
+as a row in a dropdown for everybody.

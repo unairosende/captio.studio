@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
-import { PROVIDERS, SOURCE_LANGUAGES, TARGET_LANGUAGES, QUICK_LANGS, LANG_CODES } from '@/lib/providers'
+import { SOURCE_LANGUAGES, TARGET_LANGUAGES, QUICK_LANGS, LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
 import {
   type ParseHint,
   type SubtitleFormat,
@@ -11,20 +11,19 @@ import {
   formatSubs,
   parseContent,
   qcForMode,
-  secToSrt,
   slugify,
 } from '@/lib/subtitles'
+import type { Subtitle } from '@/types/subtitle'
 import type { Entitlement } from '@/lib/entitlement'
 import { TRIAL } from '@/lib/plans'
-import type { ProviderId } from '@/types/subtitle'
 
 export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const store = useSubtitleStore()
   const {
     subtitles, translations, activeTab, outputMode,
-    activeProvider, activeModel, srcLang, tgtLang, allowRephrase,
+    srcLang, tgtLang, allowRephrase,
     translateJob, transcribeJob,
-    setProvider, setModel, setSrcLang, setTgtLang, setAllowRephrase, setOutputMode,
+    setSrcLang, setTgtLang, setAllowRephrase, setOutputMode,
     loadSubtitles, setTranslation, setTranslateJob, setTranscribeJob, clearAll,
   } = store
 
@@ -32,7 +31,6 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const [hint,       setHint]       = useState<ParseHint>('auto')
   // The formatter also writes ASS and TTML; the select just has not caught up.
   const [exportFmt,  setExportFmt]  = useState<SubtitleFormat>('srt')
-  const [xcProvider, setXcProvider] = useState<'groq' | 'openai'>('groq')
   const [xcFile,     setXcFile]     = useState<File | null>(null)
   const [langCustom, setLangCustom] = useState('')
   const [showCustom, setShowCustom] = useState(false)
@@ -65,9 +63,8 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
     const lang    = showCustom ? langCustom.trim() : tgtLang
     if (!lang || !subtitles.length) return
 
-    const cfg     = PROVIDERS[activeProvider]
-    const BATCH   = cfg.batchSize
-    const PAUSE   = cfg.pauseMs
+    const BATCH   = TRANSLATION_BATCH
+    const PAUSE   = TRANSLATION_PAUSE_MS
     const sleep   = (ms: number) => new Promise(r => setTimeout(r, ms))
     const result: typeof subtitles = []
 
@@ -90,8 +87,6 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             task: 'translate',
-            provider: activeProvider,
-            model: activeModel,
             cues: batch.map(s => s.text),
             targetLang: lang,
             sourceLang: srcLang,
@@ -151,7 +146,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
       })
       if (!put.ok) throw new Error(`Upload failed (HTTP ${put.status})`)
 
-      setTranscribeJob({ message: 'Sending to Whisper…', progress: 75 })
+      setTranscribeJob({ message: 'Transcribing…', progress: 75 })
       const lang = (document.getElementById('xcSourceLang') as HTMLSelectElement).value
 
       const res  = await fetch('/api/transcribe', {
@@ -159,20 +154,19 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           mediaId:  grantData.mediaId,
-          model:    xcProvider === 'groq' ? 'whisper-large-v3' : 'whisper-1',
-          xcProvider,
           language: lang !== 'auto' ? lang : undefined,
+          outputMode,
         }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
 
       setTranscribeJob({ progress: 100 })
-      const segs = data.segments ?? []
-      if (!segs.length) throw new Error('No segments — file may be silent')
-      loadSubtitles(segs.map((seg: { start: number; end: number; text: string }, i: number) => ({
-        index: i + 1, start: secToSrt(seg.start), end: secToSrt(seg.end), text: seg.text.trim(),
-      })))
+      // Already cues, already timecoded: the server cuts them from the word
+      // timings so the boundaries obey the same rules as the quality checks.
+      const segs: Subtitle[] = data.segments ?? []
+      if (!segs.length) throw new Error('No speech found — the file may be silent')
+      loadSubtitles(segs)
       setTranscribeJob({ running: false, message: `${segs.length} subtitles transcribed ✓`, error: null })
       setImportTab('import')
     } catch (e: unknown) {
@@ -250,18 +244,6 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
           </>
         ) : (
           <>
-            {/* Whisper provider */}
-            <div style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 7 }}>Whisper provider</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, marginBottom: 10 }}>
-              {(['groq', 'openai'] as const).map(p => (
-                <button key={p} onClick={() => setXcProvider(p)}
-                  style={{ padding: '7px 6px', background: xcProvider === p ? 'var(--accent-dim)' : 'var(--bg2)', border: `1px solid ${xcProvider === p ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 6, fontSize: 11, fontFamily: 'var(--mono)', color: xcProvider === p ? '#8ba8ff' : 'var(--text2)', cursor: 'pointer', textAlign: 'center' }}>
-                  <span style={{ fontWeight: 500, display: 'block' }}>{p === 'groq' ? 'Groq' : 'OpenAI'}</span>
-                  <span style={{ fontSize: 10, color: xcProvider === p ? 'var(--accent)' : 'var(--text3)', display: 'block', marginTop: 1 }}>{p === 'groq' ? 'Free · 2K/day' : '$0.006/min'}</span>
-                </button>
-              ))}
-            </div>
-
             <div style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 6 }}>Audio language</div>
             <select id="xcSourceLang" className="select" style={{ marginBottom: 10, fontSize: 12 }}>
               <option value="auto">Auto-detect</option>
@@ -363,26 +345,6 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
             <div style={{ position: 'absolute', top: 2, left: allowRephrase ? 15 : 2, width: 11, height: 11, borderRadius: '50%', background: allowRephrase ? 'var(--accent)' : 'var(--text3)', transition: 'all .2s', pointerEvents: 'none' }} />
           </label>
         </div>
-      </div>
-
-      {/* Provider */}
-      <div style={{ padding: '13px 12px 12px', borderBottom: '1px solid var(--border)' }}>
-        <S label="Provider" />
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5, marginBottom: 10 }}>
-          {(Object.keys(PROVIDERS) as ProviderId[]).map(id => {
-            const active = activeProvider === id
-            return (
-              <button key={id} onClick={() => setProvider(id)}
-                style={{ padding: '7px 6px', background: active ? 'var(--accent-dim)' : 'var(--bg2)', border: `1px solid ${active ? 'var(--accent)' : 'var(--border)'}`, borderRadius: 6, fontSize: 11, fontFamily: 'var(--mono)', color: active ? '#8ba8ff' : 'var(--text2)', cursor: 'pointer', textAlign: 'center', lineHeight: 1.3 }}>
-                <span style={{ fontWeight: 500, display: 'block' }}>{PROVIDERS[id].label}</span>
-              </button>
-            )
-          })}
-        </div>
-        <select className="select" value={activeModel} onChange={e => setModel(e.target.value)} style={{ fontSize: 11 }}>
-          {PROVIDERS[activeProvider].models.map(m => <option key={m.id} value={m.id}>{m.name}</option>)}
-        </select>
-        <div style={{ marginTop: 6, fontSize: 10, color: 'var(--text3)', lineHeight: 1.6 }}>{PROVIDERS[activeProvider].hint}</div>
       </div>
 
       {/* Translate */}

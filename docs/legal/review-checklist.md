@@ -19,14 +19,16 @@ else's model" are different products.
 It has to be answered per provider, in writing, from their terms — not from a
 marketing page:
 
-- **Groq** — audio and subtitle text. The default provider, so this matters most.
-- **OpenAI** — audio, via the transcription API.
-- **Google** (Gemini) — subtitle text. The free tier of Google's AI offerings has
+- **Google** (Gemini) — subtitle text, and now the only translation path, so this
+  is the one that matters. The free tier of Google's AI offerings has
   historically carried different data terms from the paid one; check which tier
-  the key in use belongs to.
-- **Mistral** — subtitle text.
-- **OpenRouter** — cannot be answered, which is the point made in
-  `subprocessors.md`.
+  the key in use belongs to before relying on the answer.
+- **ElevenLabs** — audio. Recorded voices, which is the more sensitive half.
+- **Groq** — subtitle text, but only when Gemini is unavailable. Still needs an
+  answer: "rarely" is not "never".
+
+OpenRouter, Mistral and OpenAI were removed from the product, so they no longer
+need answering.
 
 Each answer needs three parts: does the provider train on inputs, how long do
 they retain them, and can retention be turned off. Where a zero-retention or

@@ -3,10 +3,9 @@
 import { create } from 'zustand'
 import type {
   Subtitle, TranslationStore, BackTranslationStore,
-  OutputMode, ViewMode, ProviderId,
+  OutputMode, ViewMode,
 } from '@/types/subtitle'
 import { finalSubs, qcForMode } from '@/lib/subtitles'
-import { PROVIDERS } from '@/lib/providers'
 
 interface TranslationJob {
   running: boolean
@@ -25,8 +24,6 @@ interface AppState {
   activeTab: 'source' | string
   outputMode: OutputMode
   viewMode: ViewMode
-  activeProvider: ProviderId
-  activeModel: string
   srcLang: string
   tgtLang: string
   allowRephrase: boolean
@@ -47,8 +44,6 @@ interface AppState {
   switchToTab: (tab: string) => void
   setOutputMode: (mode: OutputMode) => void
   setViewMode: (mode: ViewMode) => void
-  setProvider: (id: ProviderId) => void
-  setModel: (id: string) => void
   setSrcLang: (l: string) => void
   setTgtLang: (l: string) => void
   setAllowRephrase: (v: boolean) => void
@@ -69,8 +64,6 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   activeTab: 'source',
   outputMode: 'horizontal',
   viewMode: 'list',
-  activeProvider: 'gemini',
-  activeModel: PROVIDERS.gemini.models[0].id,
   srcLang: 'Auto-detect',
   tgtLang: 'Spanish',
   allowRephrase: false,
@@ -129,8 +122,6 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   switchToTab: tab => set({ activeTab: tab }),
   setOutputMode:    mode => set({ outputMode: mode }),
   setViewMode:      mode => set({ viewMode: mode }),
-  setProvider:      id   => set({ activeProvider: id, activeModel: PROVIDERS[id].models[0].id }),
-  setModel:         id   => set({ activeModel: id }),
   setSrcLang:       l    => set({ srcLang: l }),
   setTgtLang:       l    => set({ tgtLang: l }),
   setAllowRephrase: v    => set({ allowRephrase: v }),
