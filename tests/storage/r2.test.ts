@@ -116,6 +116,31 @@ describe('presign against R2', () => {
     )
   })
 
+  it('reads the account id out of a pasted endpoint URL', () => {
+    // Cloudflare shows the endpoint beside the credentials, so this is what
+    // most people will paste. Both forms must reach the same host.
+    const id = '0123456789abcdef0123456789abcdef'
+    const saved = { ...process.env }
+    Object.assign(process.env, {
+      R2_ACCESS_KEY_ID: 'synthetic-access-key',
+      R2_SECRET_ACCESS_KEY: 'synthetic-secret-key',
+      R2_BUCKET: 'captio-media',
+      R2_JURISDICTION: 'eu',
+    })
+    try {
+      for (const form of [id, `https://${id}.eu.r2.cloudflarestorage.com`]) {
+        process.env.R2_ACCOUNT_ID = form
+        assert.equal(new URL(presign('GET', 'k')).host, `${id}.eu.r2.cloudflarestorage.com`)
+      }
+
+      process.env.R2_ACCOUNT_ID = 'not-an-account'
+      assert.throws(() => presign('GET', 'k'), /32-character account id/)
+    } finally {
+      for (const key of Object.keys(process.env)) if (!(key in saved)) delete process.env[key]
+      Object.assign(process.env, saved)
+    }
+  })
+
   it('refuses to sign when nothing is configured', () => {
     const saved = { ...process.env }
     for (const key of ['R2_ACCOUNT_ID', 'R2_ACCESS_KEY_ID', 'R2_SECRET_ACCESS_KEY', 'R2_BUCKET']) {

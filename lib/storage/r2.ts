@@ -44,12 +44,36 @@ export interface R2Config {
  * scope on a machine that has no credentials, and a module that demands one
  * there fails the build rather than the request.
  */
+/**
+ * The account id, however it was pasted in.
+ *
+ * Cloudflare shows the whole S3 endpoint next to the credentials, so that whole
+ * URL is the obvious thing to copy — and doing so builds a hostname of a
+ * hostname, which fails as `getaddrinfo ENOTFOUND https` somewhere far from the
+ * variable that caused it. Accept both forms and say so plainly otherwise.
+ */
+function readAccountId(raw: string): string {
+  const id = raw
+    .trim()
+    .replace(/^https?:\/\//, '')
+    .split(/[/.]/)[0]
+
+  if (!/^[0-9a-f]{32}$/i.test(id)) {
+    throw new Error(
+      `R2_ACCOUNT_ID should be the 32-character account id (or its endpoint URL), got: ${id}`,
+    )
+  }
+  return id.toLowerCase()
+}
+
 export function r2Config(): R2Config | null {
-  const accountId = process.env.R2_ACCOUNT_ID
+  const rawAccountId = process.env.R2_ACCOUNT_ID
   const accessKeyId = process.env.R2_ACCESS_KEY_ID
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY
   const bucket = process.env.R2_BUCKET
-  if (!accountId || !accessKeyId || !secretAccessKey || !bucket) return null
+  if (!rawAccountId || !accessKeyId || !secretAccessKey || !bucket) return null
+
+  const accountId = readAccountId(rawAccountId)
 
   const jurisdiction = process.env.R2_JURISDICTION?.trim().toLowerCase() || undefined
   // This value ends up in a hostname. A typo would merely fail, but an
