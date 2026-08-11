@@ -6,6 +6,12 @@ import { peakBetween, peaksFrom } from '@/lib/audio/peaks'
 import { qcTrack, srtToSec } from '@/lib/subtitles'
 import { type Edge, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
+import {
+  type Direction,
+  type Transport,
+  nextTransport,
+  speedLabel,
+} from '@/lib/timeline/transport'
 import { clampZoom, scrollToShow, visibleWindow } from '@/lib/timeline/view'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Subtitle } from '@/types/subtitle'
@@ -130,11 +136,21 @@ export default function Timeline() {
   const peaksRef = useRef<Float32Array>(new Float32Array(0))
   const audioRef = useRef<AudioContext | null>(null)
   const sourceRef = useRef<AudioBufferSourceNode | null>(null)
-  const startedAtRef = useRef(0)
-  const offsetRef = useRef(0)
   const frameRef = useRef(0)
   const playheadRef = useRef(0)
   const dragRef = useRef<Drag | null>(null)
+  const transportRef = useRef<Transport | null>(null)
+
+  /**
+   * Where playback started, so the playhead can be derived rather than
+   * accumulated.
+   *
+   * Adding a delta every frame drifts, and at 8x it drifts eight times as fast.
+   * The
+   * clock is the audio context's, which is the same clock the sound is coming
+   * out of — anything else and the picture slides away from what is audible.
+   */
+  const anchorRef = useRef<{ ctxTime: number; playhead: number; speed: number } | null>(null)
 
   const [duration, setDuration] = useState(0)
   const [zoom, setZoom] = useState(1)
@@ -143,6 +159,7 @@ export default function Timeline() {
   const [loading, setLoading] = useState(false)
   const [name, setName] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
+  const [transport, setTransport] = useState<Transport | null>(null)
 
   // The cues on screen, so the blocks match the tab being edited.
   const cues: Subtitle[] =
@@ -288,65 +305,151 @@ export default function Timeline() {
     sourceRef.current?.stop()
     sourceRef.current?.disconnect()
     sourceRef.current = null
+    anchorRef.current = null
     cancelAnimationFrame(frameRef.current)
     setPlaying(false)
   }, [])
 
-  const play = useCallback(() => {
-    const buffer = bufferRef.current
-    const audio = audioRef.current
-    if (!buffer || !audio) return
-
-    // Past the end, pressing play should start over rather than do nothing.
-    const from = offsetRef.current >= buffer.duration ? 0 : offsetRef.current
-
-    const source = audio.createBufferSource()
-    source.buffer = buffer
-    source.connect(audio.destination)
-    source.start(0, from)
-    sourceRef.current = source
-    startedAtRef.current = audio.currentTime - from
-    setPlaying(true)
-
-    const tick = () => {
-      const t = audio.currentTime - startedAtRef.current
-      if (t >= buffer.duration) {
-        playheadRef.current = buffer.duration
-        offsetRef.current = buffer.duration
-        setClock(clockLabel(buffer.duration))
-        stop()
-        draw()
-        return
-      }
-      playheadRef.current = t
-      offsetRef.current = t
-      setClock(clockLabel(t))
-
-      // Keep the playhead on screen while zoomed in, without dragging the view
-      // away from somebody who has deliberately scrolled elsewhere.
+  /** Keep the playhead on screen, without hauling the view away from somebody
+   *  who has deliberately scrolled elsewhere to look at something. */
+  const follow = useCallback(
+    (t: number) => {
       const el = scrollRef.current
-      if (el) {
-        const left = scrollToShow(t, currentView(), duration, el.scrollWidth)
-        if (left !== null) el.scrollLeft = left
-      }
+      if (!el) return
+      const left = scrollToShow(t, currentView(), duration, el.scrollWidth)
+      if (left !== null) el.scrollLeft = left
+    },
+    [currentView, duration],
+  )
 
-      draw()
+  /** Play forward with sound, at `speed`. */
+  const play = useCallback(
+    (speed = 1) => {
+      const buffer = bufferRef.current
+      const audio = audioRef.current
+      if (!buffer || !audio) return
+
+      stop()
+      // Past the end, pressing play should start over rather than do nothing.
+      const from = playheadRef.current >= buffer.duration ? 0 : playheadRef.current
+
+      const source = audio.createBufferSource()
+      source.buffer = buffer
+      source.playbackRate.value = speed
+      source.connect(audio.destination)
+      source.start(0, from)
+      sourceRef.current = source
+      anchorRef.current = { ctxTime: audio.currentTime, playhead: from, speed }
+      setPlaying(true)
+
+      const tick = () => {
+        const anchor = anchorRef.current
+        if (!anchor) return
+
+        const t = anchor.playhead + (audio.currentTime - anchor.ctxTime) * anchor.speed
+        if (t >= buffer.duration) {
+          playheadRef.current = buffer.duration
+          setClock(clockLabel(buffer.duration))
+          stop()
+          draw()
+          return
+        }
+
+        playheadRef.current = t
+        setClock(clockLabel(t))
+        follow(t)
+        draw()
+        frameRef.current = requestAnimationFrame(tick)
+      }
       frameRef.current = requestAnimationFrame(tick)
-    }
-    frameRef.current = requestAnimationFrame(tick)
-  }, [currentView, draw, duration, stop])
+    },
+    [draw, follow, stop],
+  )
+
+  /**
+   * Move the playhead without sound.
+   *
+   * Reverse is silent because it has to be: the Web Audio API rejects a
+   * negative playbackRate outright, and reversing a decoded buffer to play it
+   * backwards would cost more than the feature is worth. Editors use J to find
+   * a moment by eye against the waveform, which this does.
+   */
+  const scrub = useCallback(
+    (direction: Direction, speed: number) => {
+      stop()
+      setPlaying(true)
+
+      let last: number | null = null
+      const step = (now: number) => {
+        if (last !== null) {
+          const t = playheadRef.current + direction * ((now - last) / 1000) * speed
+          playheadRef.current = Math.max(0, Math.min(duration, t))
+          setClock(clockLabel(playheadRef.current))
+          follow(playheadRef.current)
+          draw()
+
+          if (t <= 0 || t >= duration) {
+            stop()
+            return
+          }
+        }
+        last = now
+        frameRef.current = requestAnimationFrame(step)
+      }
+      frameRef.current = requestAnimationFrame(step)
+    },
+    [draw, duration, follow, stop],
+  )
 
   const seek = useCallback(
     (seconds: number) => {
       const t = Math.max(0, Math.min(duration, seconds))
       playheadRef.current = t
-      offsetRef.current = t
       setClock(clockLabel(t))
       if (playing) stop()
       draw()
     },
     [duration, draw, playing, stop],
   )
+
+  /**
+   * J back, K stop, L forward — and pressing the same key again goes faster.
+   *
+   * Bound on the window rather than the canvas: a subtitler's hands are on JKL
+   * while their eyes are on the text, and requiring the timeline to hold focus
+   * first would defeat the point of having it. Skipped while a field has focus,
+   * where those keys are letters somebody is typing.
+   */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const key = e.key.toLowerCase()
+      if (!'jkl'.includes(key) || e.metaKey || e.ctrlKey || e.altKey) return
+
+      const el = e.target as HTMLElement | null
+      if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
+      if (duration <= 0) return
+
+      e.preventDefault()
+
+      if (key === 'k') {
+        transportRef.current = null
+        setTransport(null)
+        stop()
+        return
+      }
+
+      const next = nextTransport(transportRef.current, key === 'l' ? 1 : -1, Date.now())
+      transportRef.current = next
+      setTransport(next)
+
+      // Forward has sound; backwards cannot, so it scrubs.
+      if (next.direction === 1 && bufferRef.current) play(next.speed)
+      else scrub(next.direction, next.speed)
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [duration, play, scrub, stop])
 
   /** Zoom around the playhead, so the thing being worked on stays put. */
   const changeZoom = useCallback(
@@ -378,7 +481,9 @@ export default function Timeline() {
       bufferRef.current = buffer
       peaksRef.current = peaksFrom(buffer.getChannelData(0))
       playheadRef.current = 0
-      offsetRef.current = 0
+      anchorRef.current = null
+      transportRef.current = null
+      setTransport(null)
       setDuration(buffer.duration)
       setZoom(1)
       setClock(clockLabel(0))
@@ -418,7 +523,12 @@ export default function Timeline() {
     <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg1)', flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px' }}>
         <button
-          onClick={() => (playing ? stop() : play())}
+          onClick={() => {
+            transportRef.current = null
+            setTransport(null)
+            if (playing) stop()
+            else play(1)
+          }}
           disabled={!ready}
           aria-label={playing ? 'Pause' : 'Play'}
           style={{
@@ -434,6 +544,17 @@ export default function Timeline() {
           {clock}
           {ready && <span style={{ color: 'var(--text3)' }}> / {clockLabel(duration)}</span>}
         </span>
+
+        {playing && transport && transport.speed !== 1 && (
+          <span
+            style={{
+              fontFamily: 'var(--mono)', fontSize: 10, padding: '1px 6px', borderRadius: 4,
+              background: 'var(--accent-dim)', color: '#8ba8ff',
+            }}
+          >
+            {speedLabel(transport)}
+          </span>
+        )}
 
         <span
           style={{
