@@ -9,7 +9,7 @@ export default function EditorArea() {
   const {
     subtitles, translations, backTranslations,
     activeTab, outputMode, viewMode,
-    updateSubtitle, getFinalSubs,
+    updateSubtitle, getFinalSubs, pushUndo,
     setTranslateJob, translateJob, backTranslateJob,
     backTranslations: bts, setBackTranslation, clearBackTranslation,
     allowRephrase, srcLang, tgtLang,
@@ -44,12 +44,16 @@ export default function EditorArea() {
     if (!toFix.length) return
 
     if (!allowRephrase) {
+      // One step for the whole sweep. Fix rewrites every overlong cue at once,
+      // and taking that back one cue at a time would be its own punishment.
+      pushUndo()
       toFix.forEach(s => {
         const reflowed = reflowText(s.text, limit)
         if (reflowed !== s.text) updateSubtitle(lang, s.index, reflowed)
       })
       return
     }
+    pushUndo()
 
     setTranslateJob({ running: true, message: `Fixing ${toFix.length} subtitles…`, progress: 0, error: null })
     const BATCH = 15
@@ -126,7 +130,11 @@ export default function EditorArea() {
         editable={editable}
         backSub={backSub}
         sourceSub={sourceSub}
-        onCommit={(idx, text) => updateSubtitle(activeTab, idx, text)}
+        onCommit={(idx, text) => {
+          // Committed once per edit, not per keystroke, so this is one step.
+          pushUndo()
+          updateSubtitle(activeTab, idx, text)
+        }}
       />
     )
   }

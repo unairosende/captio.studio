@@ -117,7 +117,7 @@ interface Drag {
 }
 
 export default function Timeline() {
-  const { subtitles, translations, activeTab, retimeSubtitle } = useSubtitleStore()
+  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo } = useSubtitleStore()
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -507,6 +507,9 @@ export default function Timeline() {
             return
           }
 
+          // Marked once, here, rather than on each retime the drag will fire:
+          // undoing one pointer move is not undoing anything a person did.
+          pushUndo()
           e.currentTarget.setPointerCapture(e.pointerId)
           dragRef.current = { ...grab, from: at, track: cues }
         }}

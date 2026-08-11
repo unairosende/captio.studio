@@ -4,7 +4,10 @@ import Sidebar from '@/components/sidebar/Sidebar'
 import LangTabsBar from '@/components/editor/LangTabsBar'
 import EditorArea from '@/components/editor/EditorArea'
 import Timeline from '@/components/timeline/Timeline'
+import { useEffect } from 'react'
+
 import { signOut as endSession } from '@/lib/auth/client'
+import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Entitlement } from '@/lib/entitlement'
 import { useRouter } from 'next/navigation'
 
@@ -15,6 +18,33 @@ interface Props {
 
 export default function TranslateClient({ user, entitlement }: Props) {
   const router = useRouter()
+  const { undo, redo } = useSubtitleStore()
+
+  /**
+   * Undo for the editor, not for the field somebody is typing in.
+   *
+   * While a textarea has focus the browser's own undo is the right one — it
+   * works per character and knows where the caret is. Hijacking the shortcut
+   * there would throw away a half-written line in order to take back an
+   * unrelated drag.
+   */
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+
+      const el = e.target as HTMLElement | null
+      const typing =
+        el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
+      if (typing) return
+
+      e.preventDefault()
+      if (e.shiftKey) redo()
+      else undo()
+    }
+
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [redo, undo])
 
   async function signOut() {
     await endSession()

@@ -1,11 +1,54 @@
 'use client'
 
 import { create } from 'zustand'
+// Relative, with extensions, so `node --test` can load this the same way it
+// loads lib/. The store holds the undo history now, which makes it worth
+// testing outside React — and the alias only resolves under tsc and Next.
 import type {
   Subtitle, TranslationStore, BackTranslationStore,
   OutputMode, ViewMode,
-} from '@/types/subtitle'
-import { finalSubs, qcForMode } from '@/lib/subtitles'
+} from '../types/subtitle.ts'
+import { finalSubs, qcForMode } from '../lib/subtitles/index.ts'
+
+/**
+ * Deep enough to cover a session's worth of second thoughts, shallow enough
+ * that a feature-length track does not sit in memory fifty times over.
+ */
+const UNDO_DEPTH = 50
+
+/**
+ * What undo restores.
+ *
+ * Only the work — not which tab is open, not the scroll position, not whether
+ * a translation is running. Undo is for taking back a change to the subtitles,
+ * and an undo that also moved the view would be answering a question nobody
+ * asked.
+ */
+interface Snapshot {
+  subtitles: Subtitle[]
+  translations: TranslationStore
+}
+
+const snapshot = (s: { subtitles: Subtitle[]; translations: TranslationStore }): Snapshot => ({
+  subtitles: s.subtitles,
+  translations: s.translations,
+})
+
+/**
+ * Put a snapshot back, keeping the open tab pointing at something real.
+ *
+ * Undoing past the moment a language was added leaves the active tab naming a
+ * translation that no longer exists — the editor then renders an empty language
+ * with no way back to the source.
+ */
+function restore(state: { activeTab: string }, snap: Snapshot) {
+  const stillThere = snap.translations[state.activeTab] !== undefined
+  return {
+    subtitles: snap.subtitles,
+    translations: snap.translations,
+    activeTab: state.activeTab === 'source' || stillThere ? state.activeTab : 'source',
+  }
+}
 
 interface TranslationJob {
   running: boolean
@@ -33,7 +76,23 @@ interface AppState {
   backTranslateJob: TranslationJob
   transcribeJob: TranslationJob
 
+  // History
+  past: Snapshot[]
+  future: Snapshot[]
+
   // Actions
+  /**
+   * Mark the start of one undoable action, before it changes anything.
+   *
+   * Called by whoever is about to act, rather than automatically on every
+   * mutation, because "one action" is a human idea the store cannot infer: a
+   * drag fires a retime on every pointer move, and undoing one frame of a drag
+   * is not undoing anything anybody did.
+   */
+  pushUndo: () => void
+  undo: () => void
+  redo: () => void
+
   loadSubtitles: (subs: Subtitle[]) => void
   clearAll: () => void
   setTranslation: (lang: string, subs: Subtitle[]) => void
@@ -72,13 +131,19 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   translateJob: defaultJob,
   backTranslateJob: defaultJob,
   transcribeJob: defaultJob,
+  past: [],
+  future: [],
 
+  // Opening a different file starts a different piece of work. Carrying the
+  // history across would let undo paste the previous job's cues into this one.
   loadSubtitles: subs => set({
     subtitles: subs,
     translations: {},
     backTranslations: {},
     activeTab: 'source',
     translateJob: defaultJob,
+    past: [],
+    future: [],
   }),
 
   clearAll: () => set({
@@ -89,6 +154,8 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     translateJob: defaultJob,
     backTranslateJob: defaultJob,
     transcribeJob: defaultJob,
+    past: [],
+    future: [],
   }),
 
   setTranslation: (lang, subs) => set(s => ({
@@ -110,6 +177,25 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
    * with itself — and nothing in the editor would show it, because each tab
    * looks right on its own.
    */
+  pushUndo: () => set(s => ({
+    past: [...s.past, snapshot(s)].slice(-UNDO_DEPTH),
+    // Any new action abandons the branch that redo would have replayed. Keeping
+    // it would let redo paste work from a timeline that no longer happened.
+    future: [],
+  })),
+
+  undo: () => set(s => {
+    const previous = s.past.at(-1)
+    if (!previous) return {}
+    return { ...restore(s, previous), past: s.past.slice(0, -1), future: [...s.future, snapshot(s)] }
+  }),
+
+  redo: () => set(s => {
+    const next = s.future.at(-1)
+    if (!next) return {}
+    return { ...restore(s, next), future: s.future.slice(0, -1), past: [...s.past, snapshot(s)] }
+  }),
+
   retimeSubtitle: (index, start, end) => set(s => {
     const move = (subs: Subtitle[]) =>
       subs.map(sub => (sub.index === index ? { ...sub, start, end } : sub))
