@@ -1,9 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { peakBetween, peaksFrom } from '@/lib/audio/peaks'
 import { qcTrack, srtToSec } from '@/lib/subtitles'
+import { type Edge, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
 import { clampZoom, scrollToShow, visibleWindow } from '@/lib/timeline/view'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
@@ -97,8 +98,26 @@ function roundRect(
   ctx.fill()
 }
 
+/** Where the cue blocks live, for deciding what a pointer grabbed. */
+const BAND = { top: RULER_H, height: BLOCK_H }
+
+interface Drag {
+  index: number
+  edge: Edge
+  /** Where the pointer went down, in seconds. */
+  from: number
+  /**
+   * The track as it was when the drag began.
+   *
+   * Every move is computed against this rather than against the cue's current
+   * position. Clamping repeatedly against already-moved values lets a drag
+   * creep — each frame nudges the limit it was just clamped to.
+   */
+  track: Subtitle[]
+}
+
 export default function Timeline() {
-  const { subtitles, translations, activeTab } = useSubtitleStore()
+  const { subtitles, translations, activeTab, retimeSubtitle } = useSubtitleStore()
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -115,6 +134,7 @@ export default function Timeline() {
   const offsetRef = useRef(0)
   const frameRef = useRef(0)
   const playheadRef = useRef(0)
+  const dragRef = useRef<Drag | null>(null)
 
   const [duration, setDuration] = useState(0)
   const [zoom, setZoom] = useState(1)
@@ -140,6 +160,18 @@ export default function Timeline() {
     if (!el) return { start: 0, span: Math.max(0.1, duration) }
     return visibleWindow(duration, el.scrollLeft, el.scrollWidth, el.clientWidth)
   }, [duration])
+
+  /** Pointer position in canvas pixels, and the second it lands on. */
+  const pointerAt = useCallback(
+    (e: PointerEvent<HTMLDivElement>) => {
+      const rect = e.currentTarget.getBoundingClientRect()
+      const width = e.currentTarget.clientWidth
+      const x = e.clientX - rect.left
+      const view = currentView()
+      return { x, y: e.clientY - rect.top, at: view.start + (x / width) * view.span }
+    },
+    [currentView],
+  )
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
@@ -463,15 +495,59 @@ export default function Timeline() {
       <div
         ref={scrollRef}
         onScroll={draw}
-        onClick={e => {
+        onPointerDown={e => {
           if (!ready) return
-          const rect = e.currentTarget.getBoundingClientRect()
-          const view = currentView()
-          seek(view.start + ((e.clientX - rect.left) / rect.width) * view.span)
+          const { x, y, at } = pointerAt(e)
+          const grab = hitTest(cues, x, y, e.currentTarget.clientWidth, currentView(), BAND)
+
+          if (!grab) {
+            // Outside the cue band, or in a gap: the pointer is asking to move
+            // the playhead, not to retime anything.
+            seek(at)
+            return
+          }
+
+          e.currentTarget.setPointerCapture(e.pointerId)
+          dragRef.current = { ...grab, from: at, track: cues }
+        }}
+        onPointerMove={e => {
+          if (!ready) return
+          const { x, y, at } = pointerAt(e)
+          const drag = dragRef.current
+
+          if (!drag) {
+            // Only a cursor change, but it is the whole discoverability of the
+            // feature: nothing else says these edges can be pulled.
+            const over = hitTest(cues, x, y, e.currentTarget.clientWidth, currentView(), BAND)
+            e.currentTarget.style.cursor = !over
+              ? 'pointer'
+              : over.edge === 'body'
+                ? 'grab'
+                : 'col-resize'
+            return
+          }
+
+          const cue = drag.track[drag.index]
+          const next =
+            drag.edge === 'body'
+              ? moveWhole(drag.track, drag.index, at - drag.from, { duration })
+              : moveEdge(drag.track, drag.index, drag.edge, at, { duration })
+
+          if (next && (next.start !== cue.start || next.end !== cue.end)) {
+            retimeSubtitle(cue.index, next.start, next.end)
+          }
+        }}
+        onPointerUp={e => {
+          dragRef.current = null
+          e.currentTarget.releasePointerCapture(e.pointerId)
+        }}
+        onPointerCancel={() => {
+          dragRef.current = null
         }}
         style={{
           height: HEIGHT, overflowX: 'auto', overflowY: 'hidden',
           cursor: ready ? 'pointer' : 'default',
+          touchAction: 'none',
         }}
       >
         {/* Empty, and there only to give the scrollbar something to measure. */}

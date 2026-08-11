@@ -38,6 +38,8 @@ interface AppState {
   clearAll: () => void
   setTranslation: (lang: string, subs: Subtitle[]) => void
   updateSubtitle: (lang: string, index: number, text: string) => void
+  /** Timings belong to the cue, not to any one language. */
+  retimeSubtitle: (index: number, start: string, end: string) => void
   setBackTranslation: (lang: string, subs: Subtitle[]) => void
   clearBackTranslation: (lang: string) => void
   closeTab: (lang: string) => void
@@ -97,6 +99,27 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   updateSubtitle: (lang, index, text) => set(s => {
     const subs = s.translations[lang]?.map(sub => sub.index === index ? { ...sub, text } : sub) ?? []
     return { translations: { ...s.translations, [lang]: subs } }
+  }),
+
+  /**
+   * Move a cue in time, in every language at once.
+   *
+   * A cue is one moment of the recording that happens to have been written
+   * several times over. Retiming only the tab somebody is looking at would let
+   * the Spanish and the English drift apart until an export silently disagreed
+   * with itself — and nothing in the editor would show it, because each tab
+   * looks right on its own.
+   */
+  retimeSubtitle: (index, start, end) => set(s => {
+    const move = (subs: Subtitle[]) =>
+      subs.map(sub => (sub.index === index ? { ...sub, start, end } : sub))
+
+    return {
+      subtitles: move(s.subtitles),
+      translations: Object.fromEntries(
+        Object.entries(s.translations).map(([lang, subs]) => [lang, move(subs)]),
+      ),
+    }
   }),
 
   setBackTranslation: (lang, subs) => set(s => ({
