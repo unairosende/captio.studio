@@ -3,6 +3,7 @@
 import Sidebar from '@/components/sidebar/Sidebar'
 import LangTabsBar from '@/components/editor/LangTabsBar'
 import EditorArea from '@/components/editor/EditorArea'
+import ProjectBar from '@/components/projects/ProjectBar'
 import Timeline from '@/components/timeline/Timeline'
 import { useEffect } from 'react'
 
@@ -64,6 +65,10 @@ export default function TranslateClient({ user, entitlement }: Props) {
         <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: 'var(--mono)', background: 'var(--accent-dim)', color: '#8ba8ff', marginLeft: 4 }}>
           {entitlement.plan}
         </span>
+
+        <div style={{ marginLeft: 10 }}>
+          <ProjectBar />
+        </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>{user.email}</span>
           <button onClick={signOut} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, transition: 'color .15s' }}>

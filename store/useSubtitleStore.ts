@@ -80,6 +80,30 @@ interface AppState {
   past: Snapshot[]
   future: Snapshot[]
 
+  // The saved project this editor is a view of, if any
+  projectId: string | null
+  projectName: string
+  /**
+   * The version that was opened.
+   *
+   * Sent back on save so the server can refuse if somebody else saved in the
+   * meantime. Without it the second person to save silently erases the first.
+   */
+  projectVersion: number | null
+  /** Whether there is work here that is not in the database. */
+  dirty: boolean
+
+  openProject: (project: {
+    id: string
+    name: string
+    version: number
+    subtitles: Subtitle[]
+    translations: TranslationStore
+  }) => void
+  markSaved: (id: string, name: string, version: number) => void
+  newProject: () => void
+  setProjectName: (name: string) => void
+
   // Actions
   /**
    * Mark the start of one undoable action, before it changes anything.
@@ -133,6 +157,42 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   transcribeJob: defaultJob,
   past: [],
   future: [],
+  projectId: null,
+  projectName: 'Untitled',
+  projectVersion: null,
+  dirty: false,
+
+  openProject: p => set({
+    subtitles: p.subtitles,
+    translations: p.translations,
+    backTranslations: {},
+    activeTab: 'source',
+    projectId: p.id,
+    projectName: p.name,
+    projectVersion: p.version,
+    // Freshly loaded is by definition identical to what is stored.
+    dirty: false,
+    past: [],
+    future: [],
+  }),
+
+  markSaved: (id, name, version) =>
+    set({ projectId: id, projectName: name, projectVersion: version, dirty: false }),
+
+  newProject: () => set({
+    subtitles: [],
+    translations: {},
+    backTranslations: {},
+    activeTab: 'source',
+    projectId: null,
+    projectName: 'Untitled',
+    projectVersion: null,
+    dirty: false,
+    past: [],
+    future: [],
+  }),
+
+  setProjectName: name => set({ projectName: name, dirty: true }),
 
   // Opening a different file starts a different piece of work. Carrying the
   // history across would let undo paste the previous job's cues into this one.
@@ -144,6 +204,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     translateJob: defaultJob,
     past: [],
     future: [],
+    dirty: true,
   }),
 
   clearAll: () => set({
@@ -156,16 +217,52 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     transcribeJob: defaultJob,
     past: [],
     future: [],
+    // Emptying the editor is itself a change worth saving or abandoning; the
+    // project row is still there with the old cues in it.
+    dirty: true,
   }),
 
   setTranslation: (lang, subs) => set(s => ({
     translations: { ...s.translations, [lang]: subs },
     activeTab: lang,
+    dirty: true,
   })),
 
   updateSubtitle: (lang, index, text) => set(s => {
     const subs = s.translations[lang]?.map(sub => sub.index === index ? { ...sub, text } : sub) ?? []
-    return { translations: { ...s.translations, [lang]: subs } }
+    return { translations: { ...s.translations, [lang]: subs }, dirty: true }
+  }),
+
+  pushUndo: () => set(s => ({
+    past: [...s.past, snapshot(s)].slice(-UNDO_DEPTH),
+    // Any new action abandons the branch that redo would have replayed. Keeping
+    // it would let redo paste work from a timeline that no longer happened.
+    future: [],
+  })),
+
+  undo: () => set(s => {
+    const previous = s.past.at(-1)
+    if (!previous) return {}
+    return {
+      ...restore(s, previous),
+      past: s.past.slice(0, -1),
+      future: [...s.future, snapshot(s)],
+      // Undoing back to the saved state still counts as unsaved: the store
+      // does not know which snapshot the database holds, and claiming "saved"
+      // when it might not be is the wrong way to be wrong.
+      dirty: true,
+    }
+  }),
+
+  redo: () => set(s => {
+    const next = s.future.at(-1)
+    if (!next) return {}
+    return {
+      ...restore(s, next),
+      future: s.future.slice(0, -1),
+      past: [...s.past, snapshot(s)],
+      dirty: true,
+    }
   }),
 
   /**
@@ -177,25 +274,6 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
    * with itself — and nothing in the editor would show it, because each tab
    * looks right on its own.
    */
-  pushUndo: () => set(s => ({
-    past: [...s.past, snapshot(s)].slice(-UNDO_DEPTH),
-    // Any new action abandons the branch that redo would have replayed. Keeping
-    // it would let redo paste work from a timeline that no longer happened.
-    future: [],
-  })),
-
-  undo: () => set(s => {
-    const previous = s.past.at(-1)
-    if (!previous) return {}
-    return { ...restore(s, previous), past: s.past.slice(0, -1), future: [...s.future, snapshot(s)] }
-  }),
-
-  redo: () => set(s => {
-    const next = s.future.at(-1)
-    if (!next) return {}
-    return { ...restore(s, next), future: s.future.slice(0, -1), past: [...s.past, snapshot(s)] }
-  }),
-
   retimeSubtitle: (index, start, end) => set(s => {
     const move = (subs: Subtitle[]) =>
       subs.map(sub => (sub.index === index ? { ...sub, start, end } : sub))
@@ -205,6 +283,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
       translations: Object.fromEntries(
         Object.entries(s.translations).map(([lang, subs]) => [lang, move(subs)]),
       ),
+      dirty: true,
     }
   }),
 
