@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { peakBetween, peaksFrom } from '@/lib/audio/peaks'
 import { qcTrack, srtToSec } from '@/lib/subtitles'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
+import { clampZoom, scrollToShow, visibleWindow } from '@/lib/timeline/view'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Subtitle } from '@/types/subtitle'
 
@@ -15,10 +16,17 @@ import type { Subtitle } from '@/types/subtitle'
  * timecode column: it is how somebody sees that a cue starts a beat before the
  * line is spoken — invisible in a list, obvious here.
  *
+ * The canvas is always the width of the viewport and only the visible seconds
+ * are drawn. Widening the canvas with the zoom is the obvious approach and it
+ * collapses on real work: placing a boundary to the frame wants roughly 125
+ * pixels per second, which over a feature is a canvas hundreds of thousands of
+ * pixels wide. Scrolling is a real scrollbar over an empty spacer, so the
+ * browser supplies the affordance and we supply only the arithmetic.
+ *
  * The audio never leaves the browser. It is decoded locally for drawing and
  * playback, so scrubbing costs nothing and it works on a file that was never
- * uploaded: a subtitler correcting an SRT against a screener does not need us
- * to hold their video.
+ * uploaded: somebody correcting an SRT against a screener should not have to
+ * hand us their video first.
  */
 
 const RULER_H = 18
@@ -27,6 +35,8 @@ const HEIGHT = 132
 
 /** Roughly one label per this many pixels, before rounding to a tidy interval. */
 const PX_PER_TICK = 78
+
+const ZOOM_STEP = 1.6
 
 interface Palette {
   bg: string
@@ -90,13 +100,13 @@ function roundRect(
 export default function Timeline() {
   const { subtitles, translations, activeTab } = useSubtitleStore()
 
-  const wrapRef = useRef<HTMLDivElement>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   // Refs rather than state: these change every animation frame, and re-rendering
   // React at 60fps to move a one-pixel line is how a timeline starts dropping
-  // frames on a feature-length file.
+  // frames on the long files where it earns its place.
   const bufferRef = useRef<AudioBuffer | null>(null)
   const peaksRef = useRef<Float32Array>(new Float32Array(0))
   const audioRef = useRef<AudioContext | null>(null)
@@ -107,6 +117,7 @@ export default function Timeline() {
   const playheadRef = useRef(0)
 
   const [duration, setDuration] = useState(0)
+  const [zoom, setZoom] = useState(1)
   const [playing, setPlaying] = useState(false)
   const [clock, setClock] = useState('00:00:00,000')
   const [loading, setLoading] = useState(false)
@@ -120,16 +131,23 @@ export default function Timeline() {
   // Checked once per change of cues, not once per cue per frame. Drawing runs
   // sixty times a second while playing, and re-running the quality checks over
   // a feature-length track inside that loop is how the playhead starts to
-  // stutter on exactly the long files where it matters.
+  // stutter on exactly the files where it matters.
   const quality = useMemo(() => qcTrack(cues), [cues])
+
+  /** The window currently on screen, read from the scroller rather than stored. */
+  const currentView = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return { start: 0, span: Math.max(0.1, duration) }
+    return visibleWindow(duration, el.scrollLeft, el.scrollWidth, el.clientWidth)
+  }, [duration])
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current
-    const wrap = wrapRef.current
-    if (!canvas || !wrap) return
+    const scroller = scrollRef.current
+    if (!canvas || !scroller) return
 
     const dpr = window.devicePixelRatio || 1
-    const W = wrap.clientWidth
+    const W = scroller.clientWidth
     const H = HEIGHT
     if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
       canvas.width = W * dpr
@@ -142,9 +160,9 @@ export default function Timeline() {
     if (!ctx) return
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
 
-    const p = readPalette(wrap)
-    const span = Math.max(0.1, duration)
-    const toPx = (t: number) => (t / span) * W
+    const p = readPalette(scroller)
+    const view = currentView()
+    const toPx = (t: number) => ((t - view.start) / view.span) * W
     const head = playheadRef.current
 
     ctx.fillStyle = p.bg
@@ -155,8 +173,12 @@ export default function Timeline() {
     ctx.fillRect(0, 0, W, RULER_H)
     ctx.font = '9px system-ui, sans-serif'
     ctx.textBaseline = 'middle'
-    const every = tickEvery(duration, Math.max(2, Math.floor(W / PX_PER_TICK)))
-    for (let t = 0; t <= duration; t += every) {
+    const every = tickEvery(view.span, Math.max(2, Math.floor(W / PX_PER_TICK)))
+    // Started at the first tick inside the window rather than at zero, so the
+    // loop does not walk the whole track to reach the visible part.
+    const firstTick = Math.floor(view.start / every) * every
+    for (let t = firstTick; t <= view.start + view.span; t += every) {
+      if (t < 0) continue
       const x = Math.round(toPx(t))
       ctx.fillStyle = p.rulerText
       ctx.fillRect(x, RULER_H - 5, 1, 5)
@@ -174,9 +196,9 @@ export default function Timeline() {
       const amp = (waveH / 2) * 0.86
 
       for (let x = 0; x < W; x += STEP) {
-        const from = (x / W) * span
-        const to = ((x + STEP) / W) * span
-        const h = Math.max(1, peakBetween(peaks, span, from, to) * amp)
+        const from = view.start + (x / W) * view.span
+        const to = view.start + ((x + STEP) / W) * view.span
+        const h = Math.max(1, peakBetween(peaks, duration, from, to) * amp)
         // Played audio reads as spent; what is still ahead stays dim.
         ctx.fillStyle = to <= head ? p.waveActive : p.wave
         ctx.fillRect(x, mid - h, BAR, h * 2)
@@ -187,6 +209,10 @@ export default function Timeline() {
     cues.forEach(cue => {
       const from = srtToSec(cue.start)
       const to = srtToSec(cue.end)
+      // Skipped when off screen: at a deep zoom almost every cue is, and
+      // drawing them all is work the viewport throws away.
+      if (to < view.start || from > view.start + view.span) return
+
       const x0 = toPx(from)
       const w = Math.max(3, toPx(to) - x0)
       const active = head >= from && head < to
@@ -205,24 +231,26 @@ export default function Timeline() {
 
     // ── Playhead ──
     const x = toPx(head)
-    ctx.fillStyle = p.playhead
-    ctx.fillRect(x, RULER_H, 1.5, H - RULER_H)
-    ctx.beginPath()
-    ctx.moveTo(x, 0)
-    ctx.lineTo(x + 9, 0)
-    ctx.lineTo(x + 9, 7)
-    ctx.lineTo(x, 12)
-    ctx.closePath()
-    ctx.fill()
-  }, [cues, duration, quality])
+    if (x >= -12 && x <= W + 12) {
+      ctx.fillStyle = p.playhead
+      ctx.fillRect(x, RULER_H, 1.5, H - RULER_H)
+      ctx.beginPath()
+      ctx.moveTo(x, 0)
+      ctx.lineTo(x + 9, 0)
+      ctx.lineTo(x + 9, 7)
+      ctx.lineTo(x, 12)
+      ctx.closePath()
+      ctx.fill()
+    }
+  }, [cues, currentView, duration, quality])
 
-  // Redraw when the cues, the tab, or the available width change.
+  // Redraw when the cues, the tab, the zoom or the available width change.
   useEffect(() => {
     draw()
     const observer = new ResizeObserver(() => draw())
-    if (wrapRef.current) observer.observe(wrapRef.current)
+    if (scrollRef.current) observer.observe(scrollRef.current)
     return () => observer.disconnect()
-  }, [draw])
+  }, [draw, zoom])
 
   const stop = useCallback(() => {
     sourceRef.current?.stop()
@@ -261,11 +289,20 @@ export default function Timeline() {
       playheadRef.current = t
       offsetRef.current = t
       setClock(clockLabel(t))
+
+      // Keep the playhead on screen while zoomed in, without dragging the view
+      // away from somebody who has deliberately scrolled elsewhere.
+      const el = scrollRef.current
+      if (el) {
+        const left = scrollToShow(t, currentView(), duration, el.scrollWidth)
+        if (left !== null) el.scrollLeft = left
+      }
+
       draw()
       frameRef.current = requestAnimationFrame(tick)
     }
     frameRef.current = requestAnimationFrame(tick)
-  }, [draw, stop])
+  }, [currentView, draw, duration, stop])
 
   const seek = useCallback(
     (seconds: number) => {
@@ -277,6 +314,25 @@ export default function Timeline() {
       draw()
     },
     [duration, draw, playing, stop],
+  )
+
+  /** Zoom around the playhead, so the thing being worked on stays put. */
+  const changeZoom = useCallback(
+    (next: number) => {
+      const z = clampZoom(next)
+      setZoom(z)
+
+      // After the spacer has been laid out at its new width, not before.
+      requestAnimationFrame(() => {
+        const el = scrollRef.current
+        if (!el || duration <= 0) return
+        const span = duration / z
+        const wanted = Math.max(0, Math.min(duration - span, playheadRef.current - span / 2))
+        el.scrollLeft = (wanted / duration) * el.scrollWidth
+        draw()
+      })
+    },
+    [draw, duration],
   )
 
   async function load(file: File) {
@@ -292,6 +348,7 @@ export default function Timeline() {
       playheadRef.current = 0
       offsetRef.current = 0
       setDuration(buffer.duration)
+      setZoom(1)
       setClock(clockLabel(0))
       setName(file.name)
     } catch {
@@ -319,6 +376,11 @@ export default function Timeline() {
   }, [])
 
   const ready = duration > 0
+  const btn = {
+    padding: '3px 8px', borderRadius: 5, fontSize: 11, lineHeight: 1.4,
+    border: '1px solid var(--border2)', background: 'var(--bg2)',
+    color: 'var(--text2)', cursor: 'pointer',
+  } as const
 
   return (
     <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg1)', flexShrink: 0 }}>
@@ -344,7 +406,7 @@ export default function Timeline() {
         <span
           style={{
             fontSize: 11, marginLeft: 4, overflow: 'hidden', textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap', maxWidth: 260,
+            whiteSpace: 'nowrap', maxWidth: 220,
             color: failed ? 'var(--red)' : 'var(--text3)',
           }}
         >
@@ -355,16 +417,37 @@ export default function Timeline() {
               : (name ?? 'No audio loaded')}
         </span>
 
-        <button
-          onClick={() => fileRef.current?.click()}
-          style={{
-            marginLeft: 'auto', padding: '4px 10px', borderRadius: 5, fontSize: 11,
-            border: '1px solid var(--border2)', background: 'var(--bg2)',
-            color: 'var(--text2)', cursor: 'pointer',
-          }}
-        >
-          Load audio
-        </button>
+        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}>
+          <button
+            onClick={() => changeZoom(zoom / ZOOM_STEP)}
+            disabled={!ready}
+            style={btn}
+            aria-label="Zoom out"
+          >
+            −
+          </button>
+          <span
+            style={{
+              fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)',
+              minWidth: 40, textAlign: 'center',
+            }}
+          >
+            {zoom.toFixed(1)}×
+          </span>
+          <button
+            onClick={() => changeZoom(zoom * ZOOM_STEP)}
+            disabled={!ready}
+            style={btn}
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+
+          <button onClick={() => fileRef.current?.click()} style={{ ...btn, marginLeft: 6 }}>
+            Load audio
+          </button>
+        </div>
+
         <input
           ref={fileRef}
           type="file"
@@ -378,15 +461,23 @@ export default function Timeline() {
       </div>
 
       <div
-        ref={wrapRef}
+        ref={scrollRef}
+        onScroll={draw}
         onClick={e => {
           if (!ready) return
           const rect = e.currentTarget.getBoundingClientRect()
-          seek(((e.clientX - rect.left) / rect.width) * duration)
+          const view = currentView()
+          seek(view.start + ((e.clientX - rect.left) / rect.width) * view.span)
         }}
-        style={{ height: HEIGHT, cursor: ready ? 'pointer' : 'default' }}
+        style={{
+          height: HEIGHT, overflowX: 'auto', overflowY: 'hidden',
+          cursor: ready ? 'pointer' : 'default',
+        }}
       >
-        <canvas ref={canvasRef} style={{ display: 'block' }} />
+        {/* Empty, and there only to give the scrollbar something to measure. */}
+        <div style={{ width: `${zoom * 100}%`, height: HEIGHT, position: 'relative' }}>
+          <canvas ref={canvasRef} style={{ display: 'block', position: 'sticky', left: 0, top: 0 }} />
+        </div>
       </div>
     </div>
   )
