@@ -3,6 +3,7 @@
 import Sidebar from '@/components/sidebar/Sidebar'
 import LangTabsBar from '@/components/editor/LangTabsBar'
 import EditorArea from '@/components/editor/EditorArea'
+import Timeline from '@/components/timeline/Timeline'
 import { signOut as endSession } from '@/lib/auth/client'
 import type { Entitlement } from '@/lib/entitlement'
 import { useRouter } from 'next/navigation'
@@ -47,6 +48,7 @@ export default function TranslateClient({ user, entitlement }: Props) {
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <LangTabsBar />
           <EditorArea />
+          <Timeline />
         </div>
       </div>
     </div>
