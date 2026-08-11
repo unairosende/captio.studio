@@ -1,5 +1,6 @@
 import { headers } from 'next/headers'
 
+import { firstMembershipForUser } from '../db/organizations.ts'
 import { auth } from './server.ts'
 
 /**
@@ -58,9 +59,23 @@ export async function requireOrgContext(): Promise<OrgContext> {
   if (!session?.user) throw new UnauthorizedError()
 
   const member = await auth.api.getActiveMember({ headers: h }).catch(() => null)
-  if (!member?.organizationId) throw new NoOrganizationError()
+  if (member?.organizationId) {
+    return { userId: session.user.id, orgId: member.organizationId, role: member.role }
+  }
 
-  return { userId: session.user.id, orgId: member.organizationId, role: member.role }
+  // A session with no active organisation is not the same thing as a user with
+  // no organisation, and treating them alike deadlocks the app: /translate
+  // refuses and sends them to onboarding, onboarding sees they already belong
+  // somewhere and sends them back. That loop is what a returning customer hits
+  // on their second sign-in, because nothing had set the active organisation on
+  // the new session.
+  //
+  // Membership is still read from the database here, so this is a second route
+  // to the same check rather than a weaker one.
+  const fallback = await firstMembershipForUser(session.user.id)
+  if (!fallback) throw new NoOrganizationError()
+
+  return { userId: session.user.id, orgId: fallback.organizationId, role: fallback.role }
 }
 
 /** Roles allowed to change what the organisation is billed for or who belongs to it. */

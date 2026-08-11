@@ -3,6 +3,7 @@ import { nextCookies } from 'better-auth/next-js'
 import { organization } from 'better-auth/plugins/organization'
 
 import { db } from '../db/client.ts'
+import { firstMembershipForUser } from '../db/organizations.ts'
 import {
   invitationEmail,
   resetPasswordEmail,
@@ -70,6 +71,34 @@ export const authOptions = {
   },
 
   socialProviders: google,
+
+  /**
+   * Every new session starts in the organisation the user belongs to.
+   *
+   * Without this, signing in a second time produces a session with no active
+   * organisation: the membership is still there, but nothing points at it. The
+   * app then refuses the editor and bounces to onboarding, which sees the
+   * membership and bounces back — a loop with no exit, and one every returning
+   * customer would meet rather than an unlucky few.
+   *
+   * `requireOrgContext` falls back to membership as well, so between them
+   * neither a stale session nor a missed hook can produce that deadlock again.
+   */
+  databaseHooks: {
+    session: {
+      create: {
+        before: async session => ({
+          data: {
+            ...session,
+            activeOrganizationId:
+              session.activeOrganizationId ??
+              (await firstMembershipForUser(session.userId))?.organizationId ??
+              null,
+          },
+        }),
+      },
+    },
+  },
 
   plugins: [
     organization({
