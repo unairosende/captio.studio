@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { PLANS } from '@/lib/plans'
+import { PLANS, TRIAL } from '@/lib/plans'
 
 export default function PricingPage() {
   const [loading, setLoading] = useState<string | null>(null)
@@ -28,6 +28,22 @@ export default function PricingPage() {
           <p style={{ fontSize: 16, color: 'var(--text2)', lineHeight: 1.6 }}>
             All plans include every feature. No per-translation fees, no surprises.
           </p>
+        </div>
+
+        {/* Free trial — stated in the same numbers the API enforces, so the
+            promise on this page cannot drift from the limit in lib/plans.ts. */}
+        <div style={{ background: 'var(--bg1)', border: '1px solid var(--border)', borderRadius: 12, padding: '20px 24px', marginBottom: 32, textAlign: 'center' }}>
+          <div style={{ fontSize: 15, fontWeight: 600, color: 'var(--text)', marginBottom: 6 }}>
+            Start free — no card
+          </div>
+          <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.6 }}>
+            {TRIAL.transcribeSeconds / 3600} hour of transcription and{' '}
+            {TRIAL.translatedCues.toLocaleString('en-GB')} translated subtitles: a full episode,
+            transcribed and subtitled end to end. An amount, not a fortnight — a quiet week costs
+            you nothing.
+            <br />
+            When it runs out, new AI jobs stop. Your projects stay where they are and still export.
+          </div>
         </div>
 
         {/* Plans */}

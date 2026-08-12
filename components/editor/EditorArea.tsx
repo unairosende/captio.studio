@@ -1,6 +1,7 @@
 'use client'
 
 import { useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import { charStatus, qcForMode, reflowText } from '@/lib/subtitles'
 import { playheadSeconds } from '@/lib/timeline/playhead'
@@ -32,6 +33,11 @@ export default function EditorArea() {
 
   const leftRef  = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
+
+  // Re-reads the trial meter after anything that spends the allowance; see the
+  // note in the sidebar, which does the same after a translation or a
+  // transcription.
+  const router = useRouter()
 
   function syncScroll(from: HTMLDivElement, to: HTMLDivElement) {
     const ratio = from.scrollTop / ((from.scrollHeight - from.clientHeight) || 1)
@@ -82,6 +88,10 @@ export default function EditorArea() {
       } catch { break }
     }
     setTranslateJob({ running: false, message: 'Fixed', progress: 100 })
+    // Rewriting cues is a translation request like any other, and it comes out
+    // of the same allowance. Re-read what is left rather than leaving the
+    // sidebar showing a figure from before the sweep.
+    router.refresh()
   }
 
   async function handleBackTranslate() {
@@ -114,11 +124,13 @@ export default function EditorArea() {
         setBackTranslateJob({ progress: Math.round((i + batch.length) / subs.length * 100) })
       } catch (e: unknown) {
         setBackTranslateJob({ running: false, error: e instanceof Error ? e.message : 'Error', message: '' })
+        router.refresh()
         return
       }
     }
     setBackTranslation(lang, result)
     setBackTranslateJob({ running: false, message: 'Done', progress: 100, error: null })
+    router.refresh()
   }
 
   const renderCard = (s: typeof activeSubs[0], editable: boolean) => {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import GlossaryPanel from '@/components/glossary/GlossaryPanel'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import { SOURCE_LANGUAGES, TARGET_LANGUAGES, QUICK_LANGS, LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
@@ -38,6 +39,22 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
 
   const fileRef   = useRef<HTMLInputElement>(null)
   const xcFileRef = useRef<HTMLInputElement>(null)
+
+  const router = useRouter()
+
+  /**
+   * Money has been spent — go and read how much is left.
+   *
+   * The trial meter is a prop from a server component, so it is only ever as
+   * fresh as the last page load. Without this, somebody transcribes an episode
+   * and the sidebar still shows the full hour: the warning that exists to
+   * arrive *before* the wall arrives after it, on the next reload.
+   *
+   * `router.refresh()` re-runs the page on the server and leaves the editor's
+   * own state alone, which is why the meter can be refetched mid-session
+   * without the cues on screen flickering.
+   */
+  const spent = () => router.refresh()
 
   const hasSubs  = subtitles.length > 0
   const hasTrans = activeTab !== 'source' && !!translations[activeTab]
@@ -106,12 +123,16 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
         setTranslateJob({ progress: Math.round((i + batch.length) / subtitles.length * 100), message: `Translating… ${Math.min(i + BATCH, subtitles.length)}/${subtitles.length}` })
       } catch (e: unknown) {
         setTranslateJob({ running: false, error: e instanceof Error ? e.message : 'Error', message: '' })
+        // The batches before this one were paid for, and the one that failed may
+        // have been refused for having nothing left to spend.
+        spent()
         return
       }
     }
 
     setTranslation(lang, result)
     setTranslateJob({ running: false, progress: 100, message: `Done — ${result.length} subtitles`, error: null })
+    spent()
   }
 
   // ── Transcribe ──
@@ -175,6 +196,8 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
       setImportTab('import')
     } catch (e: unknown) {
       setTranscribeJob({ running: false, error: e instanceof Error ? e.message : 'Error', message: '' })
+    } finally {
+      spent()
     }
   }
 
