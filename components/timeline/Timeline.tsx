@@ -5,6 +5,7 @@ import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } 
 import { peakBetween, peaksFrom } from '@/lib/audio/peaks'
 import { qcTrack, srtToSec } from '@/lib/subtitles'
 import { type Edge, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
+import { publishPlayhead } from '@/lib/timeline/playhead'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
 import {
   type Direction,
@@ -510,6 +511,13 @@ export default function Timeline() {
       sourceRef.current?.stop()
       audioRef.current?.close()
     }
+  }, [])
+
+  // Lend the playhead to the editor, so splitting a cue can cut where somebody
+  // is listening rather than halfway through on principle.
+  useEffect(() => {
+    publishPlayhead(() => playheadRef.current)
+    return () => publishPlayhead(null)
   }, [])
 
   const ready = duration > 0

@@ -69,6 +69,20 @@ body {
 .sub-card.editable:hover { border-color: var(--accent); }
 .sub-card.editing { border-color: var(--accent); background: var(--bg3); }
 
+/* Structural edits stay one click away but out of the way: a card is for
+   reading, and a delete button on every line competes with the text. */
+.card-tools {
+  position: absolute; top: 6px; right: 7px; display: flex; gap: 3px;
+  opacity: 0; transition: opacity .15s;
+}
+.sub-card:hover .card-tools, .card-tools:focus-within { opacity: 1; }
+.card-tools button {
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text3);
+  border-radius: 4px; font-size: 10px; line-height: 1; padding: 3px 5px; cursor: pointer;
+}
+.card-tools button:hover { color: var(--text); border-color: var(--accent); }
+.card-tools button.danger:hover { color: var(--red); border-color: #5a1a1a; }
+
 .diff-del { color: var(--amber); text-decoration: line-through; opacity: .75; }
 .diff-ins { color: var(--green); }
 

@@ -11,9 +11,17 @@ interface Props {
   backSub?: Subtitle
   sourceSub?: Subtitle
   onCommit?: (index: number, text: string) => void
+  /**
+   * Splitting and deleting change the cue in every language at once, so they
+   * are offered on every card — including one that is only being read.
+   */
+  onSplit?: (index: number) => void
+  onDelete?: (index: number) => void
 }
 
-export default function SubtitleCard({ sub, limit, editable, backSub, sourceSub, onCommit }: Props) {
+export default function SubtitleCard({
+  sub, limit, editable, backSub, sourceSub, onCommit, onSplit, onDelete,
+}: Props) {
   const [editing, setEditing] = useState(false)
   const [draft,   setDraft]   = useState(sub.text)
   const taRef = useRef<HTMLTextAreaElement>(null)
@@ -60,6 +68,20 @@ export default function SubtitleCard({ sub, limit, editable, backSub, sourceSub,
       <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)', marginBottom: 5 }}>
         {sub.start} → {sub.end}
       </div>
+
+      {(onSplit || onDelete) && !editing && (
+        // Stopped from bubbling: the card itself opens the editor on click, and
+        // splitting a cue and then landing in a textarea of the half you did
+        // not mean is worse than either on its own.
+        <div className="card-tools" onClick={e => e.stopPropagation()}>
+          {onSplit && (
+            <button title="Split at the playhead" onClick={() => onSplit(sub.index)}>✂</button>
+          )}
+          {onDelete && (
+            <button className="danger" title="Delete this subtitle" onClick={() => onDelete(sub.index)}>✕</button>
+          )}
+        </div>
+      )}
 
       {editing ? (
         <>

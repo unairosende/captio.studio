@@ -3,6 +3,7 @@
 import { useRef } from 'react'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import { charStatus, qcForMode, reflowText } from '@/lib/subtitles'
+import { playheadSeconds } from '@/lib/timeline/playhead'
 import SubtitleCard from './SubtitleCard'
 
 export default function EditorArea() {
@@ -14,6 +15,7 @@ export default function EditorArea() {
     backTranslations: bts, setBackTranslation, clearBackTranslation,
     allowRephrase, srcLang, tgtLang,
     setBackTranslateJob,
+    splitSubtitle, deleteSubtitle,
   } = useSubtitleStore()
 
   // One source of truth for the thresholds, so the character bar, the QC counts
@@ -135,6 +137,10 @@ export default function EditorArea() {
           pushUndo()
           updateSubtitle(activeTab, idx, text)
         }}
+        // Cut where the listening stopped. With no timeline loaded there is no
+        // playhead, and the split falls back to the middle of the cue.
+        onSplit={idx => splitSubtitle(idx, playheadSeconds() ?? undefined)}
+        onDelete={deleteSubtitle}
       />
     )
   }

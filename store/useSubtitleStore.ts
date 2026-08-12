@@ -8,7 +8,7 @@ import type {
   Subtitle, TranslationStore, BackTranslationStore,
   OutputMode, ViewMode,
 } from '../types/subtitle.ts'
-import { finalSubs, qcForMode } from '../lib/subtitles/index.ts'
+import { deleteCue, finalSubs, qcForMode, splitCue } from '../lib/subtitles/index.ts'
 
 /**
  * Deep enough to cover a session's worth of second thoughts, shallow enough
@@ -47,6 +47,28 @@ function restore(state: { activeTab: string }, snap: Snapshot) {
     subtitles: snap.subtitles,
     translations: snap.translations,
     activeTab: state.activeTab === 'source' || stillThere ? state.activeTab : 'source',
+  }
+}
+
+/**
+ * Apply a change of shape to the source and to every translation at once.
+ *
+ * Back-translations are dropped rather than carried through. They are a
+ * separate set of lines matched to cues by number, so a split or a delete
+ * leaves them describing the wrong ones — and a difference shown against the
+ * wrong cue is worse than no difference at all. One button rebuilds them.
+ */
+function structural(
+  s: { subtitles: Subtitle[]; translations: TranslationStore },
+  apply: (subs: Subtitle[]) => Subtitle[],
+) {
+  return {
+    subtitles: apply(s.subtitles),
+    translations: Object.fromEntries(
+      Object.entries(s.translations).map(([lang, subs]) => [lang, apply(subs)]),
+    ),
+    backTranslations: {},
+    dirty: true,
   }
 }
 
@@ -123,6 +145,14 @@ interface AppState {
   updateSubtitle: (lang: string, index: number, text: string) => void
   /** Timings belong to the cue, not to any one language. */
   retimeSubtitle: (index: number, start: string, end: string) => void
+  /**
+   * Structural edits, applied to every language at once.
+   *
+   * Unlike the others these mark their own undo step: there is exactly one of
+   * them per click, so there is nothing for a caller to decide.
+   */
+  splitSubtitle: (index: number, atSec?: number) => void
+  deleteSubtitle: (index: number) => void
   setBackTranslation: (lang: string, subs: Subtitle[]) => void
   clearBackTranslation: (lang: string) => void
   closeTab: (lang: string) => void
@@ -286,6 +316,16 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
       dirty: true,
     }
   }),
+
+  splitSubtitle: (index, atSec) => {
+    get().pushUndo()
+    set(s => structural(s, subs => splitCue(subs, index, atSec)))
+  },
+
+  deleteSubtitle: index => {
+    get().pushUndo()
+    set(s => structural(s, subs => deleteCue(subs, index)))
+  },
 
   setBackTranslation: (lang, subs) => set(s => ({
     backTranslations: { ...s.backTranslations, [lang]: subs },
