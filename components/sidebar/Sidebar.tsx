@@ -13,17 +13,32 @@ import {
   formatSubs,
   parseContent,
   qcForMode,
+  rowsToCsv,
+  rowsToXlsx,
+  sheetRows,
   slugify,
 } from '@/lib/subtitles'
 import type { Subtitle } from '@/types/subtitle'
 import type { Entitlement } from '@/lib/entitlement'
 import { TRIAL } from '@/lib/plans'
 
+/**
+ * A section heading.
+ *
+ * At module scope, like TrialMeter below: a component declared inside Sidebar
+ * is a new component type on every render, so React unmounts the old one and
+ * mounts a fresh one each time — which throws away the state of anything
+ * underneath it.
+ */
+const S = ({ label }: { label: string }) => (
+  <div style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 9 }}>{label}</div>
+)
+
 export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const store = useSubtitleStore()
   const {
     subtitles, translations, activeTab, outputMode,
-    srcLang, tgtLang, allowRephrase, glossary,
+    srcLang, tgtLang, allowRephrase, glossary, projectName,
     translateJob, transcribeJob,
     setSrcLang, setTgtLang, setAllowRephrase, setOutputMode,
     loadSubtitles, setTranslation, setTranslateJob, setTranscribeJob, clearAll,
@@ -33,6 +48,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const [hint,       setHint]       = useState<ParseHint>('auto')
   // The formatter also writes ASS and TTML; the select just has not caught up.
   const [exportFmt,  setExportFmt]  = useState<SubtitleFormat>('srt')
+  const [exportAllFmt, setExportAllFmt] = useState<'xlsx' | 'csv'>('xlsx')
   const [xcFile,     setXcFile]     = useState<File | null>(null)
   const [langCustom, setLangCustom] = useState('')
   const [showCustom, setShowCustom] = useState(false)
@@ -56,8 +72,9 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
    */
   const spent = () => router.refresh()
 
-  const hasSubs  = subtitles.length > 0
-  const hasTrans = activeTab !== 'source' && !!translations[activeTab]
+  const hasSubs   = subtitles.length > 0
+  const hasTrans  = activeTab !== 'source' && !!translations[activeTab]
+  const langCount = Object.keys(translations).length
   const limit    = qcForMode(outputMode).maxChars
 
   // ── Import ──
@@ -202,6 +219,16 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   }
 
   // ── Export ──
+  function download(filename: string, blob: Blob) {
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = filename
+    a.click()
+    // The object URL pins the blob in memory until the document goes away, and
+    // a session of exports on a feature-length project is real memory.
+    setTimeout(() => URL.revokeObjectURL(a.href), 0)
+  }
+
   function doExport() {
     if (!hasTrans) return
     const subs = finalSubs(translations[activeTab], outputMode, qcForMode(outputMode))
@@ -209,18 +236,37 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
     // one, and some players expect it in SRT.
     const content =
       bomFor(exportFmt) + formatSubs(subs, exportFmt, { lang: activeTab, title: activeTab })
-    const slug  = slugify(activeTab)
-    const blob  = new Blob([content], { type: 'text/plain;charset=utf-8' })
-    const a     = document.createElement('a')
-    a.href      = URL.createObjectURL(blob)
-    a.download  = `${slug}.${exportFmt}`
-    a.click()
+    download(`${slugify(activeTab)}.${exportFmt}`, new Blob([content], { type: 'text/plain;charset=utf-8' }))
   }
 
-  // ── UI helpers ──
-  const S = ({ label }: { label: string }) => (
-    <div style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 9 }}>{label}</div>
-  )
+  /**
+   * Every language in one sheet — the file a client is actually sent.
+   *
+   * Built from the translations as they are, not from what the SRT exporter
+   * would write: in vertical mode that splits long cues, and a language split
+   * three times where another was split twice puts the columns out of step for
+   * the rest of the file. The sheet is keyed to the source cue list, which is
+   * the thing every language does share.
+   */
+  function doExportAll() {
+    const langs = Object.keys(translations)
+    if (!subtitles.length || !langs.length) return
+
+    const rows = sheetRows(subtitles, translations, langs)
+    const name = `${slugify(projectName || 'subtitles')}_all_languages`
+
+    if (exportAllFmt === 'csv') {
+      download(`${name}.csv`, new Blob([bomFor('csv') + rowsToCsv(rows)], { type: 'text/csv;charset=utf-8' }))
+      return
+    }
+
+    download(
+      `${name}.xlsx`,
+      new Blob([rowsToXlsx(rows) as unknown as BlobPart], {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }),
+    )
+  }
 
   return (
     <div style={{ width: 226, background: 'var(--bg1)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
@@ -408,6 +454,19 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
         <button onClick={doExport} disabled={!hasTrans}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: hasTrans ? 'pointer' : 'not-allowed', border: '1px solid #2a7a50', background: 'var(--green-dim)', color: 'var(--green)', opacity: hasTrans ? 1 : .4, transition: 'all .15s' }}>
           ↓ Export
+        </button>
+      </div>
+
+      {/* Export every language as one sheet */}
+      <div style={{ padding: '0 12px 14px' }}>
+        <S label="Export all languages" />
+        <select className="select" value={exportAllFmt} onChange={e => setExportAllFmt(e.target.value as typeof exportAllFmt)} style={{ marginBottom: 8 }}>
+          <option value="xlsx">XLSX</option>
+          <option value="csv">CSV</option>
+        </select>
+        <button onClick={doExportAll} disabled={!langCount}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: langCount ? 'pointer' : 'not-allowed', border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)', opacity: langCount ? 1 : .4, transition: 'all .15s' }}>
+          ↓ {langCount ? `${langCount} language${langCount > 1 ? 's' : ''} in one sheet` : 'One sheet, all languages'}
         </button>
       </div>
     </div>
