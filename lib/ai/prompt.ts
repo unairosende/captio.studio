@@ -36,15 +36,34 @@ const FIXED_COUNT_RULES = [
   '',
 ]
 
+/**
+ * What a glossary may be, so that it cannot become something else.
+ *
+ * It is the one part of this prompt written freely by the caller, and the
+ * prompt is composed on the server precisely so that a subtitling subscription
+ * cannot be spent as a general-purpose model. A few dozen short terms is what
+ * the feature is; past these limits somebody is using a terminology table as a
+ * text box.
+ */
+const MAX_GLOSSARY_ENTRIES = 200
+const MAX_GLOSSARY_CHARS = 200
+
+const clean = (v: unknown): string =>
+  typeof v === 'string' ? v.trim().slice(0, MAX_GLOSSARY_CHARS) : ''
+
 function glossaryRules(entries: GlossaryEntry[] = []): string[] {
-  const used = entries.filter(g => g.term?.trim())
+  const used = entries
+    .slice(0, MAX_GLOSSARY_ENTRIES)
+    .map(g => ({ term: clean(g?.term), translation: clean(g?.translation) }))
+    .filter(g => g.term)
+
   if (!used.length) return []
   return [
     'GLOSSARY (overrides every rule above — apply exactly):',
     ...used.map(g =>
-      g.translation?.trim()
-        ? `• "${g.term.trim()}" must be translated as "${g.translation.trim()}"`
-        : `• "${g.term.trim()}" must be kept unchanged, exactly as written`,
+      g.translation
+        ? `• "${g.term}" must be translated as "${g.translation}"`
+        : `• "${g.term}" must be kept unchanged, exactly as written`,
     ),
     '',
   ]

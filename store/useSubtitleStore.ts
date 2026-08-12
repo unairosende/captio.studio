@@ -8,6 +8,7 @@ import type {
   Subtitle, TranslationStore, BackTranslationStore,
   OutputMode, ViewMode,
 } from '../types/subtitle.ts'
+import type { GlossaryEntry } from '../lib/ai/prompt.ts'
 import { deleteCue, finalSubs, qcForMode, splitCue } from '../lib/subtitles/index.ts'
 
 /**
@@ -84,6 +85,15 @@ interface AppState {
   subtitles: Subtitle[]
   translations: TranslationStore
   backTranslations: BackTranslationStore
+  /**
+   * Terms the translator must respect, for this project.
+   *
+   * One list for every target language, which covers what glossaries are
+   * actually used for — character names, brands, the client's own vocabulary.
+   * It belongs to the project rather than to the organisation because the same
+   * word is a brand in one job and an ordinary noun in the next.
+   */
+  glossary: GlossaryEntry[]
 
   // UI state
   activeTab: 'source' | string
@@ -121,6 +131,7 @@ interface AppState {
     version: number
     subtitles: Subtitle[]
     translations: TranslationStore
+    glossary?: GlossaryEntry[]
   }) => void
   markSaved: (id: string, name: string, version: number) => void
   newProject: () => void
@@ -162,6 +173,11 @@ interface AppState {
   setSrcLang: (l: string) => void
   setTgtLang: (l: string) => void
   setAllowRephrase: (v: boolean) => void
+  /**
+   * Replaces the whole list. The table is edited a cell at a time and there are
+   * a few dozen rows at most, so nothing is gained by patching one entry.
+   */
+  setGlossary: (entries: GlossaryEntry[]) => void
   setTranslateJob: (j: Partial<TranslationJob>) => void
   setBackTranslateJob: (j: Partial<TranslationJob>) => void
   setTranscribeJob: (j: Partial<TranslationJob>) => void
@@ -176,6 +192,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   subtitles: [],
   translations: {},
   backTranslations: {},
+  glossary: [],
   activeTab: 'source',
   outputMode: 'horizontal',
   viewMode: 'list',
@@ -196,6 +213,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     subtitles: p.subtitles,
     translations: p.translations,
     backTranslations: {},
+    glossary: p.glossary ?? [],
     activeTab: 'source',
     projectId: p.id,
     projectName: p.name,
@@ -213,6 +231,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     subtitles: [],
     translations: {},
     backTranslations: {},
+    glossary: [],
     activeTab: 'source',
     projectId: null,
     projectName: 'Untitled',
@@ -248,7 +267,9 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     past: [],
     future: [],
     // Emptying the editor is itself a change worth saving or abandoning; the
-    // project row is still there with the old cues in it.
+    // project row is still there with the old cues in it. The glossary stays:
+    // it is the terminology of the job, not of the file that was loaded, and
+    // re-importing a corrected export should not cost somebody their terms.
     dirty: true,
   }),
 
@@ -353,6 +374,10 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   setSrcLang:       l    => set({ srcLang: l }),
   setTgtLang:       l    => set({ tgtLang: l }),
   setAllowRephrase: v    => set({ allowRephrase: v }),
+
+  // Not part of the undo history: the history is for the cues, and a table of
+  // terminology is edited a field at a time by somebody who can see it.
+  setGlossary: entries => set({ glossary: entries, dirty: true }),
 
   setTranslateJob:    j => set(s => ({ translateJob:    { ...s.translateJob,    ...j } })),
   setBackTranslateJob:j => set(s => ({ backTranslateJob:{ ...s.backTranslateJob,...j } })),

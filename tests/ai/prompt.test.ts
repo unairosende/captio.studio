@@ -48,6 +48,23 @@ describe('buildTranslationPrompt', () => {
     assert.doesNotMatch(p, /"" must be/)
   })
 
+  it('bounds the glossary, which is the one field the caller writes freely', () => {
+    const p = buildTranslationPrompt({
+      ...base,
+      glossary: [
+        { term: 'x'.repeat(500), translation: 'y'.repeat(500) },
+        // Not a row anybody typed: the shape is whatever arrived over HTTP.
+        { term: 42 as unknown as string },
+        ...Array.from({ length: 400 }, (_, i) => ({ term: `term${i}` })),
+      ],
+    })
+
+    const rules = p.split('\n').filter(l => l.startsWith('• "'))
+    assert.ok(rules.length <= 200, `the glossary should be capped, got ${rules.length} rules`)
+    assert.ok(!rules.some(l => l.length > 500), 'no single rule should carry an essay')
+    assert.doesNotMatch(p, /"42"/)
+  })
+
   it('omits optional sections entirely when unused', () => {
     const p = buildTranslationPrompt(base)
     assert.doesNotMatch(p, /GLOSSARY/)

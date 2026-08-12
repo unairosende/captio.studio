@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 
+import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Subtitle, TranslationStore } from '@/types/subtitle'
 
@@ -28,12 +29,17 @@ interface Saved {
   id: string
   name: string
   version: number
-  data?: { subtitles?: Subtitle[]; translations?: TranslationStore }
+  data?: {
+    subtitles?: Subtitle[]
+    translations?: TranslationStore
+    /** Absent in every project saved before the glossary existed. */
+    glossary?: GlossaryEntry[]
+  }
 }
 
 export default function ProjectBar() {
   const {
-    subtitles, translations, srcLang,
+    subtitles, translations, srcLang, glossary,
     projectId, projectName, projectVersion, dirty,
     openProject, markSaved, newProject, setProjectName,
   } = useSubtitleStore()
@@ -75,7 +81,7 @@ export default function ProjectBar() {
       name: projectName.trim() || 'Untitled',
       sourceLang: srcLang,
       targetLangs: Object.keys(translations),
-      data: { subtitles, translations },
+      data: { subtitles, translations, glossary },
       // Omitted when forcing, which is how "overwrite" gets past the guard.
       ...(projectId && !force ? { version: projectVersion } : {}),
     }
@@ -122,6 +128,7 @@ export default function ProjectBar() {
       version: p.version,
       subtitles: p.data?.subtitles ?? [],
       translations: p.data?.translations ?? {},
+      glossary: p.data?.glossary ?? [],
     })
     setConflict(false)
     setOpen(false)

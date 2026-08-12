@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import GlossaryPanel from '@/components/glossary/GlossaryPanel'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import { SOURCE_LANGUAGES, TARGET_LANGUAGES, QUICK_LANGS, LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
 import {
@@ -21,7 +22,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const store = useSubtitleStore()
   const {
     subtitles, translations, activeTab, outputMode,
-    srcLang, tgtLang, allowRephrase,
+    srcLang, tgtLang, allowRephrase, glossary,
     translateJob, transcribeJob,
     setSrcLang, setTgtLang, setAllowRephrase, setOutputMode,
     loadSubtitles, setTranslation, setTranslateJob, setTranscribeJob, clearAll,
@@ -91,6 +92,9 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
             targetLang: lang,
             sourceLang: srcLang,
             outputMode,
+            // Sent with every batch. Each request is its own conversation, so a
+            // term agreed in batch one is unknown by batch two unless repeated.
+            glossary,
           }),
         })
         const data = await res.json()
@@ -345,6 +349,11 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
             <div style={{ position: 'absolute', top: 2, left: allowRephrase ? 15 : 2, width: 11, height: 11, borderRadius: '50%', background: allowRephrase ? 'var(--accent)' : 'var(--text3)', transition: 'all .2s', pointerEvents: 'none' }} />
           </label>
         </div>
+      </div>
+
+      {/* Glossary */}
+      <div style={{ padding: '13px 12px 12px', borderBottom: '1px solid var(--border)' }}>
+        <GlossaryPanel />
       </div>
 
       {/* Translate */}
