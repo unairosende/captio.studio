@@ -1,9 +1,9 @@
 'use client'
 
-import { useRef } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
-import { charStatus, qcForMode, reflowText } from '@/lib/subtitles'
+import { charStatus, qcForMode, qcTrack, reflowText } from '@/lib/subtitles'
 import { playheadSeconds } from '@/lib/timeline/playhead'
 import SubtitleCard from './SubtitleCard'
 
@@ -21,15 +21,38 @@ export default function EditorArea() {
 
   // One source of truth for the thresholds, so the character bar, the QC counts
   // and the reflow limit cannot disagree about what fits.
-  const qc         = qcForMode(outputMode)
+  const qc         = useMemo(() => qcForMode(outputMode), [outputMode])
   const limit      = qc.maxChars
   const isSource   = activeTab === 'source'
   const hasTrans   = !isSource && !!translations[activeTab]
-  const activeSubs = isSource ? subtitles : (hasTrans ? getFinalSubs(activeTab) : [])
+  // Memoised because getFinalSubs derives a fresh array every call. Without
+  // this the quality check below re-runs on every render — the memo would be
+  // decoration, and the cost lands on exactly the long tracks it was there to
+  // protect.
+  const activeSubs = useMemo(
+    () => (isSource ? subtitles : hasTrans ? getFinalSubs(activeTab) : []),
+    [activeTab, getFinalSubs, hasTrans, isSource, subtitles],
+  )
   const bt         = hasTrans ? bts[activeTab] : undefined
 
-  const warns = activeSubs.filter(s => charStatus(s.text, qc) === 'warn').length
-  const errs  = activeSubs.filter(s => charStatus(s.text, qc) === 'error').length
+  /**
+   * The full check, not just the character count.
+   *
+   * The core has always tested reading speed, duration and the gaps between
+   * cues; the interface was only asking about line length and throwing the rest
+   * away. A cue can be well within 42 characters and still flash past too fast
+   * to read, which is the kind of thing a client notices and a character
+   * counter never will.
+   */
+  const quality       = useMemo(() => qcTrack(activeSubs, qc), [activeSubs, qc])
+  const sourceQuality = useMemo(() => qcTrack(subtitles, qc), [subtitles, qc])
+
+  const warns = [...quality.values()].filter(q => q.status === 'warn').length
+  const errs  = [...quality.values()].filter(q => q.status === 'error').length
+
+  /** Narrow the list to what needs attention. Null shows everything. */
+  const [filter, setFilter] = useState<'warn' | 'error' | null>(null)
+  const shown = filter ? activeSubs.filter(s => quality.get(s.index)?.status === filter) : activeSubs
 
   const leftRef  = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
@@ -133,14 +156,21 @@ export default function EditorArea() {
     router.refresh()
   }
 
-  const renderCard = (s: typeof activeSubs[0], editable: boolean) => {
+  const renderCard = (
+    s: typeof activeSubs[0],
+    editable: boolean,
+    checks: ReturnType<typeof qcTrack> = quality,
+  ) => {
     const backSub   = bt?.find(b => b.index === s.index)
     const sourceSub = subtitles.find(o => o.index === s.index)
+    const check     = checks.get(s.index)
     return (
       <SubtitleCard
         key={s.index}
         sub={s}
         limit={limit}
+        status={check?.status}
+        issues={check?.issues}
         editable={editable}
         backSub={backSub}
         sourceSub={sourceSub}
@@ -179,8 +209,28 @@ export default function EditorArea() {
         <span style={{ padding: '2px 7px', borderRadius: 12, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 500, background: 'var(--accent-dim)', color: '#8ba8ff' }}>
           {activeSubs.length} subs
         </span>
-        {warns > 0 && <span style={{ padding: '2px 7px', borderRadius: 12, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 500, background: 'var(--amber-dim)', color: 'var(--amber)' }}>{warns} warnings</span>}
-        {errs  > 0 && <span style={{ padding: '2px 7px', borderRadius: 12, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 500, background: 'var(--red-dim)',   color: 'var(--red)'   }}>{errs} errors</span>}
+        {/* Counts you can act on: clicking narrows the list to exactly those
+            cues, which is the difference between knowing there are eight
+            problems and being able to fix them. */}
+        {warns > 0 && (
+          <button onClick={() => setFilter(f => (f === 'warn' ? null : 'warn'))}
+            title={filter === 'warn' ? 'Show everything' : 'Show only warnings'}
+            style={{ padding: '2px 7px', borderRadius: 12, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 500, cursor: 'pointer', background: 'var(--amber-dim)', color: 'var(--amber)', border: `1px solid ${filter === 'warn' ? 'var(--amber)' : 'transparent'}` }}>
+            {warns} warnings
+          </button>
+        )}
+        {errs > 0 && (
+          <button onClick={() => setFilter(f => (f === 'error' ? null : 'error'))}
+            title={filter === 'error' ? 'Show everything' : 'Show only errors'}
+            style={{ padding: '2px 7px', borderRadius: 12, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 500, cursor: 'pointer', background: 'var(--red-dim)', color: 'var(--red)', border: `1px solid ${filter === 'error' ? 'var(--red)' : 'transparent'}` }}>
+            {errs} errors
+          </button>
+        )}
+        {filter && (
+          <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+            {shown.length} of {activeSubs.length} shown
+          </span>
+        )}
         {errs > 0 && hasTrans && (
           <button onClick={handleFixOverlength} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: 'pointer', border: '1px solid #5a1a1a', background: 'var(--red-dim)', color: 'var(--red)', transition: 'all .15s' }}>
             ✦ Fix
@@ -210,7 +260,7 @@ export default function EditorArea() {
                 <span style={{ marginLeft: 'auto', color: 'var(--text3)' }}>{subtitles.length} entries</span>
               </div>
               <div ref={leftRef} onScroll={() => rightRef.current && syncScroll(leftRef.current!, rightRef.current)} style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
-                {subtitles.map(s => renderCard(s, false))}
+                {subtitles.map(s => renderCard(s, false, sourceQuality))}
               </div>
             </div>
             {/* Right: translation */}
@@ -232,7 +282,7 @@ export default function EditorArea() {
               </span>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '10px 12px' }}>
-              {activeSubs.length ? activeSubs.map(s => renderCard(s, hasTrans)) : <DropZone />}
+              {activeSubs.length ? shown.map(s => renderCard(s, hasTrans)) : <DropZone />}
             </div>
           </div>
         )}

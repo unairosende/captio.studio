@@ -3,10 +3,21 @@
 import { useState, useRef } from 'react'
 import type { Subtitle } from '@/types/subtitle'
 import { DEFAULT_QC, charStatus, wordDiff } from '@/lib/subtitles'
+import type { QcIssue, Severity } from '@/lib/subtitles'
 
 interface Props {
   sub: Subtitle
   limit: number
+  /**
+   * The full verdict, checked against the whole track.
+   *
+   * Passed in rather than computed here because half the checks need the
+   * neighbouring cue — reading speed needs this cue's duration, the gap needs
+   * the previous one's end. A card on its own can only ever count characters,
+   * which is why it used to.
+   */
+  status?: Severity
+  issues?: QcIssue[]
   editable?: boolean
   backSub?: Subtitle
   sourceSub?: Subtitle
@@ -20,7 +31,7 @@ interface Props {
 }
 
 export default function SubtitleCard({
-  sub, limit, editable, backSub, sourceSub, onCommit, onSplit, onDelete,
+  sub, limit, status, issues, editable, backSub, sourceSub, onCommit, onSplit, onDelete,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft,   setDraft]   = useState(sub.text)
@@ -29,7 +40,9 @@ export default function SubtitleCard({
   // The card is handed a width by its parent; the rest of the thresholds are
   // the standard ones.
   const qc      = { ...DEFAULT_QC, maxChars: limit }
-  const st      = charStatus(sub.text, qc)
+  // Falls back to counting characters when nobody handed down a verdict, so
+  // the card still works if it is ever rendered outside the editor.
+  const st      = status ?? charStatus(sub.text, qc)
   const longest = Math.max(...sub.text.split('\n').map(l => l.length))
   const pct     = Math.min(100, Math.round(longest / limit * 100))
 
@@ -121,6 +134,26 @@ export default function SubtitleCard({
               <div style={{ height: '100%', width: `${pct}%`, background: barColor, transition: 'width .3s' }} />
             </div>
           </div>
+
+          {/* Say what is wrong, not just that something is. A red card with no
+              reason sends somebody hunting for a line-length problem that is
+              really a cue on screen for four tenths of a second. */}
+          {issues && issues.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
+              {issues.map((issue, i) => (
+                <span
+                  key={i}
+                  style={{
+                    fontSize: 10, padding: '1px 6px', borderRadius: 3, lineHeight: 1.5,
+                    background: issue.level === 'error' ? 'var(--red-dim)' : 'var(--amber-dim)',
+                    color: issue.level === 'error' ? 'var(--red)' : 'var(--amber)',
+                  }}
+                >
+                  {issue.msg}
+                </span>
+              ))}
+            </div>
+          )}
         </>
       )}
 
