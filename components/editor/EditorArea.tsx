@@ -5,9 +5,15 @@ import { useRouter } from 'next/navigation'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import { charStatus, qcForMode, qcTrack, reflowText } from '@/lib/subtitles'
 import { playheadSeconds } from '@/lib/timeline/playhead'
+import CommentsPanel from '@/components/comments/CommentsPanel'
 import SubtitleCard from './SubtitleCard'
 
-export default function EditorArea() {
+interface Props {
+  /** Whose comments carry a delete button. Read from the session on the server. */
+  userId: string
+}
+
+export default function EditorArea({ userId }: Props) {
   const {
     subtitles, translations, backTranslations,
     activeTab, outputMode, viewMode,
@@ -17,7 +23,11 @@ export default function EditorArea() {
     allowRephrase, srcLang, tgtLang,
     setBackTranslateJob,
     splitSubtitle, deleteSubtitle,
+    comments, projectId,
   } = useSubtitleStore()
+
+  /** The cue whose thread is open, if any. */
+  const [commentCue, setCommentCue] = useState<number | null>(null)
 
   // One source of truth for the thresholds, so the character bar, the QC counts
   // and the reflow limit cannot disagree about what fits.
@@ -164,6 +174,7 @@ export default function EditorArea() {
     const backSub   = bt?.find(b => b.index === s.index)
     const sourceSub = subtitles.find(o => o.index === s.index)
     const check     = checks.get(s.index)
+    const onCue     = comments.filter(c => c.cue_index === s.index)
     return (
       <SubtitleCard
         key={s.index}
@@ -183,6 +194,10 @@ export default function EditorArea() {
         // playhead, and the split falls back to the middle of the cue.
         onSplit={idx => splitSubtitle(idx, playheadSeconds() ?? undefined)}
         onDelete={deleteSubtitle}
+        // A comment needs a project to hang from, so an unsaved editor gets no
+        // button rather than a button that fails.
+        comments={{ total: onCue.length, open: onCue.filter(c => !c.resolved).length }}
+        onComments={projectId ? setCommentCue : undefined}
       />
     )
   }
@@ -197,6 +212,15 @@ export default function EditorArea() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+      {commentCue !== null && projectId && (
+        <CommentsPanel
+          projectId={projectId}
+          cueIndex={commentCue}
+          userId={userId}
+          onClose={() => setCommentCue(null)}
+        />
+      )}
+
       {/* View toolbar */}
       <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         {(['list', 'compare'] as const).map(m => (

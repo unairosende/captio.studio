@@ -28,10 +28,20 @@ interface Props {
    */
   onSplit?: (index: number) => void
   onDelete?: (index: number) => void
+  /**
+   * How many notes are on this cue, and how many are still open.
+   *
+   * Both, because a cue with four resolved comments and none open is settled,
+   * and a badge that could not tell the two apart would send somebody off to
+   * read an argument that finished last week.
+   */
+  comments?: { total: number; open: number }
+  onComments?: (index: number) => void
 }
 
 export default function SubtitleCard({
   sub, limit, status, issues, editable, backSub, sourceSub, onCommit, onSplit, onDelete,
+  comments, onComments,
 }: Props) {
   const [editing, setEditing] = useState(false)
   const [draft,   setDraft]   = useState(sub.text)
@@ -82,11 +92,27 @@ export default function SubtitleCard({
         {sub.start} → {sub.end}
       </div>
 
-      {(onSplit || onDelete) && !editing && (
+      {/* Outside the hover-revealed tools: a cue somebody has questioned should
+          say so without being pointed at. The other buttons stay hidden because
+          they change the track; this one only opens a conversation. */}
+      {onComments && comments && comments.total > 0 && !editing && (
+        <button
+          className={`cmt-badge${comments.open > 0 ? ' open' : ''}`}
+          onClick={e => { e.stopPropagation(); onComments(sub.index) }}
+          title={`${comments.total} comment${comments.total > 1 ? 's' : ''}, ${comments.open} open`}
+        >
+          💬 {comments.total}
+        </button>
+      )}
+
+      {(onSplit || onDelete || onComments) && !editing && (
         // Stopped from bubbling: the card itself opens the editor on click, and
         // splitting a cue and then landing in a textarea of the half you did
         // not mean is worse than either on its own.
         <div className="card-tools" onClick={e => e.stopPropagation()}>
+          {onComments && (
+            <button title="Comment on this subtitle" onClick={() => onComments(sub.index)}>💬</button>
+          )}
           {onSplit && (
             <button title="Split at the playhead" onClick={() => onSplit(sub.index)}>✂</button>
           )}

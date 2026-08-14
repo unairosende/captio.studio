@@ -40,8 +40,8 @@ interface Saved {
 export default function ProjectBar() {
   const {
     subtitles, translations, srcLang, glossary,
-    projectId, projectName, projectVersion, dirty,
-    openProject, markSaved, newProject, setProjectName,
+    projectId, projectName, projectVersion, dirty, anchorOps,
+    openProject, markSaved, newProject, setProjectName, setComments,
   } = useSubtitleStore()
 
   const [list, setList] = useState<Summary[]>([])
@@ -84,6 +84,10 @@ export default function ProjectBar() {
       data: { subtitles, translations, glossary },
       // Omitted when forcing, which is how "overwrite" gets past the guard.
       ...(projectId && !force ? { version: projectVersion } : {}),
+      // The cue splits and deletions since the last save, so the comments are
+      // renumbered in the same transaction as the cues they are about. A brand
+      // new project has nothing to renumber.
+      ...(projectId && anchorOps.length ? { anchorOps } : {}),
     }
 
     const res = await fetch(projectId ? `/api/projects/${projectId}` : '/api/projects', {
@@ -132,6 +136,11 @@ export default function ProjectBar() {
     })
     setConflict(false)
     setOpen(false)
+
+    // After the cues, not with them: the notes are a separate table, and a
+    // project that fails to hand over its comments should still open.
+    const notes = await fetch(`/api/projects/${id}/comments`)
+    setComments(notes.ok ? (await notes.json()).comments ?? [] : [])
   }
 
   const btn = {

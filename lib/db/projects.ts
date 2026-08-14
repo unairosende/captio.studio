@@ -1,4 +1,5 @@
 import { query, queryOne, requireOrg, transaction } from './client.ts'
+import { applyAnchorOps, type AnchorOp } from './comments.ts'
 
 export interface ProjectRow {
   id: string
@@ -96,42 +97,75 @@ export async function updateProject(
     fps?: number
     data?: unknown
   },
-  opts: { expectedVersion?: number } = {},
+  opts: {
+    expectedVersion?: number
+    /**
+     * The cue splits and deletions this save contains, in the order they were made.
+     *
+     * They arrive with the save rather than as they happen because the cues
+     * themselves are only written here: moving the anchors earlier would leave
+     * them describing a renumbering that the editor might still abandon.
+     */
+    anchorOps?: AnchorOp[]
+  } = {},
 ): Promise<ProjectRow | null> {
-  const sets: string[] = []
-  const params: unknown[] = [requireOrg(orgId), id]
+  const write = async (run: typeof query): Promise<ProjectRow | null> => {
+    const sets: string[] = []
+    const params: unknown[] = [requireOrg(orgId), id]
 
-  const push = (col: string, val: unknown) => {
-    params.push(val)
-    sets.push(`${col} = $${params.length}`)
+    const push = (col: string, val: unknown) => {
+      params.push(val)
+      sets.push(`${col} = $${params.length}`)
+    }
+
+    if (patch.name !== undefined) push('name', patch.name)
+    if (patch.sourceLang !== undefined) push('source_lang', patch.sourceLang)
+    if (patch.targetLangs !== undefined) push('target_langs', patch.targetLangs)
+    if (patch.fps !== undefined) push('fps', patch.fps)
+    if (patch.data !== undefined) push('data', JSON.stringify(patch.data))
+
+    if (!sets.length) {
+      const existing = await run<ProjectRow>(
+        `select * from projects where org_id = $1 and id = $2`,
+        [requireOrg(orgId), id],
+      )
+      return existing[0] ?? null
+    }
+
+    let guard = ''
+    if (opts.expectedVersion !== undefined) {
+      params.push(opts.expectedVersion)
+      guard = ` and version = $${params.length}`
+    }
+
+    const rows = await run<ProjectRow>(
+      `update projects set ${sets.join(', ')}
+       where org_id = $1 and id = $2${guard}
+       returning *`,
+      params,
+    )
+
+    if (rows.length) return rows[0]
+
+    // No row updated: either it is gone, or someone else saved first.
+    const still = await run<{ id: string }>(
+      `select id from projects where org_id = $1 and id = $2`,
+      [requireOrg(orgId), id],
+    )
+    if (opts.expectedVersion !== undefined && still.length) throw new ConflictError()
+    return null
   }
 
-  if (patch.name !== undefined) push('name', patch.name)
-  if (patch.sourceLang !== undefined) push('source_lang', patch.sourceLang)
-  if (patch.targetLangs !== undefined) push('target_langs', patch.targetLangs)
-  if (patch.fps !== undefined) push('fps', patch.fps)
-  if (patch.data !== undefined) push('data', JSON.stringify(patch.data))
+  if (!opts.anchorOps?.length) return write(query)
 
-  if (!sets.length) return getProject(orgId, id)
-
-  let guard = ''
-  if (opts.expectedVersion !== undefined) {
-    params.push(opts.expectedVersion)
-    guard = ` and version = $${params.length}`
-  }
-
-  const rows = await query<ProjectRow>(
-    `update projects set ${sets.join(', ')}
-     where org_id = $1 and id = $2${guard}
-     returning *`,
-    params,
-  )
-
-  if (rows.length) return rows[0]
-
-  // No row updated: either it is gone, or someone else saved first.
-  if (opts.expectedVersion !== undefined && (await getProject(orgId, id))) throw new ConflictError()
-  return null
+  // Cues and comment anchors are two tables describing the same renumbering.
+  // Committing one without the other is the failure this transaction exists for:
+  // it leaves every note below the edit quoting a line nobody wrote.
+  return transaction(async run => {
+    const project = await write(run)
+    if (project) await applyAnchorOps(orgId, id, opts.anchorOps!, run)
+    return project
+  })
 }
 
 export async function deleteProject(orgId: string, id: string): Promise<boolean> {

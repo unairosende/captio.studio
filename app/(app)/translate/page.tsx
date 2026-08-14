@@ -23,5 +23,5 @@ export default async function TranslatePage() {
   // enforced by the page that draws the button is not a limit.
   const entitlement = await getEntitlement(orgId)
 
-  return <TranslateClient user={{ email: user.email }} entitlement={entitlement} />
+  return <TranslateClient user={{ id: user.id, email: user.email }} entitlement={entitlement} />
 }

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
+import { parseAnchorOps } from '@/lib/db/comments'
 import { ConflictError, deleteProject, getProject, updateProject } from '@/lib/db/projects'
 
 /**
@@ -52,9 +53,14 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         fps: typeof body?.fps === 'number' ? body.fps : undefined,
         data: body?.data,
       },
-      // Sent by the editor, which knows which version it opened. Absent means
-      // "save regardless" — right for a rename, wrong for cues.
-      { expectedVersion: typeof body?.version === 'number' ? body.version : undefined },
+      {
+        // Sent by the editor, which knows which version it opened. Absent means
+        // "save regardless" — right for a rename, wrong for cues.
+        expectedVersion: typeof body?.version === 'number' ? body.version : undefined,
+        // The splits and deletions this save carries, so the comments move with
+        // the cues they are about instead of staying on the old numbers.
+        anchorOps: parseAnchorOps(body?.anchorOps),
+      },
     )
 
     if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })

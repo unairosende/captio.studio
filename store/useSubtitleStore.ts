@@ -9,6 +9,8 @@ import type {
   OutputMode, ViewMode,
 } from '../types/subtitle.ts'
 import type { GlossaryEntry } from '../lib/ai/prompt.ts'
+import type { AnchorEdit, AnchorOp, ProjectComment } from '../types/comment.ts'
+import { deleteAnchors, splitAnchors } from '../types/comment.ts'
 import { deleteCue, finalSubs, qcForMode, splitCue } from '../lib/subtitles/index.ts'
 
 /**
@@ -28,12 +30,33 @@ const UNDO_DEPTH = 50
 interface Snapshot {
   subtitles: Subtitle[]
   translations: TranslationStore
+  /**
+   * The renumbering this step performed, if any.
+   *
+   * Carried on the snapshot rather than in a stack of its own because undo has
+   * to move the comment anchors back, and only the step that moved them knows
+   * by how much.
+   */
+  edit?: AnchorEdit
 }
 
 const snapshot = (s: { subtitles: Subtitle[]; translations: TranslationStore }): Snapshot => ({
   subtitles: s.subtitles,
   translations: s.translations,
 })
+
+/**
+ * Move the comments on screen the same way the save will move them in the database.
+ *
+ * Without this the badge counts stay on the old cue numbers until somebody
+ * reloads — the comment is on the right line in Postgres and the wrong one in
+ * front of the person who just split the cue.
+ */
+function reanchor(comments: ProjectComment[], op: AnchorOp): ProjectComment[] {
+  return comments
+    .filter(c => op.dropIndex === undefined || c.cue_index !== op.dropIndex)
+    .map(c => (c.cue_index >= op.fromIndex ? { ...c, cue_index: c.cue_index + op.delta } : c))
+}
 
 /**
  * Put a snapshot back, keeping the open tab pointing at something real.
@@ -125,6 +148,23 @@ interface AppState {
   /** Whether there is work here that is not in the database. */
   dirty: boolean
 
+  /**
+   * The notes on the open project, as last read from the server.
+   *
+   * Empty for a project that has never been saved: a comment needs a project id
+   * to hang from, and there is nobody to read it yet anyway.
+   */
+  comments: ProjectComment[]
+  /**
+   * Renumberings made since the last save, in the order they happened.
+   *
+   * Sent with the save and applied to the anchors in the same transaction as
+   * the cues. Held rather than sent as they happen because these edits are not
+   * committed until somebody saves, and moving the anchors for a split that is
+   * later undone would be worse than not moving them at all.
+   */
+  anchorOps: AnchorOp[]
+
   openProject: (project: {
     id: string
     name: string
@@ -146,9 +186,11 @@ interface AppState {
    * drag fires a retime on every pointer move, and undoing one frame of a drag
    * is not undoing anything anybody did.
    */
-  pushUndo: () => void
+  pushUndo: (edit?: AnchorEdit) => void
   undo: () => void
   redo: () => void
+
+  setComments: (comments: ProjectComment[]) => void
 
   loadSubtitles: (subs: Subtitle[]) => void
   clearAll: () => void
@@ -208,6 +250,8 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   projectName: 'Untitled',
   projectVersion: null,
   dirty: false,
+  comments: [],
+  anchorOps: [],
 
   openProject: p => set({
     subtitles: p.subtitles,
@@ -222,10 +266,16 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     dirty: false,
     past: [],
     future: [],
+    // The notes are fetched separately, and the anchors of the project being
+    // closed have nothing to do with the one being opened.
+    comments: [],
+    anchorOps: [],
   }),
 
+  // The anchors went with the save, so replaying them would move every comment
+  // a second time.
   markSaved: (id, name, version) =>
-    set({ projectId: id, projectName: name, projectVersion: version, dirty: false }),
+    set({ projectId: id, projectName: name, projectVersion: version, dirty: false, anchorOps: [] }),
 
   newProject: () => set({
     subtitles: [],
@@ -239,12 +289,20 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     dirty: false,
     past: [],
     future: [],
+    comments: [],
+    anchorOps: [],
   }),
 
   setProjectName: name => set({ projectName: name, dirty: true }),
 
   // Opening a different file starts a different piece of work. Carrying the
   // history across would let undo paste the previous job's cues into this one.
+  //
+  // ponytail: the anchors are dropped rather than remapped. A new file renumbers
+  // the whole track at once, which no sequence of one-cue shifts describes — the
+  // existing notes then point at whatever cue now holds their old number. Worth
+  // solving if importing over a commented project turns out to be something
+  // people do.
   loadSubtitles: subs => set({
     subtitles: subs,
     translations: {},
@@ -253,6 +311,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     translateJob: defaultJob,
     past: [],
     future: [],
+    anchorOps: [],
     dirty: true,
   }),
 
@@ -266,6 +325,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     transcribeJob: defaultJob,
     past: [],
     future: [],
+    anchorOps: [],
     // Emptying the editor is itself a change worth saving or abandoning; the
     // project row is still there with the old cues in it. The glossary stays:
     // it is the terminology of the job, not of the file that was loaded, and
@@ -284,8 +344,8 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     return { translations: { ...s.translations, [lang]: subs }, dirty: true }
   }),
 
-  pushUndo: () => set(s => ({
-    past: [...s.past, snapshot(s)].slice(-UNDO_DEPTH),
+  pushUndo: edit => set(s => ({
+    past: [...s.past, { ...snapshot(s), edit }].slice(-UNDO_DEPTH),
     // Any new action abandons the branch that redo would have replayed. Keeping
     // it would let redo paste work from a timeline that no longer happened.
     future: [],
@@ -294,10 +354,16 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   undo: () => set(s => {
     const previous = s.past.at(-1)
     if (!previous) return {}
+    const back = previous.edit?.undo
     return {
       ...restore(s, previous),
       past: s.past.slice(0, -1),
-      future: [...s.future, snapshot(s)],
+      future: [...s.future, { ...snapshot(s), edit: previous.edit }],
+      // Taking back a split has to take back the renumbering with it, or the
+      // comments stay one line below where they belong.
+      ...(back
+        ? { comments: reanchor(s.comments, back), anchorOps: [...s.anchorOps, back] }
+        : {}),
       // Undoing back to the saved state still counts as unsaved: the store
       // does not know which snapshot the database holds, and claiming "saved"
       // when it might not be is the wrong way to be wrong.
@@ -308,13 +374,19 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   redo: () => set(s => {
     const next = s.future.at(-1)
     if (!next) return {}
+    const again = next.edit?.op
     return {
       ...restore(s, next),
       future: s.future.slice(0, -1),
-      past: [...s.past, snapshot(s)],
+      past: [...s.past, { ...snapshot(s), edit: next.edit }],
+      ...(again
+        ? { comments: reanchor(s.comments, again), anchorOps: [...s.anchorOps, again] }
+        : {}),
       dirty: true,
     }
   }),
+
+  setComments: comments => set({ comments }),
 
   /**
    * Move a cue in time, in every language at once.
@@ -339,13 +411,23 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   }),
 
   splitSubtitle: (index, atSec) => {
-    get().pushUndo()
-    set(s => structural(s, subs => splitCue(subs, index, atSec)))
+    const edit = splitAnchors(index)
+    get().pushUndo(edit)
+    set(s => ({
+      ...structural(s, subs => splitCue(subs, index, atSec)),
+      comments: reanchor(s.comments, edit.op),
+      anchorOps: [...s.anchorOps, edit.op],
+    }))
   },
 
   deleteSubtitle: index => {
-    get().pushUndo()
-    set(s => structural(s, subs => deleteCue(subs, index)))
+    const edit = deleteAnchors(index)
+    get().pushUndo(edit)
+    set(s => ({
+      ...structural(s, subs => deleteCue(subs, index)),
+      comments: reanchor(s.comments, edit.op),
+      anchorOps: [...s.anchorOps, edit.op],
+    }))
   },
 
   setBackTranslation: (lang, subs) => set(s => ({

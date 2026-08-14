@@ -83,6 +83,18 @@ body {
 .card-tools button:hover { color: var(--text); border-color: var(--accent); }
 .card-tools button.danger:hover { color: var(--red); border-color: #5a1a1a; }
 
+/* A questioned line says so at rest — unlike the tools above, which are things
+   you do to a cue rather than something you need told. It gives way on hover
+   because the tools take the same corner, and one of them opens the thread. */
+.cmt-badge {
+  position: absolute; top: 6px; right: 7px;
+  background: var(--bg3); border: 1px solid var(--border2); color: var(--text3);
+  border-radius: 4px; font-size: 10px; line-height: 1; padding: 3px 5px; cursor: pointer;
+  transition: opacity .15s;
+}
+.cmt-badge.open { border-color: var(--amber); color: var(--amber); }
+.sub-card:hover .cmt-badge { opacity: 0; pointer-events: none; }
+
 .diff-del { color: var(--amber); text-decoration: line-through; opacity: .75; }
 .diff-ins { color: var(--green); }
 

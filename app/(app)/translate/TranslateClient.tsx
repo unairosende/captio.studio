@@ -13,7 +13,8 @@ import type { Entitlement } from '@/lib/entitlement'
 import { useRouter } from 'next/navigation'
 
 interface Props {
-  user: { email: string }
+  /** The id decides one thing only: whose comments carry a delete button. */
+  user: { id: string; email: string }
   entitlement: Entitlement
 }
 
@@ -82,7 +83,7 @@ export default function TranslateClient({ user, entitlement }: Props) {
         <Sidebar entitlement={entitlement} />
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <LangTabsBar />
-          <EditorArea />
+          <EditorArea userId={user.id} />
           <Timeline />
         </div>
       </div>
