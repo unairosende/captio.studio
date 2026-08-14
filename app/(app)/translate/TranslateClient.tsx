@@ -5,7 +5,8 @@ import LangTabsBar from '@/components/editor/LangTabsBar'
 import EditorArea from '@/components/editor/EditorArea'
 import ProjectBar from '@/components/projects/ProjectBar'
 import Timeline from '@/components/timeline/Timeline'
-import { useEffect } from 'react'
+import TeamPanel from '@/components/team/TeamPanel'
+import { useEffect, useState } from 'react'
 
 import { signOut as endSession } from '@/lib/auth/client'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
@@ -13,14 +14,20 @@ import type { Entitlement } from '@/lib/entitlement'
 import { useRouter } from 'next/navigation'
 
 interface Props {
-  /** The id decides one thing only: whose comments carry a delete button. */
-  user: { id: string; email: string }
+  /**
+   * The id decides one thing only: whose comments carry a delete button. The
+   * role decides who may invite and remove — read from the session on the
+   * server, so the panel cannot be talked into offering buttons that would be
+   * refused anyway.
+   */
+  user: { id: string; email: string; role: string }
   entitlement: Entitlement
 }
 
 export default function TranslateClient({ user, entitlement }: Props) {
   const router = useRouter()
   const { undo, redo } = useSubtitleStore()
+  const [team, setTeam] = useState(false)
 
   /**
    * Undo for the editor, not for the field somebody is typing in.
@@ -58,6 +65,10 @@ export default function TranslateClient({ user, entitlement }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      {team && (
+        <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />
+      )}
+
       {/* Topbar */}
       <div style={{ background: 'var(--bg1)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em' }}>
@@ -71,6 +82,9 @@ export default function TranslateClient({ user, entitlement }: Props) {
           <ProjectBar />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+          <button onClick={() => setTeam(true)} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
+            Team
+          </button>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>{user.email}</span>
           <button onClick={signOut} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, transition: 'color .15s' }}>
             Sign out

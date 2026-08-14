@@ -13,7 +13,7 @@ import TranslateClient from './TranslateClient'
  * the login page.
  */
 export default async function TranslatePage() {
-  const [{ orgId }, user] = await Promise.all([requireOrgContext(), requireUser()])
+  const [{ orgId, role }, user] = await Promise.all([requireOrgContext(), requireUser()])
 
   // Read here rather than from the browser: this page is already a server
   // component doing a round trip, so the editor can render knowing what is left
@@ -23,5 +23,10 @@ export default async function TranslatePage() {
   // enforced by the page that draws the button is not a limit.
   const entitlement = await getEntitlement(orgId)
 
-  return <TranslateClient user={{ id: user.id, email: user.email }} entitlement={entitlement} />
+  return (
+    <TranslateClient
+      user={{ id: user.id, email: user.email, role }}
+      entitlement={entitlement}
+    />
+  )
 }
