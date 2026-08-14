@@ -224,7 +224,7 @@ export default function EditorArea({ userId }: Props) {
       {/* View toolbar */}
       <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '6px 14px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
         {(['list', 'compare'] as const).map(m => (
-          <button key={m} onClick={() => useSubtitleStore.getState().setViewMode(m)}
+          <button key={m} data-cmd={m === 'list' ? 'Show one language at a time' : 'Show the original beside the translation'} onClick={() => useSubtitleStore.getState().setViewMode(m)}
             style={{ padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: 'pointer', border: 'none', background: viewMode === m ? 'var(--bg3)' : 'transparent', color: viewMode === m ? 'var(--text)' : 'var(--text3)', transition: 'all .15s' }}>
             {m.charAt(0).toUpperCase() + m.slice(1)}
           </button>
@@ -256,12 +256,12 @@ export default function EditorArea({ userId }: Props) {
           </span>
         )}
         {errs > 0 && hasTrans && (
-          <button onClick={handleFixOverlength} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: 'pointer', border: '1px solid #5a1a1a', background: 'var(--red-dim)', color: 'var(--red)', transition: 'all .15s' }}>
+          <button data-cmd="Fix the subtitles that are too long" onClick={handleFixOverlength} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: 'pointer', border: '1px solid #5a1a1a', background: 'var(--red-dim)', color: 'var(--red)', transition: 'all .15s' }}>
             ✦ Fix
           </button>
         )}
         {hasTrans && (
-          <button onClick={handleBackTranslate} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: 'pointer', border: `1px solid ${bt ? 'var(--accent)' : 'var(--border)'}`, background: bt ? 'var(--accent-dim)' : 'transparent', color: bt ? '#8ba8ff' : 'var(--text3)', transition: 'all .15s' }}>
+          <button data-cmd={bt ? 'Hide the back-translation' : 'Back-translate to check the meaning'} onClick={handleBackTranslate} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: 'pointer', border: `1px solid ${bt ? 'var(--accent)' : 'var(--border)'}`, background: bt ? 'var(--accent-dim)' : 'transparent', color: bt ? '#8ba8ff' : 'var(--text3)', transition: 'all .15s' }}>
             {backTranslateJob.running ? <span className="spinner" /> : '↩'}
             {bt ? 'Hide back-trans' : 'Back-translate'}
           </button>

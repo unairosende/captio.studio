@@ -289,7 +289,10 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
           <>
             <input ref={fileRef} type="file" accept=".srt,.txt,.csv" style={{ display: 'none' }} onChange={e => { if (e.target.files?.[0]) { handleFile(e.target.files[0]); e.target.value = '' } }} />
             <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              <button onClick={() => fileRef.current?.click()} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)', transition: 'all .15s' }}>
+              {/* data-cmd puts a button in the command palette. The palette
+                  reads the page rather than keeping a list of its own, so a
+                  button that is absent or disabled is a command not offered. */}
+              <button data-cmd="Open a subtitle file" data-cmd-hint="SRT · TXT · CSV" onClick={() => fileRef.current?.click()} style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: 'pointer', border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)', transition: 'all .15s' }}>
                 ↑ Open file
               </button>
               <button onClick={clearAll} disabled={!hasSubs} style={{ padding: '7px 10px', borderRadius: 6, fontSize: 13, cursor: hasSubs ? 'pointer' : 'not-allowed', border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text3)', opacity: hasSubs ? 1 : .4, transition: 'all .15s' }}>
@@ -346,7 +349,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
               </div>
             )}
 
-            <button onClick={startTranscription} disabled={!xcFile || transcribeJob.running}
+            <button data-cmd="Transcribe the audio" onClick={startTranscription} disabled={!xcFile || transcribeJob.running}
               style={{ marginTop: 8, width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: xcFile && !transcribeJob.running ? 'pointer' : 'not-allowed', border: 'none', background: 'var(--accent)', color: '#fff', opacity: (!xcFile || transcribeJob.running) ? .4 : 1 }}>
               {transcribeJob.running ? <span className="spinner" /> : '🎙'} Transcribe
             </button>
@@ -431,7 +434,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
         <div style={{ height: 3, background: 'var(--bg3)', borderRadius: 2, overflow: 'hidden', marginBottom: 7 }}>
           <div style={{ height: '100%', background: 'linear-gradient(90deg,var(--accent),var(--green))', width: `${translateJob.progress}%`, transition: 'width .3s' }} />
         </div>
-        <button onClick={startTranslation} disabled={!hasSubs || translateJob.running}
+        <button data-cmd="Translate" data-cmd-hint="into the target language" onClick={startTranslation} disabled={!hasSubs || translateJob.running}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: hasSubs && !translateJob.running ? 'pointer' : 'not-allowed', border: 'none', background: 'var(--accent)', color: '#fff', opacity: (!hasSubs || translateJob.running) ? .4 : 1 }}>
           {translateJob.running ? <span className="spinner" /> : '⇄'} Translate
         </button>
@@ -451,7 +454,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
           <option value="csv">CSV</option>
           <option value="vtt">VTT</option>
         </select>
-        <button onClick={doExport} disabled={!hasTrans}
+        <button data-cmd="Export the tab on screen" onClick={doExport} disabled={!hasTrans}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: hasTrans ? 'pointer' : 'not-allowed', border: '1px solid #2a7a50', background: 'var(--green-dim)', color: 'var(--green)', opacity: hasTrans ? 1 : .4, transition: 'all .15s' }}>
           ↓ Export
         </button>
@@ -464,7 +467,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
           <option value="xlsx">XLSX</option>
           <option value="csv">CSV</option>
         </select>
-        <button onClick={doExportAll} disabled={!langCount}
+        <button data-cmd="Export every language as one sheet" data-cmd-hint="XLSX · CSV" onClick={doExportAll} disabled={!langCount}
           style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: langCount ? 'pointer' : 'not-allowed', border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text2)', opacity: langCount ? 1 : .4, transition: 'all .15s' }}>
           ↓ {langCount ? `${langCount} language${langCount > 1 ? 's' : ''} in one sheet` : 'One sheet, all languages'}
         </button>

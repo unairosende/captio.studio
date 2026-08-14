@@ -19,3 +19,26 @@ export function publishPlayhead(fn: (() => number) | null): void {
 export function playheadSeconds(): number | null {
   return read?.() ?? null
 }
+
+/**
+ * Moving it, lent out the same way.
+ *
+ * The command palette needs this: typing a timecode and landing there is the
+ * one thing a menu cannot do for somebody working through a feature-length
+ * track. Same shape as the read above, and for the same reason — the position
+ * lives in a ref inside the timeline, and hoisting it into the store so that one
+ * text box could move it would cost a re-render of the editor on every frame of
+ * playback.
+ */
+let jump: ((seconds: number) => void) | null = null
+
+export function publishSeek(fn: ((seconds: number) => void) | null): void {
+  jump = fn
+}
+
+/** Returns whether anything was listening, so a caller can say "no timeline". */
+export function seekTo(seconds: number): boolean {
+  if (!jump) return false
+  jump(seconds)
+  return true
+}

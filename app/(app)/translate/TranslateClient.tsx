@@ -6,6 +6,7 @@ import EditorArea from '@/components/editor/EditorArea'
 import ProjectBar from '@/components/projects/ProjectBar'
 import Timeline from '@/components/timeline/Timeline'
 import TeamPanel from '@/components/team/TeamPanel'
+import CommandPalette from '@/components/palette/CommandPalette'
 import { useEffect, useState } from 'react'
 
 import { signOut as endSession } from '@/lib/auth/client'
@@ -28,18 +29,31 @@ export default function TranslateClient({ user, entitlement }: Props) {
   const router = useRouter()
   const { undo, redo } = useSubtitleStore()
   const [team, setTeam] = useState(false)
+  const [palette, setPalette] = useState(false)
 
   /**
-   * Undo for the editor, not for the field somebody is typing in.
+   * Two shortcuts, one listener.
    *
-   * While a textarea has focus the browser's own undo is the right one — it
-   * works per character and knows where the caret is. Hijacking the shortcut
-   * there would throw away a half-written line in order to take back an
-   * unrelated drag.
+   * ⌘K opens the palette from anywhere, including out of a half-typed subtitle:
+   * it is how you leave where you are, so refusing it while a field has focus
+   * would defeat it.
+   *
+   * ⌘Z is the opposite. While a textarea has focus the browser's own undo is
+   * the right one — it works per character and knows where the caret is.
+   * Hijacking it there would throw away a half-written line in order to take
+   * back an unrelated drag.
    */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== 'z') return
+      if (!(e.metaKey || e.ctrlKey)) return
+      const key = e.key.toLowerCase()
+
+      if (key === 'k') {
+        e.preventDefault()
+        setPalette(p => !p)
+        return
+      }
+      if (key !== 'z') return
 
       const el = e.target as HTMLElement | null
       const typing =
@@ -69,6 +83,8 @@ export default function TranslateClient({ user, entitlement }: Props) {
         <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />
       )}
 
+      {palette && <CommandPalette onClose={() => setPalette(false)} />}
+
       {/* Topbar */}
       <div style={{ background: 'var(--bg1)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
         <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em' }}>
@@ -82,7 +98,10 @@ export default function TranslateClient({ user, entitlement }: Props) {
           <ProjectBar />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => setTeam(true)} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
+          <button onClick={() => setPalette(true)} title="Search and commands ⌘K" style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
+            ⌕ <span style={{ fontFamily: 'var(--mono)', fontSize: 10 }}>⌘K</span>
+          </button>
+          <button data-cmd="Manage the team" onClick={() => setTeam(true)} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
             Team
           </button>
           <span style={{ fontSize: 12, color: 'var(--text3)' }}>{user.email}</span>

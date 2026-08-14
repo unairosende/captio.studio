@@ -170,15 +170,16 @@ export default function ProjectBar() {
         }}
       />
 
-      <button onClick={() => void save()} disabled={busy} style={btn}>
+      <button data-cmd="Save the project" onClick={() => void save()} disabled={busy} style={btn}>
         {busy ? 'Saving…' : 'Save'}
       </button>
 
-      <button onClick={() => setOpen(v => !v)} style={btn}>
+      <button data-cmd="Open a project" onClick={() => setOpen(v => !v)} style={btn}>
         Projects
       </button>
 
       <button
+        data-cmd="Start a new project"
         onClick={() => {
           if (dirty && !confirm('Discard unsaved changes?')) return
           newProject()

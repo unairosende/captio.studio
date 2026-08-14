@@ -84,7 +84,9 @@ export default function SubtitleCard({
   const diffOps = (backSub && sourceSub) ? wordDiff(sourceSub.text, backSub.text) : null
 
   return (
-    <div className={cardCls} onClick={open}>
+    // An attribute rather than an id: the compare view draws the same cue
+    // number twice, and two elements with one id is not a document.
+    <div className={cardCls} data-cue={sub.index} onClick={open}>
       <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 2 }}>
         #{sub.index}
       </div>

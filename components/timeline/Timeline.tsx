@@ -5,7 +5,7 @@ import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } 
 import { peakBetween, peaksFrom } from '@/lib/audio/peaks'
 import { qcTrack, srtToSec } from '@/lib/subtitles'
 import { type Edge, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
-import { publishPlayhead } from '@/lib/timeline/playhead'
+import { publishPlayhead, publishSeek } from '@/lib/timeline/playhead'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
 import {
   type Direction,
@@ -519,6 +519,12 @@ export default function Timeline() {
     publishPlayhead(() => playheadRef.current)
     return () => publishPlayhead(null)
   }, [])
+
+  // And lend the way back, so the palette can jump to a cue or a timecode.
+  useEffect(() => {
+    publishSeek(seek)
+    return () => publishSeek(null)
+  }, [seek])
 
   const ready = duration > 0
   const btn = {
