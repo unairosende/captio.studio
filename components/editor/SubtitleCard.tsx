@@ -187,7 +187,7 @@ export default function SubtitleCard({
 
       {diffOps && (
         <div style={{ marginTop: 7, paddingTop: 7, borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: 9, letterSpacing: '.08em', color: 'var(--text3)', textTransform: 'uppercase', marginBottom: 3 }}>
+          <div className="caps" style={{ marginBottom: 3 }}>
             Back-trans
           </div>
           <div style={{ fontSize: 12, color: 'var(--text2)', lineHeight: 1.5, wordBreak: 'break-word' }}>

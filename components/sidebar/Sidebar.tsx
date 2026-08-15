@@ -31,7 +31,7 @@ import { TRIAL } from '@/lib/plans'
  * underneath it.
  */
 const S = ({ label }: { label: string }) => (
-  <div style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 9 }}>{label}</div>
+  <div className="caps" style={{ marginBottom: 9 }}>{label}</div>
 )
 
 export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
@@ -305,7 +305,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
               Parse pasted content
             </button>
             <div style={{ marginTop: 9 }}>
-              <div style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 5 }}>Hint format</div>
+              <div className="caps" style={{ marginBottom: 5 }}>Hint format</div>
               <select
                 className="select"
                 value={hint}
@@ -320,7 +320,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
           </>
         ) : (
           <>
-            <div style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', marginBottom: 6 }}>Audio language</div>
+            <div className="caps" style={{ marginBottom: 6 }}>Audio language</div>
             <select id="xcSourceLang" className="select" style={{ marginBottom: 10, fontSize: 12 }}>
               <option value="auto">Auto-detect</option>
               {['en','es','fr','de','it','pt','nl','pl','ru','tr','ar','ja','ko','zh','ca'].map(c => (
@@ -504,7 +504,10 @@ function TrialMeter({ entitlement }: { entitlement: Entitlement }) {
 
   return (
     <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 11, lineHeight: 1.55, color: spent ? 'var(--red)' : low ? 'var(--amber)' : 'var(--text3)' }}>
-      <div style={{ fontSize: 10, letterSpacing: '.08em', textTransform: 'uppercase', fontWeight: 500, marginBottom: 3 }}>
+      {/* Colour comes from the meter around it — red once the trial is spent,
+          amber when it is nearly — so this one heading does not take the
+          class's own grey. */}
+      <div className="caps" style={{ color: 'inherit', marginBottom: 3 }}>
         Free trial
       </div>
       <div style={{ fontFamily: 'var(--mono)' }}>

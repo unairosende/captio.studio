@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { srtToSec } from '@/lib/subtitles'
 import { parseGoto } from '@/lib/timeline/goto'
@@ -181,26 +181,16 @@ export default function CommandPalette({ onClose }: Props) {
 
   return (
     <div
+      className="overlay"
+      style={{ '--overlay-z': 70, '--overlay-top': '14vh' } as CSSProperties}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 70, display: 'flex',
-        alignItems: 'flex-start', justifyContent: 'center', paddingTop: '14vh',
-        background: 'rgba(0,0,0,.5)',
-      }}
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
     >
-      <div style={{
-        width: 540, maxHeight: '60vh', display: 'flex', flexDirection: 'column',
-        borderRadius: 10, border: '1px solid var(--border2)', background: 'var(--bg1)',
-        boxShadow: '0 18px 50px rgba(0,0,0,.5)',
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 13px',
-          borderBottom: '1px solid var(--border)',
-        }}>
-          <span style={{ color: 'var(--text3)', fontSize: 13 }}>⌕</span>
+      <div className="panel" style={{ '--panel-w': '540px', '--panel-h': '60vh' } as CSSProperties}>
+        <div className="panel-head">
+          <span style={{ color: 'var(--text3)', fontSize: 'var(--fs-base)' }}>⌕</span>
           <input
             ref={inputRef}
             value={q}
@@ -220,16 +210,16 @@ export default function CommandPalette({ onClose }: Props) {
             }}
           />
           <span style={{
-            fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)',
-            border: '1px solid var(--border2)', borderRadius: 4, padding: '1px 5px',
+            fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--text3)',
+            border: '1px solid var(--border2)', borderRadius: 'var(--r-sm)', padding: '1px 5px',
           }}>
             esc
           </span>
         </div>
 
-        <div ref={listRef} style={{ flex: 1, overflowY: 'auto', padding: '5px 0 8px' }}>
+        <div ref={listRef} className="panel-body" style={{ padding: '5px 0 8px' }}>
           {items.length === 0 && (
-            <div style={{ padding: '14px 15px', fontSize: 12, color: 'var(--text3)' }}>
+            <div className="muted" style={{ padding: '14px 15px', fontSize: 'var(--fs-md)' }}>
               Nothing matches “{q}”.
             </div>
           )}
@@ -239,12 +229,7 @@ export default function CommandPalette({ onClose }: Props) {
             return (
               <div key={item.key}>
                 {header && (
-                  <div style={{
-                    fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase',
-                    color: 'var(--text3)', padding: '8px 15px 3px',
-                  }}>
-                    {header}
-                  </div>
+                  <div className="caps" style={{ padding: '8px 15px 3px' }}>{header}</div>
                 )}
                 <div
                   data-row={i}
@@ -257,14 +242,14 @@ export default function CommandPalette({ onClose }: Props) {
                   }}
                 >
                   <span style={{
-                    fontSize: 12.5, color: 'var(--text)', whiteSpace: 'nowrap',
+                    fontSize: 'var(--fs-md)', color: 'var(--text)', whiteSpace: 'nowrap',
                     overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
                     {item.label}
                   </span>
                   {item.hint && (
                     <span style={{
-                      fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)',
+                      fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--text3)',
                       marginLeft: 'auto', flexShrink: 0,
                     }}>
                       {item.hint}

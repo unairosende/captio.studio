@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useState } from 'react'
 
 import { organization } from '@/lib/auth/client'
 
@@ -141,45 +141,21 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
     await refresh()
   }
 
-  const btn = {
-    padding: '3px 8px', borderRadius: 4, fontSize: 11, lineHeight: 1.5, cursor: 'pointer',
-    border: '1px solid var(--border2)', background: 'var(--bg2)', color: 'var(--text3)',
-  } as const
-
-  const field = {
-    padding: '5px 8px', borderRadius: 5, fontSize: 12,
-    border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text)',
-  } as const
-
   return (
     <div
+      className="overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 60, display: 'flex',
-        alignItems: 'flex-start', justifyContent: 'center', paddingTop: '10vh',
-        background: 'rgba(0,0,0,.5)',
-      }}
       role="dialog"
       aria-modal="true"
       aria-label="Team"
     >
-      <div style={{
-        width: 480, maxHeight: '70vh', display: 'flex', flexDirection: 'column',
-        borderRadius: 9, border: '1px solid var(--border2)', background: 'var(--bg1)',
-        boxShadow: '0 18px 50px rgba(0,0,0,.45)',
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 13px',
-          borderBottom: '1px solid var(--border)',
-        }}>
-          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>Team</span>
-          <span style={{ fontSize: 11, color: 'var(--text3)' }}>
+      <div className="panel" style={{ '--panel-w': '480px', '--panel-h': '70vh' } as CSSProperties}>
+        <div className="panel-head">
+          <span className="panel-title">Team</span>
+          <span className="muted">
             {members.length} {members.length === 1 ? 'person' : 'people'}
           </span>
-          <button onClick={onClose} aria-label="Close team"
-            style={{ ...btn, marginLeft: 'auto', border: 'none', background: 'none', fontSize: 15 }}>
-            ×
-          </button>
+          <button className="panel-close" onClick={onClose} aria-label="Close team">×</button>
         </div>
 
         {canManage && (
@@ -193,50 +169,43 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
                 placeholder="colleague@example.com"
                 spellCheck={false}
                 aria-label="Email to invite"
-                style={{ ...field, flex: 1 }}
+                className="field"
+                style={{ flex: 1 }}
               />
               <select
                 value={inviteRole}
                 onChange={e => setInviteRole(e.target.value as Role)}
                 aria-label="Role"
-                style={{ ...field, cursor: 'pointer' }}
+                className="field"
+                style={{ cursor: 'pointer' }}
               >
                 {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
               </select>
-              <button onClick={() => void invite()} disabled={busy || !email.trim()}
-                style={{ ...btn, padding: '5px 11px', color: 'var(--text)', borderColor: 'var(--accent)' }}>
+              <button className="btn btn-primary btn-lg" onClick={() => void invite()}
+                disabled={busy || !email.trim()}>
                 {busy ? 'Sending…' : 'Invite'}
               </button>
             </div>
-            <div style={{ fontSize: 10, color: 'var(--text3)', marginTop: 5 }}>
+            <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 5 }}>
               {ROLE_HELP[inviteRole]}. The link expires in seven days.
             </div>
-            {sent && (
-              <div style={{ fontSize: 11, color: 'var(--green)', marginTop: 5 }}>
-                Invitation sent to {sent}.
-              </div>
-            )}
+            {sent && <div className="ok" style={{ marginTop: 5 }}>Invitation sent to {sent}.</div>}
           </div>
         )}
 
-        {error && (
-          <div style={{ padding: '8px 13px 0', fontSize: 11, color: 'var(--red)' }}>{error}</div>
-        )}
+        {error && <div className="err" style={{ padding: '8px 13px 0' }}>{error}</div>}
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '6px 13px 12px' }}>
+        <div className="panel-body" style={{ padding: '6px 13px 12px' }}>
           {members.map(m => (
-            <div key={m.id} style={{
-              display: 'flex', alignItems: 'center', gap: 8,
-              padding: '7px 0', borderBottom: '1px solid var(--border)',
-            }}>
+            <div key={m.id} className="row">
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 12, color: 'var(--text)' }}>
+                <div style={{ fontSize: 'var(--fs-md)', color: 'var(--text)' }}>
                   {m.user.name || m.user.email}
                   {m.userId === currentUserId && (
-                    <span style={{ fontSize: 10, color: 'var(--text3)' }}> · you</span>
+                    <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}> · you</span>
                   )}
                 </div>
-                <div style={{ fontSize: 10, color: 'var(--text3)', wordBreak: 'break-all' }}>
+                <div className="muted" style={{ fontSize: 'var(--fs-xs)', wordBreak: 'break-all' }}>
                   {m.user.email}
                 </div>
               </div>
@@ -250,51 +219,46 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
                     value={(ROLES as readonly string[]).includes(m.role) ? m.role : 'member'}
                     onChange={e => void changeRole(m, e.target.value as Role)}
                     aria-label={`Role for ${m.user.email}`}
-                    style={{ ...field, fontSize: 11, padding: '3px 6px', cursor: 'pointer' }}
+                    className="field"
+                    style={{ fontSize: 'var(--fs-sm)', padding: '3px 6px', cursor: 'pointer' }}
                   >
                     {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                   </select>
-                  <button onClick={() => void remove(m)} style={{ ...btn, color: 'var(--red)' }}
+                  <button className="btn btn-danger" onClick={() => void remove(m)}
                     title="Remove from the organisation">
                     Remove
                   </button>
                 </div>
               ) : (
-                <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)' }}>
-                  {m.role}
-                </span>
+                <span className="muted" style={{ marginLeft: 'auto' }}>{m.role}</span>
               )}
             </div>
           ))}
 
           {invites.length > 0 && (
             <>
-              <div style={{
-                fontSize: 9, letterSpacing: '.08em', textTransform: 'uppercase',
-                color: 'var(--text3)', margin: '12px 0 4px',
-              }}>
+              <div className="caps" style={{ margin: '12px 0 4px' }}>
                 Invited, not yet accepted
               </div>
               {invites.map(inv => (
-                <div key={inv.id} style={{
-                  display: 'flex', alignItems: 'center', gap: 8,
-                  padding: '6px 0', borderBottom: '1px solid var(--border)',
-                }}>
-                  <div style={{ fontSize: 12, color: 'var(--text2)', wordBreak: 'break-all' }}>
+                <div key={inv.id} className="row" style={{ padding: '6px 0' }}>
+                  <div style={{ fontSize: 'var(--fs-md)', color: 'var(--text2)', wordBreak: 'break-all' }}>
                     {inv.email}
                   </div>
-                  <span style={{ fontSize: 10, color: 'var(--text3)' }}>{inv.role ?? 'member'}</span>
-                  <span style={{ fontSize: 10, color: 'var(--text3)', marginLeft: 'auto' }}>
+                  <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}>
+                    {inv.role ?? 'member'}
+                  </span>
+                  <span className="muted" style={{ fontSize: 'var(--fs-xs)', marginLeft: 'auto' }}>
                     expires {new Date(inv.expiresAt).toLocaleDateString()}
                   </span>
-                  <button onClick={() => void cancel(inv)} style={btn}>Cancel</button>
+                  <button className="btn" onClick={() => void cancel(inv)}>Cancel</button>
                 </div>
               ))}
             </>
           )}
 
           {!canManage && (
-            <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 10 }}>
+            <div className="muted" style={{ marginTop: 10 }}>
               Ask an admin to invite somebody or change a role.
             </div>
           )}

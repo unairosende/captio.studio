@@ -28,7 +28,7 @@ export default function GlossaryPanel() {
 
   return (
     <details>
-      <summary style={{ fontSize: 10, letterSpacing: '.08em', color: 'var(--text3)', fontWeight: 500, textTransform: 'uppercase', cursor: 'pointer', marginBottom: 9 }}>
+      <summary className="caps" style={{ cursor: 'pointer', marginBottom: 9 }}>
         Glossary{glossary.length > 0 && ` · ${glossary.length}`}
       </summary>
 

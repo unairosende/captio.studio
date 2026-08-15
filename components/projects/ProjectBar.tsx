@@ -143,22 +143,14 @@ export default function ProjectBar() {
     setComments(notes.ok ? (await notes.json()).comments ?? [] : [])
   }
 
-  const btn = {
-    padding: '4px 9px', borderRadius: 5, fontSize: 11, lineHeight: 1.4,
-    border: '1px solid var(--border2)', background: 'var(--bg2)',
-    color: 'var(--text2)', cursor: 'pointer',
-  } as const
-
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 7, position: 'relative' }}>
       <input
+        className="field"
+        style={{ width: 150, padding: '3px 7px' }}
         value={projectName}
         onChange={e => setProjectName(e.target.value)}
         aria-label="Project name"
-        style={{
-          width: 150, padding: '3px 7px', borderRadius: 5, fontSize: 12,
-          border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text)',
-        }}
       />
 
       {/* Unsaved work says so. A dot is enough; a banner would be nagging. */}
@@ -170,27 +162,27 @@ export default function ProjectBar() {
         }}
       />
 
-      <button data-cmd="Save the project" onClick={() => void save()} disabled={busy} style={btn}>
+      <button className="btn" data-cmd="Save the project" onClick={() => void save()} disabled={busy}>
         {busy ? 'Saving…' : 'Save'}
       </button>
 
-      <button data-cmd="Open a project" onClick={() => setOpen(v => !v)} style={btn}>
+      <button className="btn" data-cmd="Open a project" onClick={() => setOpen(v => !v)}>
         Projects
       </button>
 
       <button
+        className="btn"
         data-cmd="Start a new project"
         onClick={() => {
           if (dirty && !confirm('Discard unsaved changes?')) return
           newProject()
           setOpen(false)
         }}
-        style={btn}
       >
         New
       </button>
 
-      {error && <span style={{ fontSize: 11, color: 'var(--red)' }}>{error}</span>}
+      {error && <span className="err">{error}</span>}
 
       {conflict && projectId && (
         <div
@@ -203,15 +195,9 @@ export default function ProjectBar() {
           Somebody else saved this project after you opened it. Saving now would
           erase their work.
           <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
-            <button onClick={() => void load(projectId)} style={btn}>
-              Load theirs
-            </button>
-            <button onClick={() => void save(true)} style={{ ...btn, color: 'var(--red)' }}>
-              Overwrite
-            </button>
-            <button onClick={() => setConflict(false)} style={btn}>
-              Cancel
-            </button>
+            <button className="btn" onClick={() => void load(projectId)}>Load theirs</button>
+            <button className="btn btn-danger" onClick={() => void save(true)}>Overwrite</button>
+            <button className="btn" onClick={() => setConflict(false)}>Cancel</button>
           </div>
         </div>
       )}

@@ -25,6 +25,25 @@
      monospaced number was quietly rendering in the sans face. */
   --sans: var(--font-sans), 'Inter', sans-serif;
   --mono: var(--font-mono), ui-monospace, 'SF Mono', monospace;
+
+  /* Shape and scale.
+     The values are the ones the interface already had; what is new is that they
+     have names. A redesign that has to hunt down every 4px and decide whether
+     this one is a corner or a gap is a redesign nobody finishes — these exist so
+     the next look is an edit to this block rather than to two hundred inline
+     style objects scattered across a dozen components. */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 9px;
+
+  --fs-micro: 9px;
+  --fs-xs:   10px;
+  --fs-sm:   11px;
+  --fs-md:   12px;
+  --fs-base: 13px;
+
+  --lift: 0 18px 50px rgba(0, 0, 0, .45);
+  --scrim: rgba(0, 0, 0, .5);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -104,3 +123,108 @@ body {
   border: 1.5px solid var(--border2); border-top-color: var(--accent);
   border-radius: 50%; animation: spin .6s linear infinite;
 }
+
+/* ── The small parts, in one place ─────────────────────────────────────────
+   Everything below was written out by hand wherever it was needed, which is
+   how the editor ended up with four buttons that were meant to be one button:
+   the same borders and colours at 2px 7px, 3px 8px and 4px 9px, radius 4 here
+   and 5 there. Nobody chose that — it is what copying a style object does over
+   a few months. One class each, so the next drift has nowhere to start. */
+
+.btn {
+  padding: 3px 8px;
+  border: 1px solid var(--border2);
+  border-radius: var(--r-sm);
+  background: var(--bg2);
+  color: var(--text3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.5;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+}
+.btn:hover:not(:disabled) { color: var(--text); border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+
+/* The one the eye should land on. Still a button, not a slab of accent: these
+   sit in dense rows where a filled control would shout down the text. */
+.btn-primary { border-color: var(--accent); color: var(--text); }
+.btn-danger:hover:not(:disabled) { color: var(--red); border-color: #5a1a1a; }
+.btn-danger { color: var(--red); }
+.btn-quiet { background: none; border-color: transparent; }
+.btn-lg { padding: 5px 11px; }
+
+.field {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg2);
+  color: var(--text);
+  font: inherit;
+  font-size: var(--fs-md);
+  outline: none;
+}
+.field:focus { border-color: var(--accent); }
+
+/* ── Overlays ──────────────────────────────────────────────────────────────
+   Dialogs sit high rather than centred: each one is about something on the
+   page behind it — a cue, a colleague, a search — and covering the middle of
+   the editor hides the thing being discussed. */
+.overlay {
+  position: fixed; inset: 0;
+  /* The palette rides above the other dialogs: ⌘K works from inside one. */
+  z-index: var(--overlay-z, 60);
+  display: flex; align-items: flex-start; justify-content: center;
+  padding-top: var(--overlay-top, 12vh);
+  background: var(--scrim);
+}
+
+/* Width varies by content, so it comes in as --panel-w rather than as three
+   near-identical classes. */
+.panel {
+  display: flex; flex-direction: column;
+  width: var(--panel-w, 460px);
+  max-height: var(--panel-h, 66vh);
+  border: 1px solid var(--border2);
+  border-radius: var(--r-lg);
+  background: var(--bg1);
+  box-shadow: var(--lift);
+}
+.panel-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 13px;
+  border-bottom: 1px solid var(--border);
+}
+.panel-body { flex: 1; overflow-y: auto; padding: 9px 13px; }
+.panel-foot {
+  display: flex; gap: 7px;
+  padding: 9px 13px;
+  border-top: 1px solid var(--border);
+}
+.panel-title { font-size: var(--fs-md); font-weight: 500; color: var(--text); }
+.panel-close {
+  margin-left: auto;
+  background: none; border: none;
+  color: var(--text3); font-size: 15px; line-height: 1; cursor: pointer;
+}
+.panel-close:hover { color: var(--text); }
+
+/* One row of a list: a member, a comment, a pending invitation. */
+.row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+/* The small uppercase heading that separates one group from the next. */
+.caps {
+  font-size: var(--fs-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--text3);
+}
+
+.muted { font-size: var(--fs-sm); color: var(--text3); }
+.err   { font-size: var(--fs-sm); color: var(--red); }
+.ok    { font-size: var(--fs-sm); color: var(--green); }

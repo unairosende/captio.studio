@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { type CSSProperties, useEffect, useRef, useState } from 'react'
 
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
@@ -93,44 +93,23 @@ export default function CommentsPanel({ projectId, cueIndex, userId, onClose }: 
     setComments(comments.filter(x => x.id !== c.id))
   }
 
-  const btn = {
-    padding: '2px 7px', borderRadius: 4, fontSize: 11, lineHeight: 1.5, cursor: 'pointer',
-    border: '1px solid var(--border2)', background: 'var(--bg2)', color: 'var(--text3)',
-  } as const
-
   return (
     <div
+      className="overlay"
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 60, display: 'flex',
-        alignItems: 'flex-start', justifyContent: 'center', paddingTop: '12vh',
-        background: 'rgba(0,0,0,.5)',
-      }}
       role="dialog"
       aria-modal="true"
       aria-label={`Comments on subtitle ${cueIndex}`}
     >
-      <div style={{
-        width: 420, maxHeight: '64vh', display: 'flex', flexDirection: 'column',
-        borderRadius: 9, border: '1px solid var(--border2)', background: 'var(--bg1)',
-        boxShadow: '0 18px 50px rgba(0,0,0,.45)',
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8, padding: '10px 13px',
-          borderBottom: '1px solid var(--border)',
-        }}>
-          <span style={{ fontSize: 12, fontWeight: 500, color: 'var(--text)' }}>
-            Comments on #{cueIndex}
-          </span>
-          <button onClick={onClose} aria-label="Close comments"
-            style={{ ...btn, marginLeft: 'auto', border: 'none', background: 'none', fontSize: 15 }}>
-            ×
-          </button>
+      <div className="panel" style={{ '--panel-w': '420px', '--panel-h': '64vh' } as CSSProperties}>
+        <div className="panel-head">
+          <span className="panel-title">Comments on #{cueIndex}</span>
+          <button className="panel-close" onClick={onClose} aria-label="Close comments">×</button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '9px 13px' }}>
+        <div className="panel-body">
           {thread.length === 0 && (
-            <div style={{ fontSize: 11, color: 'var(--text3)', padding: '10px 0' }}>
+            <div className="muted" style={{ padding: '10px 0' }}>
               No comments on this subtitle yet.
             </div>
           )}
@@ -151,14 +130,15 @@ export default function CommentsPanel({ projectId, cueIndex, userId, onClose }: 
                 <span style={{ fontSize: 10, color: 'var(--text3)' }}>
                   {new Date(c.created_at).toLocaleString()}
                 </span>
-                <button onClick={() => void toggleResolved(c)} style={{ ...btn, marginLeft: 'auto' }}
+                <button className="btn" style={{ marginLeft: 'auto' }}
+                  onClick={() => void toggleResolved(c)}
                   title={c.resolved ? 'Reopen this comment' : 'Mark as resolved'}>
                   {c.resolved ? 'Reopen' : 'Resolve'}
                 </button>
                 {/* Only on your own, because only your own would be accepted —
                     offering the button to everyone is offering a 404. */}
                 {c.author_id === userId && (
-                  <button onClick={() => void remove(c)} style={{ ...btn, color: 'var(--red)' }}
+                  <button className="btn btn-danger" onClick={() => void remove(c)}
                     title="Delete this comment">
                     ✕
                   </button>
@@ -175,24 +155,20 @@ export default function CommentsPanel({ projectId, cueIndex, userId, onClose }: 
           ))}
         </div>
 
-        {error && (
-          <div style={{ padding: '0 13px 6px', fontSize: 11, color: 'var(--red)' }}>{error}</div>
-        )}
+        {error && <div className="err" style={{ padding: '0 13px 6px' }}>{error}</div>}
 
-        <div style={{ display: 'flex', gap: 7, padding: '9px 13px', borderTop: '1px solid var(--border)' }}>
+        <div className="panel-foot">
           <input
+            className="field"
+            style={{ flex: 1 }}
             ref={inputRef}
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void post() } }}
             placeholder="Write a comment…"
-            style={{
-              flex: 1, padding: '5px 8px', borderRadius: 5, fontSize: 12,
-              border: '1px solid var(--border)', background: 'var(--bg2)', color: 'var(--text)',
-            }}
           />
-          <button onClick={() => void post()} disabled={busy || !draft.trim()}
-            style={{ ...btn, padding: '5px 11px', color: 'var(--text)', borderColor: 'var(--accent)' }}>
+          <button className="btn btn-primary btn-lg" onClick={() => void post()}
+            disabled={busy || !draft.trim()}>
             {busy ? 'Sending…' : 'Send'}
           </button>
         </div>
