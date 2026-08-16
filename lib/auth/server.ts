@@ -106,9 +106,31 @@ export const authOptions = {
       // not from a constant, once billing is wired.
       membershipLimit: 100,
       invitationExpiresIn: 60 * 60 * 24 * 7,
+      /**
+       * Say so when the message did not go out — in the log, which is as far as
+       * it can travel from here.
+       *
+       * `sendMail` reports failure by returning false rather than throwing, so
+       * a mail provider having a bad afternoon cannot undo an invitation that
+       * is already in the database. That answer used to be discarded entirely.
+       *
+       * Throwing does not reach the browser: Better Auth runs this as a
+       * background task, catches whatever comes out, and answers 200 to the
+       * invite regardless — by design, since the invitation is already written
+       * and the response is not waiting on an SMTP round trip. So this is a
+       * line in the server log and nothing more, which is worth having and is
+       * not worth mistaking for the whole fix.
+       *
+       * What the person clicking Invite actually gets is the accept link, in
+       * the team panel, on every pending invitation — the one delivery route
+       * that does not depend on a provider agreeing to send.
+       *
+       * The message carries no URL on purpose: an invitation link is a
+       * credential, and a log is not a private place to keep one.
+       */
       sendInvitationEmail: async data => {
         const acceptUrl = `${appUrl}/accept-invitation/${data.id}`
-        await sendMail({
+        const sent = await sendMail({
           to: data.email,
           ...invitationEmail({
             organizationName: data.organization.name,
@@ -116,6 +138,7 @@ export const authOptions = {
             acceptUrl,
           }),
         })
+        if (!sent) throw new Error('INVITATION_EMAIL_FAILED')
       },
     }),
 

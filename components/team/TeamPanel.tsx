@@ -61,6 +61,10 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [sent, setSent] = useState<string | null>(null)
+  /** Which invitation's link was last copied, so the button can say so. */
+  const [copied, setCopied] = useState<string | null>(null)
+  /** Shown when the clipboard is refused: the link itself, to copy by hand. */
+  const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
 
   const canManage = role === 'owner' || role === 'admin'
 
@@ -98,16 +102,47 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
 
     const res = await organization.inviteMember({ email: address, role: inviteRole })
     setBusy(false)
+    setEmail('')
+
+    // Refreshed either way. The invitation is written before the email is
+    // attempted, so a failure here means the row exists and the message does
+    // not — hiding the row would lose the one thing that can still be rescued.
+    await refresh()
 
     if (res.error) {
       setError(res.error.message ?? 'Could not send that invitation')
       return
     }
-    setEmail('')
-    // Said out loud, because the invitation lands in somebody else's inbox: on
-    // its own, a new row in the list below is a weak thing to call confirmation.
+    // Deliberately not "sent". Whether the email left is decided in a background
+    // task Better Auth does not report on, so a green "Invitation sent" here is
+    // a claim this panel cannot make — and it was making it, over a message the
+    // provider had already refused. What is true is that the invitation exists,
+    // and that the link below works whether or not the email ever arrives.
     setSent(address)
-    await refresh()
+  }
+
+  /**
+   * The link the email would have carried.
+   *
+   * Built here rather than fetched: it is the invitation id in a known path, and
+   * the panel already has the id. Worth having whether or not the mail went out —
+   * an admin who would rather send it over WhatsApp is not doing anything wrong.
+   */
+  const acceptUrl = (id: string) => `${window.location.origin}/accept-invitation/${id}`
+
+  async function copyLink(inv: Invitation) {
+    setError(null)
+    setLinkToCopy(null)
+    try {
+      await navigator.clipboard.writeText(acceptUrl(inv.id))
+      setCopied(inv.id)
+    } catch {
+      // The clipboard can be refused — a stricter browser, an insecure origin,
+      // a click the browser did not consider a gesture. Showing the link is not
+      // an error and is not styled as one: it is the same answer, delivered by
+      // the one route left.
+      setLinkToCopy(acceptUrl(inv.id))
+    }
   }
 
   async function changeRole(m: Member, next: Role) {
@@ -133,6 +168,8 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
 
   async function cancel(inv: Invitation) {
     setError(null)
+    // The green line names an invitation that is about to stop existing.
+    setSent(null)
     const res = await organization.cancelInvitation({ invitationId: inv.id })
     if (res.error) {
       setError(res.error.message ?? 'Could not cancel that invitation')
@@ -189,11 +226,31 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
             <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 5 }}>
               {ROLE_HELP[inviteRole]}. The link expires in seven days.
             </div>
-            {sent && <div className="ok" style={{ marginTop: 5 }}>Invitation sent to {sent}.</div>}
+            {sent && (
+              <div className="ok" style={{ marginTop: 5 }}>
+                {sent} is invited. If the email does not arrive, copy the link below.
+              </div>
+            )}
           </div>
         )}
 
         {error && <div className="err" style={{ padding: '8px 13px 0' }}>{error}</div>}
+
+        {linkToCopy && (
+          <div style={{ padding: '8px 13px 0' }}>
+            <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginBottom: 3 }}>
+              Your browser would not let the page reach the clipboard. Copy this:
+            </div>
+            <div style={{
+              userSelect: 'all', wordBreak: 'break-all',
+              fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--text2)',
+              background: 'var(--bg2)', border: '1px solid var(--border)',
+              borderRadius: 'var(--r-sm)', padding: '5px 7px',
+            }}>
+              {linkToCopy}
+            </div>
+          </div>
+        )}
 
         <div className="panel-body" style={{ padding: '6px 13px 12px' }}>
           {members.map(m => (
@@ -251,6 +308,12 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
                   <span className="muted" style={{ fontSize: 'var(--fs-xs)', marginLeft: 'auto' }}>
                     expires {new Date(inv.expiresAt).toLocaleDateString()}
                   </span>
+                  {/* Always offered, not only after a failure: the email is one
+                      way to deliver a link, and not always the one that works. */}
+                  <button className="btn" onClick={() => void copyLink(inv)}
+                    title="Copy the invitation link">
+                    {copied === inv.id ? 'Copied' : 'Copy link'}
+                  </button>
                   <button className="btn" onClick={() => void cancel(inv)}>Cancel</button>
                 </div>
               ))}
