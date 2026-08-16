@@ -22,4 +22,6 @@ export const {
   organization,
   useListOrganizations,
   useActiveOrganization,
+  requestPasswordReset,
+  resetPassword,
 } = authClient

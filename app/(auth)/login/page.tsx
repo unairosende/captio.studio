@@ -66,6 +66,11 @@ function LoginForm() {
           <Link href="/signup" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
             Crear una
           </Link>
+          <div style={{ marginTop: 8 }}>
+            <Link href="/forgot-password" style={{ color: 'var(--text3)', textDecoration: 'none' }}>
+              ¿Has olvidado la contraseña?
+            </Link>
+          </div>
         </>
       }
     >
