@@ -4,6 +4,7 @@ import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { logUsage } from '@/lib/db/billing'
 import { getMedia } from '@/lib/db/media'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
+import { costUsd } from '@/lib/pricing'
 import { StorageNotConfiguredError, presign } from '@/lib/storage/r2'
 import { cuesFromWords, qcForMode, type TimedWord } from '@/lib/subtitles'
 
@@ -117,13 +118,16 @@ export async function POST(req: NextRequest) {
 
   // Billed by audio duration, which Scribe does not report. The last word ends
   // where the speech does, and silence at the tail is not worth charging for.
+  const seconds = Math.round(words.at(-1)?.end ?? 0)
+
   await logUsage({
     orgId: ctx.orgId,
     userId: ctx.userId,
     sequenceId,
     kind: 'transcribe',
     model: MODEL,
-    unitsIn: Math.round(words.at(-1)?.end ?? 0),
+    unitsIn: seconds,
+    costUsd: costUsd(MODEL, { unitsIn: seconds }),
   })
 
   return NextResponse.json({

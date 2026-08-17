@@ -11,6 +11,7 @@ import {
 } from '@/lib/ai/prompt'
 import { logUsage } from '@/lib/db/billing'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
+import { costUsd } from '@/lib/pricing'
 import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL } from '@/lib/subtitles'
 
 export const maxDuration = 300
@@ -228,6 +229,9 @@ export async function POST(req: NextRequest) {
       model,
       unitsIn: tokensIn,
       unitsOut: tokensOut,
+      // Priced against whichever model actually answered, which is not always
+      // the primary one: a batch served by the fallback is not priced as Gemini.
+      costUsd: costUsd(model, { unitsIn: tokensIn, unitsOut: tokensOut }),
       // What the trial is denominated in. Counted here rather than from the
       // reply, so a batch that came back unusable still spends its allowance —
       // the provider charged for it either way.
