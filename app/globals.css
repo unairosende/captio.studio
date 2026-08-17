@@ -228,3 +228,39 @@ body {
 .muted { font-size: var(--fs-sm); color: var(--text3); }
 .err   { font-size: var(--fs-sm); color: var(--red); }
 .ok    { font-size: var(--fs-sm); color: var(--green); }
+
+/* ── Cards ────────────────────────────────────────────────────────────────
+   The dashboard is the first surface here that is read rather than operated,
+   so it is the first that needs a block of content sitting on the page instead
+   of floating over it. `.panel` is the dialog — it carries a shadow and a
+   viewport-relative height because it covers the editor — and stretching it to
+   do both would give each surface the compromise neither wanted. */
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--bg1);
+  padding: 14px 16px;
+}
+
+.card-head {
+  display: flex; align-items: baseline; gap: 8px;
+  margin-bottom: 10px;
+}
+
+/* A bar rather than a percentage. "You have used 68%" is a number to work out;
+   a bar two thirds along is a glance. */
+.meter {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--bg3);
+  overflow: hidden;
+}
+.meter-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--accent);
+  transition: width .3s;
+}
+.meter-fill.low  { background: var(--amber); }
+.meter-fill.none { background: var(--red); }

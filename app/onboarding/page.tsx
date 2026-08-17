@@ -20,7 +20,7 @@ export default async function OnboardingPage() {
   // Someone who already belongs somewhere has no business here — arriving by
   // back button or a stale bookmark should not create a second organisation.
   const orgs = await auth.api.listOrganizations({ headers: h }).catch(() => [])
-  if (orgs.length > 0) redirect('/translate')
+  if (orgs.length > 0) redirect('/dashboard')
 
   return <CreateOrganization suggestedName={session.user.name ?? ''} />
 }

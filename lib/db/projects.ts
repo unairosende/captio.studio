@@ -17,10 +17,31 @@ export interface ProjectRow {
 }
 
 /** List view never ships `data` — a feature-length project is megabytes of JSON. */
-export type ProjectSummary = Omit<ProjectRow, 'data'>
+export type ProjectSummary = Omit<ProjectRow, 'data'> & {
+  /** How many cues it holds, counted in the database rather than shipped. */
+  cue_count: number
+}
+
+/**
+ * The size of a project, without any of it.
+ *
+ * Names and dates alone give nobody a way to tell a finished film from an empty
+ * draft opened once by mistake, and the whole point of the columns above is that
+ * `data` never leaves Postgres.
+ *
+ * The type check is not defensive noise. `data` is free-form jsonb — `{}` for a
+ * project created straight through the API — and `jsonb_array_length` raises on
+ * anything that is not an array rather than returning null, so without the guard
+ * one such row takes the entire list down with it.
+ */
+const CUE_COUNT = `case
+     when jsonb_typeof(data -> 'subtitles') = 'array' then jsonb_array_length(data -> 'subtitles')
+     else 0
+   end as cue_count`
 
 const SUMMARY_COLS =
-  'id, org_id, name, source_lang, target_langs, fps, version, created_by, created_at, updated_at'
+  `id, org_id, name, source_lang, target_langs, fps, version, created_by, created_at, updated_at,
+   ${CUE_COUNT}`
 
 export async function listProjects(orgId: string): Promise<ProjectSummary[]> {
   return query<ProjectSummary>(

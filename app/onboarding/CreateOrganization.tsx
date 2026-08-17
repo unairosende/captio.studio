@@ -55,7 +55,7 @@ export function CreateOrganization({ suggestedName }: { suggestedName: string })
     // would send them straight back here.
     await organization.setActive({ organizationId: created.data.id })
 
-    router.push('/translate')
+    router.push('/dashboard')
     router.refresh()
   }
 

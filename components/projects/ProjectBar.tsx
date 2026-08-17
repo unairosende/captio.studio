@@ -61,6 +61,30 @@ export default function ProjectBar() {
     if (open) void refresh()
   }, [open, refresh])
 
+  /**
+   * The project the dashboard sent us here to open.
+   *
+   * Read from `window.location` rather than through `useSearchParams`, which
+   * would want a Suspense boundary around a component that only ever renders
+   * inside one page. It runs once, on mount, and then takes the parameter back
+   * out of the URL: left there, a reload after `New` quietly reopens the project
+   * somebody had just moved on from.
+   *
+   * The id travels in a query string, but it is still checked where it matters —
+   * `/api/projects/:id` scopes by organisation, so somebody else's id is a 404
+   * here exactly as it is everywhere else.
+   */
+  useEffect(() => {
+    const wanted = new URLSearchParams(window.location.search).get('project')
+    if (!wanted) return
+
+    window.history.replaceState(null, '', window.location.pathname)
+    void load(wanted)
+    // Mount only. `load` is redefined every render, and re-running this would
+    // fight whoever is using the dropdown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   /** Warn before losing work to a reload or a closed tab. */
   useEffect(() => {
     if (!dirty) return

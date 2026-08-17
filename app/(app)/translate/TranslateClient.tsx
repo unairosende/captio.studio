@@ -94,7 +94,19 @@ export default function TranslateClient({ user, entitlement }: Props) {
           {entitlement.plan}
         </span>
 
-        <div style={{ marginLeft: 10 }}>
+        {/* The way out. An editor with no route back to the projects list is a
+            room with the door painted over: until now the only exits were the
+            browser's back button and re-typing the URL. */}
+        <button
+          data-cmd="Go back to the dashboard"
+          onClick={() => router.push('/dashboard')}
+          title="All projects"
+          style={{ marginLeft: 6, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}
+        >
+          ← Projects
+        </button>
+
+        <div style={{ marginLeft: 4 }}>
           <ProjectBar />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>

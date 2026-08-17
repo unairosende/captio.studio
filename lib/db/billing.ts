@@ -183,6 +183,15 @@ export interface UsageByMonth {
   units_in: string
   units_out: string
   cost_usd: string
+  /**
+   * Subtitles handled, and zero on a transcription row.
+   *
+   * The one figure a customer can check against their own files, which is why a
+   * report cannot be built without it: `units_in` means seconds of audio on a
+   * transcribe row and prompt tokens on a translate row, and no reader should be
+   * expected to know that.
+   */
+  cues: string
   calls: string
 }
 
@@ -194,12 +203,15 @@ export async function usageByMonth(orgId: string, months = 12): Promise<UsageByM
             sum(units_in)  as units_in,
             sum(units_out) as units_out,
             sum(cost_usd)  as cost_usd,
+            sum(cues)      as cues,
             count(*)       as calls
        from usage_events
       where org_id = $1
         and created_at >= date_trunc('month', now()) - make_interval(months => $2::int)
-      group by 1, 2, 3
-      order by 1 desc, 6 desc`,
+      group by month, kind, model
+      -- Named rather than ordinal: ordering by a position means the next column
+      -- added above this line quietly sorts the report by something else.
+      order by month desc, cost_usd desc`,
     [requireOrg(orgId), months],
   )
 }

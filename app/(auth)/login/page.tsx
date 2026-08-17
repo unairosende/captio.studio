@@ -29,7 +29,7 @@ function LoginForm() {
    * with our brand still in their head — the classic open redirect.
    */
   const raw = params.get('next') ?? ''
-  const next = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/translate'
+  const next = raw.startsWith('/') && !raw.startsWith('//') ? raw : '/dashboard'
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
