@@ -140,7 +140,7 @@ interface Body {
   glossary?: GlossaryEntry[]
   extraInstructions?: string
   previousContext?: string[]
-  projectId?: string
+  sequenceId?: string
 }
 
 /**
@@ -223,7 +223,7 @@ export async function POST(req: NextRequest) {
     await logUsage({
       orgId: ctx.orgId,
       userId: ctx.userId,
-      projectId: body.projectId ?? null,
+      sequenceId: body.sequenceId ?? null,
       kind: 'translate',
       model,
       unitsIn: tokensIn,

@@ -9,14 +9,14 @@ import type { Subtitle, TranslationStore } from '@/types/subtitle'
 /**
  * Saving, and getting work back.
  *
- * Until now the editor lost everything on reload, which is the first thing
- * anybody would report and the last they would forgive. The table, the version
- * counter and the organisation scoping have been in place for a while; this is
- * the part a person touches.
+ * What this saves is a sequence — one subtitle track — inside the project the
+ * editor was opened from. The dropdown lists the other sequences in that same
+ * project, because that is the set somebody actually moves between: reel two
+ * after reel one, not a different client's film.
  *
- * Saving is explicit rather than automatic. Autosave over a shared project
- * would turn every stray keystroke into a change somebody else has to notice,
- * and the conflict handling below only makes sense when a save is a decision.
+ * Saving is explicit rather than automatic. Autosave over shared work would turn
+ * every stray keystroke into a change somebody else has to notice, and the
+ * conflict handling below only makes sense when a save is a decision.
  */
 
 interface Summary {
@@ -29,19 +29,21 @@ interface Saved {
   id: string
   name: string
   version: number
+  project_id: string
   data?: {
     subtitles?: Subtitle[]
     translations?: TranslationStore
-    /** Absent in every project saved before the glossary existed. */
+    /** Absent in every sequence saved before the glossary moved to the project. */
     glossary?: GlossaryEntry[]
   }
 }
 
-export default function ProjectBar() {
+export default function SequenceBar() {
   const {
-    subtitles, translations, srcLang, glossary,
-    projectId, projectName, projectVersion, dirty, anchorOps,
-    openProject, markSaved, newProject, setProjectName, setComments,
+    subtitles, translations, srcLang, glossary, glossaryDirty,
+    projectId, projectName,
+    sequenceId, sequenceName, sequenceVersion, dirty, anchorOps,
+    openSequence, markSaved, newSequence, setSequenceName, setComments,
   } = useSubtitleStore()
 
   const [list, setList] = useState<Summary[]>([])
@@ -52,38 +54,15 @@ export default function ProjectBar() {
   const [conflict, setConflict] = useState(false)
 
   const refresh = useCallback(async () => {
-    const res = await fetch('/api/projects')
+    if (!projectId) return
+    const res = await fetch(`/api/sequences?project=${projectId}`)
     if (!res.ok) return
-    setList((await res.json()).projects ?? [])
-  }, [])
+    setList((await res.json()).sequences ?? [])
+  }, [projectId])
 
   useEffect(() => {
     if (open) void refresh()
   }, [open, refresh])
-
-  /**
-   * The project the dashboard sent us here to open.
-   *
-   * Read from `window.location` rather than through `useSearchParams`, which
-   * would want a Suspense boundary around a component that only ever renders
-   * inside one page. It runs once, on mount, and then takes the parameter back
-   * out of the URL: left there, a reload after `New` quietly reopens the project
-   * somebody had just moved on from.
-   *
-   * The id travels in a query string, but it is still checked where it matters —
-   * `/api/projects/:id` scopes by organisation, so somebody else's id is a 404
-   * here exactly as it is everywhere else.
-   */
-  useEffect(() => {
-    const wanted = new URLSearchParams(window.location.search).get('project')
-    if (!wanted) return
-
-    window.history.replaceState(null, '', window.location.pathname)
-    void load(wanted)
-    // Mount only. `load` is redefined every render, and re-running this would
-    // fight whoever is using the dropdown.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
 
   /** Warn before losing work to a reload or a closed tab. */
   useEffect(() => {
@@ -98,41 +77,64 @@ export default function ProjectBar() {
       setError('Nothing to save yet')
       return
     }
+    if (!projectId) {
+      setError('Open this from a project first')
+      return
+    }
     setBusy(true)
     setError(null)
 
     const payload = {
-      name: projectName.trim() || 'Untitled',
+      name: sequenceName.trim() || 'Untitled',
       sourceLang: srcLang,
       targetLangs: Object.keys(translations),
-      data: { subtitles, translations, glossary },
+      data: { subtitles, translations },
+      ...(sequenceId ? {} : { projectId }),
       // Omitted when forcing, which is how "overwrite" gets past the guard.
-      ...(projectId && !force ? { version: projectVersion } : {}),
+      ...(sequenceId && !force ? { version: sequenceVersion } : {}),
       // The cue splits and deletions since the last save, so the comments are
       // renumbered in the same transaction as the cues they are about. A brand
-      // new project has nothing to renumber.
-      ...(projectId && anchorOps.length ? { anchorOps } : {}),
+      // new sequence has nothing to renumber.
+      ...(sequenceId && anchorOps.length ? { anchorOps } : {}),
     }
 
-    const res = await fetch(projectId ? `/api/projects/${projectId}` : '/api/projects', {
-      method: projectId ? 'PATCH' : 'POST',
+    const res = await fetch(sequenceId ? `/api/sequences/${sequenceId}` : '/api/sequences', {
+      method: sequenceId ? 'PATCH' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
 
     const json = await res.json().catch(() => ({}))
-    setBusy(false)
 
     if (res.status === 409) {
+      setBusy(false)
       setConflict(true)
       return
     }
     if (!res.ok) {
+      setBusy(false)
       setError(json.error ?? `Could not save (HTTP ${res.status})`)
       return
     }
 
-    const saved: Saved = json.project
+    // The terms live on the project, so they travel separately — and only when
+    // somebody has actually edited them. Writing the local copy back on every
+    // save would let a person who never opened the panel quietly undo a term a
+    // colleague added while they had the editor open.
+    if (glossaryDirty) {
+      const terms = await fetch(`/api/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ glossary }),
+      })
+      if (!terms.ok) {
+        // The cues are saved; saying otherwise would be worse than saying this.
+        setError('Saved, but the glossary did not go up')
+      }
+    }
+
+    setBusy(false)
+    const saved: Saved = json.sequence
     setConflict(false)
     markSaved(saved.id, saved.name, saved.version)
   }
@@ -140,30 +142,35 @@ export default function ProjectBar() {
   async function load(id: string) {
     setBusy(true)
     setError(null)
-    const res = await fetch(`/api/projects/${id}`)
+    const res = await fetch(`/api/sequences/${id}`)
     const json = await res.json().catch(() => ({}))
     setBusy(false)
 
     if (!res.ok) {
-      setError(json.error ?? 'Could not open that project')
+      setError(json.error ?? 'Could not open that sequence')
       return
     }
 
-    const p: Saved = json.project
-    openProject({
-      id: p.id,
-      name: p.name,
-      version: p.version,
-      subtitles: p.data?.subtitles ?? [],
-      translations: p.data?.translations ?? {},
-      glossary: p.data?.glossary ?? [],
+    const s: Saved = json.sequence
+    openSequence({
+      id: s.id,
+      name: s.name,
+      version: s.version,
+      // Staying inside the same project, so its name is already on screen.
+      projectId: s.project_id,
+      projectName,
+      subtitles: s.data?.subtitles ?? [],
+      translations: s.data?.translations ?? {},
+      // Kept, not taken from the sequence: the terms belong to the project, and
+      // this is a move between two sequences of the same one.
+      glossary,
     })
     setConflict(false)
     setOpen(false)
 
     // After the cues, not with them: the notes are a separate table, and a
-    // project that fails to hand over its comments should still open.
-    const notes = await fetch(`/api/projects/${id}/comments`)
+    // sequence that fails to hand over its comments should still open.
+    const notes = await fetch(`/api/sequences/${id}/comments`)
     setComments(notes.ok ? (await notes.json()).comments ?? [] : [])
   }
 
@@ -172,9 +179,9 @@ export default function ProjectBar() {
       <input
         className="field"
         style={{ width: 150, padding: '3px 7px' }}
-        value={projectName}
-        onChange={e => setProjectName(e.target.value)}
-        aria-label="Project name"
+        value={sequenceName}
+        onChange={e => setSequenceName(e.target.value)}
+        aria-label="Sequence name"
       />
 
       {/* Unsaved work says so. A dot is enough; a banner would be nagging. */}
@@ -186,20 +193,24 @@ export default function ProjectBar() {
         }}
       />
 
-      <button className="btn" data-cmd="Save the project" onClick={() => void save()} disabled={busy}>
+      <button className="btn" data-cmd="Save the sequence" onClick={() => void save()} disabled={busy}>
         {busy ? 'Saving…' : 'Save'}
       </button>
 
-      <button className="btn" data-cmd="Open a project" onClick={() => setOpen(v => !v)}>
-        Projects
+      <button className="btn" data-cmd="Open another sequence" onClick={() => setOpen(v => !v)}>
+        Sequences
       </button>
 
       <button
         className="btn"
-        data-cmd="Start a new project"
+        data-cmd="Start a new sequence"
         onClick={() => {
           if (dirty && !confirm('Discard unsaved changes?')) return
-          newProject()
+          if (!projectId) {
+            setError('Open this from a project first')
+            return
+          }
+          newSequence({ id: projectId, name: projectName, glossary })
           setOpen(false)
         }}
       >
@@ -208,7 +219,7 @@ export default function ProjectBar() {
 
       {error && <span className="err">{error}</span>}
 
-      {conflict && projectId && (
+      {conflict && sequenceId && (
         <div
           style={{
             position: 'absolute', top: 34, left: 0, zIndex: 20, width: 330, padding: 12,
@@ -216,10 +227,10 @@ export default function ProjectBar() {
             fontSize: 12, color: 'var(--text2)', lineHeight: 1.5,
           }}
         >
-          Somebody else saved this project after you opened it. Saving now would
+          Somebody else saved this sequence after you opened it. Saving now would
           erase their work.
           <div style={{ display: 'flex', gap: 6, marginTop: 9 }}>
-            <button className="btn" onClick={() => void load(projectId)}>Load theirs</button>
+            <button className="btn" onClick={() => void load(sequenceId)}>Load theirs</button>
             <button className="btn btn-danger" onClick={() => void save(true)}>Overwrite</button>
             <button className="btn" onClick={() => setConflict(false)}>Cancel</button>
           </div>
@@ -236,26 +247,26 @@ export default function ProjectBar() {
         >
           {list.length === 0 && (
             <div style={{ padding: 10, fontSize: 11, color: 'var(--text3)' }}>
-              Nothing saved yet
+              Nothing saved in this project yet
             </div>
           )}
-          {list.map(p => (
+          {list.map(s => (
             <button
-              key={p.id}
+              key={s.id}
               onClick={() => {
                 if (dirty && !confirm('Discard unsaved changes?')) return
-                void load(p.id)
+                void load(s.id)
               }}
               style={{
                 display: 'block', width: '100%', textAlign: 'left', padding: '6px 8px',
                 borderRadius: 5, border: 'none', cursor: 'pointer', fontSize: 12,
-                background: p.id === projectId ? 'var(--accent-dim)' : 'transparent',
-                color: p.id === projectId ? '#8ba8ff' : 'var(--text2)',
+                background: s.id === sequenceId ? 'var(--accent-dim)' : 'transparent',
+                color: s.id === sequenceId ? '#8ba8ff' : 'var(--text2)',
               }}
             >
-              {p.name}
+              {s.name}
               <span style={{ display: 'block', fontSize: 10, color: 'var(--text3)' }}>
-                {new Date(p.updated_at).toLocaleString()}
+                {new Date(s.updated_at).toLocaleString()}
               </span>
             </button>
           ))}

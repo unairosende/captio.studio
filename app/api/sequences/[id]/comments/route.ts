@@ -2,18 +2,18 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { createComment, listComments } from '@/lib/db/comments'
-import { getProject } from '@/lib/db/projects'
+import { getSequence } from '@/lib/db/sequences'
 
 /**
- * The notes on one project.
+ * The notes on one sequence.
  *
  * A comment belongs to a cue number rather than to a piece of text, because the
  * text is the thing being argued about — "this line is too literal" has to
  * survive the line being rewritten.
  *
- * Both handlers are scoped by organisation, and POST checks the project exists
+ * Both handlers are scoped by organisation, and POST checks the sequence exists
  * within it before writing. Without that check a caller could hang comments off
- * another customer's project id: the row would carry their own org_id, so
+ * another customer's sequence id: the row would carry their own org_id, so
  * nobody would ever see it, but the write would succeed and the foreign key
  * would point across the tenant boundary.
  */
@@ -57,12 +57,12 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Which subtitle?' }, { status: 400 })
   }
 
-  if (!(await getProject(ctx.orgId, id))) {
-    return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+  if (!(await getSequence(ctx.orgId, id))) {
+    return NextResponse.json({ error: 'Sequence not found' }, { status: 404 })
   }
 
   await createComment(ctx.orgId, {
-    projectId: id,
+    sequenceId: id,
     cueIndex: payload.cueIndex,
     lang: typeof payload?.lang === 'string' ? payload.lang : null,
     body: text,

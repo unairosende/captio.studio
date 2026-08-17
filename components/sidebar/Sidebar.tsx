@@ -38,7 +38,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const store = useSubtitleStore()
   const {
     subtitles, translations, activeTab, outputMode,
-    srcLang, tgtLang, allowRephrase, glossary, projectName,
+    srcLang, tgtLang, allowRephrase, glossary, sequenceName,
     translateJob, transcribeJob,
     setSrcLang, setTgtLang, setAllowRephrase, setOutputMode,
     loadSubtitles, setTranslation, setTranslateJob, setTranscribeJob, clearAll,
@@ -253,7 +253,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
     if (!subtitles.length || !langs.length) return
 
     const rows = sheetRows(subtitles, translations, langs)
-    const name = `${slugify(projectName || 'subtitles')}_all_languages`
+    const name = `${slugify(sequenceName || 'subtitles')}_all_languages`
 
     if (exportAllFmt === 'csv') {
       download(`${name}.csv`, new Blob([bomFor('csv') + rowsToCsv(rows)], { type: 'text/csv;charset=utf-8' }))

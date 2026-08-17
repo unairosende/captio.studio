@@ -3,7 +3,7 @@
 import Sidebar from '@/components/sidebar/Sidebar'
 import LangTabsBar from '@/components/editor/LangTabsBar'
 import EditorArea from '@/components/editor/EditorArea'
-import ProjectBar from '@/components/projects/ProjectBar'
+import SequenceBar from '@/components/sequences/SequenceBar'
 import Timeline from '@/components/timeline/Timeline'
 import TeamPanel from '@/components/team/TeamPanel'
 import CommandPalette from '@/components/palette/CommandPalette'
@@ -11,7 +11,10 @@ import { useEffect, useState } from 'react'
 
 import { signOut as endSession } from '@/lib/auth/client'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
+import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { Entitlement } from '@/lib/entitlement'
+import type { ProjectComment } from '@/types/comment'
+import type { Subtitle, TranslationStore } from '@/types/subtitle'
 import { useRouter } from 'next/navigation'
 
 interface Props {
@@ -23,13 +26,57 @@ interface Props {
    */
   user: { id: string; email: string; role: string }
   entitlement: Entitlement
+  /** The project being worked inside. Always present: the page refuses without one. */
+  project: { id: string; name: string; glossary: GlossaryEntry[] }
+  /**
+   * The sequence to open, when the URL named one.
+   *
+   * Resolved on the server rather than fetched here on mount. The page is
+   * already a round trip that knows who is asking; doing it again from the
+   * browser would draw an empty editor first and fill it a moment later.
+   */
+  sequence: {
+    id: string
+    name: string
+    version: number
+    subtitles: Subtitle[]
+    translations: TranslationStore
+    comments: ProjectComment[]
+  } | null
 }
 
-export default function TranslateClient({ user, entitlement }: Props) {
+export default function TranslateClient({ user, entitlement, project, sequence }: Props) {
   const router = useRouter()
-  const { undo, redo } = useSubtitleStore()
+  const { undo, redo, openSequence, newSequence, setComments } = useSubtitleStore()
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
+
+  /**
+   * Seed the store from what the server already resolved.
+   *
+   * Keyed on the sequence id so that arriving at a different sequence replaces
+   * the editor's contents, and re-rendering for any other reason does not — the
+   * store is where the unsaved work lives, and re-seeding it would throw away
+   * whatever is being typed.
+   */
+  useEffect(() => {
+    if (sequence) {
+      openSequence({
+        id: sequence.id,
+        name: sequence.name,
+        version: sequence.version,
+        subtitles: sequence.subtitles,
+        translations: sequence.translations,
+        projectId: project.id,
+        projectName: project.name,
+        glossary: project.glossary,
+      })
+      setComments(sequence.comments)
+    } else {
+      newSequence({ id: project.id, name: project.name, glossary: project.glossary })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sequence?.id, project.id])
 
   /**
    * Two shortcuts, one listener.
@@ -94,20 +141,20 @@ export default function TranslateClient({ user, entitlement }: Props) {
           {entitlement.plan}
         </span>
 
-        {/* The way out. An editor with no route back to the projects list is a
-            room with the door painted over: until now the only exits were the
-            browser's back button and re-typing the URL. */}
+        {/* The way out, and where you are. An editor with no route back to the
+            work it belongs to is a room with the door painted over: until now
+            the only exits were the back button and re-typing the URL. */}
         <button
-          data-cmd="Go back to the dashboard"
-          onClick={() => router.push('/dashboard')}
-          title="All projects"
-          style={{ marginLeft: 6, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}
+          data-cmd="Go back to the project"
+          onClick={() => router.push(`/projects/${project.id}`)}
+          title="Back to the project"
+          style={{ marginLeft: 6, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
-          ← Projects
+          ← {project.name}
         </button>
 
         <div style={{ marginLeft: 4 }}>
-          <ProjectBar />
+          <SequenceBar />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
           {/* inline-flex and nowrap: as two inline children in a bar that

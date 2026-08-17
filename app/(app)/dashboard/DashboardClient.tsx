@@ -80,6 +80,7 @@ export default function DashboardClient({
   const router = useRouter()
   const [team, setTeam] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   /**
@@ -94,8 +95,37 @@ export default function DashboardClient({
 
   const trial = entitlement.status === 'trial' ? entitlement.remaining : null
 
+  async function create() {
+    const name = prompt('Name the project — the film, the series, the campaign:')?.trim()
+    if (!name) return
+
+    setCreating(true)
+    setError(null)
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    const json = await res.json().catch(() => ({}))
+    setCreating(false)
+
+    if (!res.ok) {
+      setError(json.error ?? `Could not create that project (HTTP ${res.status})`)
+      return
+    }
+    // Straight into it: nobody creates a project in order to look at it empty.
+    router.push(`/projects/${json.project.id}`)
+  }
+
   async function remove(project: ProjectSummary) {
-    if (!confirm(`Delete “${project.name}”? Its subtitles and comments go with it.`)) return
+    // The count, not "are you sure?" — which is a question nobody has the
+    // information to answer. Everything inside goes: sequences, their comments
+    // and their history.
+    const inside =
+      project.sequence_count === 0
+        ? 'It has nothing in it.'
+        : `Its ${project.sequence_count} sequence${project.sequence_count === 1 ? '' : 's'} go with it, and their comments.`
+    if (!confirm(`Delete “${project.name}”? ${inside}`)) return
 
     setBusyId(project.id)
     setError(null)
@@ -279,9 +309,10 @@ export default function DashboardClient({
           <button
             className="btn btn-primary btn-lg"
             style={{ marginLeft: 'auto' }}
-            onClick={() => router.push('/translate')}
+            disabled={creating}
+            onClick={() => void create()}
           >
-            New project
+            {creating ? 'Creating…' : 'New project'}
           </button>
         </div>
 
@@ -289,14 +320,15 @@ export default function DashboardClient({
 
         {projects.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '38px 16px' }}>
-            <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text2)' }}>Nothing saved yet</div>
+            <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text2)' }}>No projects yet</div>
             <div className="muted" style={{ marginTop: 5 }}>
-              Transcribe a file or import an SRT, then save it — it will be here
-              for everybody in {organizationName}.
+              A project is one job — a film, an episode, a campaign — and holds
+              the sequences it breaks into, along with the terminology they all
+              share. Everybody in {organizationName} sees it.
             </div>
             <button className="btn btn-primary btn-lg" style={{ marginTop: 14 }}
-              onClick={() => router.push('/translate')}>
-              Start a project
+              disabled={creating} onClick={() => void create()}>
+              {creating ? 'Creating…' : 'Start a project'}
             </button>
           </div>
         ) : (
@@ -306,7 +338,7 @@ export default function DashboardClient({
                 {/* A button rather than a clickable div: this is the way into the
                     project, and the way in should answer the keyboard. */}
                 <button
-                  onClick={() => router.push(`/translate?project=${p.id}`)}
+                  onClick={() => router.push(`/projects/${p.id}`)}
                   style={{
                     flex: 1, textAlign: 'left', padding: '13px 15px 9px',
                     background: 'none', border: 'none', cursor: 'pointer', font: 'inherit',
@@ -316,13 +348,20 @@ export default function DashboardClient({
                     {p.name}
                   </div>
                   <div className="muted" style={{ fontFamily: 'var(--mono)', marginTop: 5 }}>
-                    {p.cue_count.toLocaleString('en-GB')} cues · {short(p.source_lang)}
-                    {p.target_langs.length > 0 && ` → ${p.target_langs.map(short).join(' ')}`}
+                    {p.sequence_count} sequence{p.sequence_count === 1 ? '' : 's'}
+                    {p.cue_count > 0 && ` · ${p.cue_count.toLocaleString('en-GB')} cues`}
                   </div>
+                  {p.target_langs.length > 0 && (
+                    <div className="muted" style={{ fontFamily: 'var(--mono)', marginTop: 2 }}>
+                      {p.target_langs.map(short).join(' ')}
+                    </div>
+                  )}
                 </button>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 15px 11px' }}>
-                  <span className="muted" suppressHydrationWarning>{ago(p.updated_at)}</span>
+                  {/* Last activity anywhere inside, not the project row's own
+                      timestamp — that only moves on a rename. */}
+                  <span className="muted" suppressHydrationWarning>{ago(p.last_activity)}</span>
                   <button
                     className="btn btn-quiet btn-danger"
                     style={{ marginLeft: 'auto' }}

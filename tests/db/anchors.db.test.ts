@@ -4,7 +4,8 @@ import { after, before, describe, it } from 'node:test'
 
 import { db, query } from '../../lib/db/client.ts'
 import { createComment, listComments } from '../../lib/db/comments.ts'
-import { ConflictError, createProject, updateProject } from '../../lib/db/projects.ts'
+import { createProject } from '../../lib/db/projects.ts'
+import { ConflictError, createSequence, updateSequence } from '../../lib/db/sequences.ts'
 import { requireDisposableDatabase } from '../support/disposable-db.ts'
 
 /**
@@ -17,7 +18,7 @@ import { requireDisposableDatabase } from '../support/disposable-db.ts'
  * two together. A shift that does not happen leaves every note below the edit
  * quoting a line nobody wrote, on a screen that looks entirely normal.
  *
- * The last test is the reason `updateProject` opens a transaction at all.
+ * The last test is the reason `updateSequence` opens a transaction at all.
  *
  * Runs only when DATABASE_URL is set:
  *   npm run test:db
@@ -46,22 +47,33 @@ after(async () => {
 })
 
 /** Each note and the cue it sits on, written so a failure reads like a sentence. */
-async function anchors(org: string, projectId: string) {
-  const rows = await listComments(org, projectId)
+async function anchors(org: string, sequenceId: string) {
+  const rows = await listComments(org, sequenceId)
   return rows.map(c => `${c.body}@${c.cue_index}`)
 }
 
-async function projectWithNotes(org: string, at: number[]) {
-  const project = await createProject(org, { name: 'Documental', fps: 25 })
+/**
+ * A sequence with notes on the given cues, inside a project of its own.
+ *
+ * Its own project every time: these tests renumber and delete, and sharing one
+ * would let a failure in an earlier test show up as a mystery in a later one.
+ */
+async function sequenceWithNotes(org: string, at: number[]) {
+  const project = await createProject(org, { name: 'Documental' })
+  const sequence = await createSequence(org, {
+    projectId: project.id,
+    name: 'Bobina',
+    fps: 25,
+  })
   for (const cueIndex of at) {
     await createComment(org, {
-      projectId: project.id,
+      sequenceId: sequence.id,
       cueIndex,
       body: `n${cueIndex}`,
       authorId: 'user_a',
     })
   }
-  return project
+  return sequence
 }
 
 describe(
@@ -69,9 +81,9 @@ describe(
   { skip: !HAS_DB && 'DATABASE_URL not set' },
   () => {
     it('pushes the notes below a split down one', async () => {
-      const p = await projectWithNotes(orgA, [1, 2, 5])
+      const p = await sequenceWithNotes(orgA, [1, 2, 5])
 
-      await updateProject(
+      await updateSequence(
         orgA,
         p.id,
         { data: { cues: 'after the split' } },
@@ -82,9 +94,9 @@ describe(
     })
 
     it('takes the deleted cue’s own notes with it', async () => {
-      const p = await projectWithNotes(orgA, [1, 2, 3])
+      const p = await sequenceWithNotes(orgA, [1, 2, 3])
 
-      await updateProject(
+      await updateSequence(
         orgA,
         p.id,
         { data: {} },
@@ -95,11 +107,11 @@ describe(
     })
 
     it('replays several edits in the order they were made', async () => {
-      const p = await projectWithNotes(orgA, [4])
+      const p = await sequenceWithNotes(orgA, [4])
 
       // A split, then the undo of that split. Applied in order they cancel out;
       // collapsed or reordered, they would not.
-      await updateProject(
+      await updateSequence(
         orgA,
         p.id,
         { data: {} },
@@ -115,10 +127,10 @@ describe(
     })
 
     it('leaves another organisation’s notes where they are', async () => {
-      const mine = await projectWithNotes(orgA, [3])
-      const theirs = await projectWithNotes(orgB, [3])
+      const mine = await sequenceWithNotes(orgA, [3])
+      const theirs = await sequenceWithNotes(orgB, [3])
 
-      await updateProject(orgA, mine.id, { data: {} }, { anchorOps: [{ fromIndex: 1, delta: 1 }] })
+      await updateSequence(orgA, mine.id, { data: {} }, { anchorOps: [{ fromIndex: 1, delta: 1 }] })
 
       assert.deepEqual(await anchors(orgA, mine.id), ['n3@4'])
       assert.deepEqual(await anchors(orgB, theirs.id), ['n3@3'])
@@ -128,19 +140,19 @@ describe(
      * A lost save moves nothing.
      *
      * This one is carried by ordering rather than by the transaction — the
-     * conflict is raised while writing the project, before the anchors are
+     * conflict is raised while writing the sequence, before the anchors are
      * touched at all. It is here because the guarantee is worth pinning
      * whichever mechanism happens to provide it; the test below is the one that
      * fails if the transaction goes away.
      */
     it('moves nothing when the save loses to somebody else', async () => {
-      const p = await projectWithNotes(orgA, [1, 5])
+      const p = await sequenceWithNotes(orgA, [1, 5])
 
       // Another editor gets there first, which bumps the version.
-      await updateProject(orgA, p.id, { data: { cues: 'theirs' } })
+      await updateSequence(orgA, p.id, { data: { cues: 'theirs' } })
 
       await assert.rejects(
-        updateProject(
+        updateSequence(
           orgA,
           p.id,
           { data: { cues: 'mine' } },
@@ -157,7 +169,7 @@ describe(
      *
      * A list of shifts is applied one statement at a time, after the cues have
      * already been written. Without a transaction, a list that fails halfway
-     * leaves the project saved and the anchors half-moved — some notes following
+     * leaves the sequence saved and the anchors half-moved — some notes following
      * the new numbering, some still on the old, and no way to tell which from
      * looking. Rolling back is what makes "the cues and their comments are saved
      * together, or not at all" true rather than usually true.
@@ -169,11 +181,11 @@ describe(
      * the editor happens to send today.
      */
     it('saves the cues and the anchors together, or neither', async () => {
-      const p = await projectWithNotes(orgA, [1, 5])
+      const p = await sequenceWithNotes(orgA, [1, 5])
       const OVERFLOW = 2_147_483_647
 
       await assert.rejects(
-        updateProject(
+        updateSequence(
           orgA,
           p.id,
           { data: { cues: 'half a save' } },
@@ -184,9 +196,9 @@ describe(
       // The first shift succeeded before the second one blew up. Both are gone.
       assert.deepEqual(await anchors(orgA, p.id), ['n1@1', 'n5@5'])
 
-      // And so is the project write it was travelling with.
+      // And so is the sequence write it was travelling with.
       const after = await query<{ data: unknown; version: number }>(
-        'select data, version from projects where org_id = $1 and id = $2',
+        'select data, version from sequences where org_id = $1 and id = $2',
         [orgA, p.id],
       )
       assert.deepEqual(after[0].data, {})

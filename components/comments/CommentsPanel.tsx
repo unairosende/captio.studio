@@ -18,13 +18,13 @@ import type { ProjectComment } from '@/types/comment'
  */
 
 interface Props {
-  projectId: string
+  sequenceId: string
   cueIndex: number
   userId: string
   onClose: () => void
 }
 
-export default function CommentsPanel({ projectId, cueIndex, userId, onClose }: Props) {
+export default function CommentsPanel({ sequenceId, cueIndex, userId, onClose }: Props) {
   const { comments, setComments, activeTab } = useSubtitleStore()
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
@@ -49,7 +49,7 @@ export default function CommentsPanel({ projectId, cueIndex, userId, onClose }: 
     setBusy(true)
     setError(null)
 
-    const res = await fetch(`/api/projects/${projectId}/comments`, {
+    const res = await fetch(`/api/sequences/${sequenceId}/comments`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -72,7 +72,7 @@ export default function CommentsPanel({ projectId, cueIndex, userId, onClose }: 
   }
 
   async function toggleResolved(c: ProjectComment) {
-    const res = await fetch(`/api/projects/${projectId}/comments/${c.id}`, {
+    const res = await fetch(`/api/sequences/${sequenceId}/comments/${c.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resolved: !c.resolved }),
@@ -85,7 +85,7 @@ export default function CommentsPanel({ projectId, cueIndex, userId, onClose }: 
   }
 
   async function remove(c: ProjectComment) {
-    const res = await fetch(`/api/projects/${projectId}/comments/${c.id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/sequences/${sequenceId}/comments/${c.id}`, { method: 'DELETE' })
     if (!res.ok) {
       setError('Could not delete that comment')
       return

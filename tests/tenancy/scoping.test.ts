@@ -19,10 +19,18 @@ import { requireOrg } from '../../lib/db/client.ts'
 
 const DB_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../lib/db')
 
-/** Tables holding customer data. Anything here must never be queried unscoped. */
+/**
+ * Tables holding customer data. Anything here must never be queried unscoped.
+ *
+ * A table added to the schema and forgotten here is not caught by these checks —
+ * they would pass, vacuously, over the one query nobody scoped. So the list has
+ * to be extended in the same change that adds the table, which is why `sequences`
+ * and `sequence_versions` arrive with migration 0007.
+ */
 const TENANT_TABLES = [
   'projects',
-  'project_versions',
+  'sequences',
+  'sequence_versions',
   'media',
   'comments',
   'usage_events',
@@ -82,7 +90,17 @@ describe('tenant isolation', () => {
     // Only identifiers assembled from a fixed allow-list may be interpolated.
     // A `${}` holding user input is SQL injection, and injection defeats every
     // org_id filter above it.
-    const ALLOWED = ['${SUMMARY_COLS}', "${sets.join(', ')}", '${guard}', '${params.length}']
+    // `${SUMMARY}` is a whole scoped SELECT rather than a column list, so it is
+    // allowed here on the condition the check below enforces: it must carry its
+    // own org_id filter, exactly like any statement written out in full.
+    const ALLOWED = [
+      '${SUMMARY_COLS}',
+      '${SUMMARY}',
+      '${CUE_COUNT}',
+      "${sets.join(', ')}",
+      '${guard}',
+      '${params.length}',
+    ]
     const offenders = statements
       .flatMap(s => [...s.sql.matchAll(/\$\{[^}]*\}/g)].map(m => ({ file: s.file, expr: m[0] })))
       .filter(x => !ALLOWED.includes(x.expr))

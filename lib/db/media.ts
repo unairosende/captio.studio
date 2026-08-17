@@ -3,7 +3,14 @@ import { query, queryOne, requireOrg } from './client.ts'
 export interface MediaRow {
   id: string
   org_id: string
-  project_id: string | null
+  /**
+   * The sequence it was uploaded for, once there is one.
+   *
+   * Nullable on purpose: the bytes go up before anybody has saved the work they
+   * belong to, so an upload exists for a while attached to nothing. Closing that
+   * gap is what `orphanedStorageKeys` below is for.
+   */
+  sequence_id: string | null
   storage_key: string
   filename: string | null
   bytes: string | null
@@ -15,7 +22,7 @@ export interface MediaRow {
 export async function createMedia(
   orgId: string,
   input: {
-    projectId?: string | null
+    sequenceId?: string | null
     storageKey: string
     filename?: string | null
     bytes?: number | null
@@ -24,12 +31,12 @@ export async function createMedia(
   },
 ): Promise<MediaRow> {
   const rows = await query<MediaRow>(
-    `insert into media (org_id, project_id, storage_key, filename, bytes, duration_seconds, created_by)
+    `insert into media (org_id, sequence_id, storage_key, filename, bytes, duration_seconds, created_by)
      values ($1, $2, $3, $4, $5, $6, $7)
      returning *`,
     [
       requireOrg(orgId),
-      input.projectId ?? null,
+      input.sequenceId ?? null,
       input.storageKey,
       input.filename ?? null,
       input.bytes ?? null,
@@ -47,10 +54,10 @@ export async function getMedia(orgId: string, id: string): Promise<MediaRow | nu
   ])
 }
 
-export async function listProjectMedia(orgId: string, projectId: string): Promise<MediaRow[]> {
+export async function listSequenceMedia(orgId: string, sequenceId: string): Promise<MediaRow[]> {
   return query<MediaRow>(
-    `select * from media where org_id = $1 and project_id = $2 order by created_at desc`,
-    [requireOrg(orgId), projectId],
+    `select * from media where org_id = $1 and sequence_id = $2 order by created_at desc`,
+    [requireOrg(orgId), sequenceId],
   )
 }
 
@@ -64,17 +71,17 @@ export async function deleteMedia(orgId: string, id: string): Promise<string | n
 }
 
 /**
- * Uploads that never got attached to a project.
+ * Uploads that never got attached to a sequence.
  *
- * Deleting a project cascades its media rows but leaves the objects in the
- * bucket, and an abandoned upload never had a project to begin with. Both are a
+ * Deleting a sequence cascades its media rows but leaves the objects in the
+ * bucket, and an abandoned upload never had a sequence to begin with. Both are a
  * bill nobody is watching and an unmet erasure request, so a sweeper needs to
  * be able to find them.
  */
 export async function orphanedStorageKeys(orgId: string, limit = 500): Promise<string[]> {
   const rows = await query<{ storage_key: string }>(
     `select storage_key from media
-      where org_id = $1 and project_id is null and created_at < now() - interval '24 hours'
+      where org_id = $1 and sequence_id is null and created_at < now() - interval '24 hours'
       order by created_at
       limit $2`,
     [requireOrg(orgId), limit],

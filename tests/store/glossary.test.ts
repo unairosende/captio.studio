@@ -7,11 +7,14 @@ import type { Subtitle } from '../../types/subtitle.ts'
 /**
  * What the glossary belongs to.
  *
- * It is terminology for a job, not for a file: importing a corrected export
- * into the same project must not cost somebody the terms they agreed with the
- * client, and opening a different project must not carry the last one's
- * vocabulary into it. Both are silent when wrong — the translation simply comes
- * back using the wrong words.
+ * It is terminology for a job, not for a file — and since migration 0007 the job
+ * is the project, not the track. So it has to survive three things that all look
+ * like "starting again": importing a corrected export, emptying the editor, and
+ * moving to the next reel. It must not survive the fourth: opening a different
+ * project, whose vocabulary is somebody else's.
+ *
+ * Every one of these is silent when wrong. Nothing errors; the translation
+ * simply comes back using the wrong words.
  */
 
 const cue = (index: number): Subtitle => ({
@@ -23,13 +26,19 @@ const cue = (index: number): Subtitle => ({
 
 const store = () => useSubtitleStore.getState()
 
+const TERMS = [{ term: 'Movistar' }, { term: 'Hacienda', translation: 'Tax Office' }]
+const project = { id: 'proj_1', name: 'La película', glossary: TERMS }
+
 beforeEach(() => {
-  store().newProject()
-  store().setGlossary([{ term: 'Movistar' }, { term: 'Hacienda', translation: 'Tax Office' }])
+  store().newSequence(project)
 })
 
 describe('the glossary', () => {
-  it('survives loading another subtitle file into the same project', () => {
+  it('arrives with the project rather than being typed in again', () => {
+    assert.deepEqual(store().glossary, TERMS)
+  })
+
+  it('survives loading another subtitle file into the same sequence', () => {
     store().loadSubtitles([cue(1)])
 
     assert.equal(store().glossary.length, 2)
@@ -41,32 +50,66 @@ describe('the glossary', () => {
     assert.equal(store().glossary.length, 2)
   })
 
-  it('does not follow into a new project', () => {
-    store().newProject()
+  it('follows into the next sequence of the same project', () => {
+    // The whole reason projects exist: reel two must translate the character's
+    // name exactly as reel one did, without anybody re-typing it.
+    store().newSequence(project)
+
+    assert.deepEqual(store().glossary, TERMS)
+  })
+
+  it('does not follow into a different project', () => {
+    store().newSequence({ id: 'proj_2', name: 'Otro cliente', glossary: [] })
 
     assert.deepEqual(store().glossary, [])
   })
 
-  it('comes back with the project it was saved in', () => {
-    store().openProject({
-      id: 'p1',
-      name: 'Episode 3',
+  it('comes back with the project a sequence belongs to', () => {
+    store().openSequence({
+      id: 's1',
+      name: 'Bobina 3',
       version: 4,
       subtitles: [cue(1)],
       translations: {},
+      projectId: 'proj_9',
+      projectName: 'Serie',
       glossary: [{ term: 'Nautilus' }],
     })
     assert.deepEqual(store().glossary, [{ term: 'Nautilus' }])
+    assert.equal(store().projectId, 'proj_9')
 
-    // Saved before the glossary existed: no terms, and no crash.
-    store().openProject({ id: 'p2', name: 'Old', version: 1, subtitles: [], translations: {} })
+    // A project with no terms in it yet: empty, and no crash.
+    store().openSequence({
+      id: 's2',
+      name: 'Old',
+      version: 1,
+      subtitles: [],
+      translations: {},
+      projectId: 'proj_9',
+      projectName: 'Serie',
+    })
     assert.deepEqual(store().glossary, [])
   })
 
-  it('marks the project unsaved, since it changes what the next translation says', () => {
-    store().markSaved('p1', 'Episode 3', 4)
+  it('marks the work unsaved, since it changes what the next translation says', () => {
+    store().markSaved('s1', 'Bobina 3', 4)
     store().setGlossary([{ term: 'Nautilus' }])
 
     assert.equal(store().dirty, true)
+  })
+
+  it('remembers that the terms themselves need writing back', () => {
+    // Tracked apart from `dirty` because the terms live on a different row from
+    // the cues. Without this the editor would either never save them, or write
+    // its local copy back on every save and quietly undo a term a colleague
+    // added while it was open.
+    store().markSaved('s1', 'Bobina 3', 4)
+    assert.equal(store().glossaryDirty, false)
+
+    store().setGlossary([{ term: 'Nautilus' }])
+    assert.equal(store().glossaryDirty, true)
+
+    store().markSaved('s1', 'Bobina 3', 5)
+    assert.equal(store().glossaryDirty, false)
   })
 })

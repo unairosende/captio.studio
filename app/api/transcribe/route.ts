@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
   }
 
   const language = typeof body?.language === 'string' ? body.language : ''
-  const projectId = typeof body?.projectId === 'string' && body.projectId ? body.projectId : null
+  const sequenceId = typeof body?.sequenceId === 'string' && body.sequenceId ? body.sequenceId : null
   const outputMode = body?.outputMode === 'vertical' ? 'vertical' : 'horizontal'
 
   const key = process.env.ELEVENLABS_API_KEY
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
   await logUsage({
     orgId: ctx.orgId,
     userId: ctx.userId,
-    projectId,
+    sequenceId,
     kind: 'transcribe',
     model: MODEL,
     unitsIn: Math.round(words.at(-1)?.end ?? 0),

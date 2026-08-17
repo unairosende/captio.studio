@@ -1,269 +1,192 @@
-import { query, queryOne, requireOrg, transaction } from './client.ts'
-import { applyAnchorOps, type AnchorOp } from './comments.ts'
+import type { GlossaryEntry } from '../ai/prompt.ts'
+import { query, queryOne, requireOrg } from './client.ts'
+
+/**
+ * A project: the job, not the track.
+ *
+ * Until migration 0007 this name meant one subtitle track, and a customer's
+ * list of "projects" was a flat pile of them with the grouping living in their
+ * filenames. A feature arrives in reels, a series in episodes; what those share
+ * is a client, a deadline and a vocabulary. The track is now a sequence — see
+ * lib/db/sequences.ts — and this is the thing that holds them.
+ *
+ * Deliberately thin. It owns a name and the terminology and nothing else:
+ * source and target languages stay on the sequence, because a project is
+ * routinely a film plus its trailer, and the trailer is not always cut for the
+ * same markets.
+ */
 
 export interface ProjectRow {
   id: string
   org_id: string
   name: string
-  source_lang: string | null
-  target_langs: string[]
-  fps: string
-  data: unknown
-  /** Bumped by trigger on every update; the token for optimistic locking. */
-  version: number
+  /**
+   * Terms every sequence in this project must respect.
+   *
+   * Here rather than on the sequence because it is the reason to group work at
+   * all: a character's name has to survive from reel one to reel six, and
+   * re-typing it per reel is how it stops surviving.
+   */
+  glossary: GlossaryEntry[]
   created_by: string | null
   created_at: string
   updated_at: string
 }
 
-/** List view never ships `data` — a feature-length project is megabytes of JSON. */
-export type ProjectSummary = Omit<ProjectRow, 'data'> & {
-  /** How many cues it holds, counted in the database rather than shipped. */
+/** What a list needs in order to draw a project without opening it. */
+export type ProjectSummary = ProjectRow & {
+  sequence_count: number
+  /** Cues across every sequence, counted in the database rather than shipped. */
   cue_count: number
+  /** Every target language any of its sequences has, sorted. */
+  target_langs: string[]
+  /**
+   * When anybody last touched anything inside.
+   *
+   * The project row's own `updated_at` only moves when its name or glossary
+   * changes, so ordering a list by that would sink a project somebody worked in
+   * all afternoon beneath one that was renamed last week.
+   */
+  last_activity: string
 }
 
 /**
- * The size of a project, without any of it.
+ * Aggregates over the sequences inside, as two separate lateral joins.
  *
- * Names and dates alone give nobody a way to tell a finished film from an empty
- * draft opened once by mistake, and the whole point of the columns above is that
- * `data` never leaves Postgres.
+ * They cannot be one. The languages need `unnest`, which multiplies a sequence
+ * into one row per language — and a `count` or `sum` computed alongside it would
+ * then count a three-language sequence three times.
  *
- * The type check is not defensive noise. `data` is free-form jsonb — `{}` for a
- * project created straight through the API — and `jsonb_array_length` raises on
- * anything that is not an array rather than returning null, so without the guard
- * one such row takes the entire list down with it.
+ * The `where p.org_id = $1` is part of the fragment rather than something each
+ * caller appends. A fragment that is only safe once its caller remembers to
+ * scope it is the exact shape of the bug tests/tenancy/scoping.test.ts exists to
+ * refuse — and that test reads this text, so writing it the other way fails the
+ * build rather than leaking quietly.
  */
-const CUE_COUNT = `case
-     when jsonb_typeof(data -> 'subtitles') = 'array' then jsonb_array_length(data -> 'subtitles')
-     else 0
-   end as cue_count`
+/**
+ * Cues in one sequences row, guarded.
+ *
+ * The same expression as in lib/db/sequences.ts and for the same reason:
+ * `jsonb_array_length` raises on anything that is not an array, and `data` is
+ * free-form, so one odd row would take the whole listing down.
+ *
+ * A named constant rather than written inline because the type comparison reads
+ * as a string literal in SQL, and tests/tenancy/scoping.test.ts refuses those
+ * inside a statement — rightly, since it cannot tell a type name from a value
+ * somebody forgot to parameterise.
+ */
+const CUE_COUNT = `coalesce(sum(case
+               when jsonb_typeof(data -> 'subtitles') = 'array'
+                 then jsonb_array_length(data -> 'subtitles')
+               else 0
+             end), 0)::int`
 
-const SUMMARY_COLS =
-  `id, org_id, name, source_lang, target_langs, fps, version, created_by, created_at, updated_at,
-   ${CUE_COUNT}`
+const SUMMARY = `
+  select p.id, p.org_id, p.name, p.glossary, p.created_by, p.created_at, p.updated_at,
+         coalesce(s.sequence_count, 0)   as sequence_count,
+         coalesce(s.cue_count, 0)        as cue_count,
+         coalesce(l.target_langs, '{}')  as target_langs,
+         greatest(p.updated_at, s.last_activity) as last_activity
+    from projects p
+    left join lateral (
+      select count(*)::int as sequence_count,
+             ${CUE_COUNT} as cue_count,
+             max(updated_at) as last_activity
+        from sequences
+       where project_id = p.id
+    ) s on true
+    left join lateral (
+      select array_agg(distinct lang order by lang) as target_langs
+        from sequences sq, unnest(sq.target_langs) as lang
+       where sq.project_id = p.id
+    ) l on true
+   where p.org_id = $1`
 
 export async function listProjects(orgId: string): Promise<ProjectSummary[]> {
+  // `greatest` ignores nulls, so a project with no sequences in it yet orders by
+  // its own timestamp rather than falling off the end of the list.
   return query<ProjectSummary>(
-    `select ${SUMMARY_COLS} from projects where org_id = $1 order by updated_at desc`,
+    `${SUMMARY} order by greatest(p.updated_at, s.last_activity) desc`,
     [requireOrg(orgId)],
   )
 }
 
-export async function getProject(orgId: string, id: string): Promise<ProjectRow | null> {
-  return queryOne<ProjectRow>(`select * from projects where org_id = $1 and id = $2`, [
-    requireOrg(orgId),
-    id,
-  ])
+export async function getProject(orgId: string, id: string): Promise<ProjectSummary | null> {
+  return queryOne<ProjectSummary>(`${SUMMARY} and p.id = $2`, [requireOrg(orgId), id])
 }
 
 export async function createProject(
   orgId: string,
-  input: {
-    name: string
-    sourceLang?: string | null
-    targetLangs?: string[]
-    fps?: number
-    data?: unknown
-    createdBy?: string | null
-  },
+  input: { name: string; glossary?: GlossaryEntry[]; createdBy?: string | null },
 ): Promise<ProjectRow> {
   const rows = await query<ProjectRow>(
-    `insert into projects (org_id, name, source_lang, target_langs, fps, data, created_by)
-     values ($1, $2, $3, $4, $5, $6, $7)
+    `insert into projects (org_id, name, glossary, created_by)
+     values ($1, $2, $3, $4)
      returning *`,
-    [
-      requireOrg(orgId),
-      input.name,
-      input.sourceLang ?? null,
-      input.targetLangs ?? [],
-      input.fps ?? 25,
-      JSON.stringify(input.data ?? {}),
-      input.createdBy ?? null,
-    ],
+    [requireOrg(orgId), input.name, JSON.stringify(input.glossary ?? []), input.createdBy ?? null],
   )
   return rows[0]
 }
 
-export class ConflictError extends Error {
-  constructor() {
-    super('Project was modified by someone else')
-    this.name = 'ConflictError'
-  }
-}
-
 /**
- * Update a project, optionally only if nobody else has touched it since.
+ * Rename a project, or replace its glossary.
  *
- * `expectedVersion` makes the check part of the UPDATE rather than a read
- * followed by a write: two editors saving in the same instant can both pass a
- * prior SELECT, but only one can pass this.
+ * No version guard, unlike a sequence. What is stored here is a name and a short
+ * list of terms, edited a field at a time by people who see each other's changes
+ * on the next load; refusing a save because a colleague added a term thirty
+ * seconds ago would be a conflict dialogue over nothing.
  *
- * The token is the integer `version`, not `updated_at`. Timestamps look like
- * they would work and do not: Postgres keeps microseconds, a JavaScript Date
- * keeps milliseconds, so a timestamp sent back by the client never equals the
- * stored one and every save would report a conflict that never happened.
- *
- * Returns `null` when the project does not exist **or** belongs to another
- * organisation — callers must not distinguish the two, or the API becomes an
- * oracle for which project ids exist.
+ * Returns `null` when it does not exist **or** belongs to another organisation.
+ * Callers must not distinguish the two.
  */
 export async function updateProject(
   orgId: string,
   id: string,
-  patch: {
-    name?: string
-    sourceLang?: string | null
-    targetLangs?: string[]
-    fps?: number
-    data?: unknown
-  },
-  opts: {
-    expectedVersion?: number
-    /**
-     * The cue splits and deletions this save contains, in the order they were made.
-     *
-     * They arrive with the save rather than as they happen because the cues
-     * themselves are only written here: moving the anchors earlier would leave
-     * them describing a renumbering that the editor might still abandon.
-     */
-    anchorOps?: AnchorOp[]
-  } = {},
+  patch: { name?: string; glossary?: GlossaryEntry[] },
 ): Promise<ProjectRow | null> {
-  const write = async (run: typeof query): Promise<ProjectRow | null> => {
-    const sets: string[] = []
-    const params: unknown[] = [requireOrg(orgId), id]
+  const sets: string[] = []
+  const params: unknown[] = [requireOrg(orgId), id]
 
-    const push = (col: string, val: unknown) => {
-      params.push(val)
-      sets.push(`${col} = $${params.length}`)
-    }
-
-    if (patch.name !== undefined) push('name', patch.name)
-    if (patch.sourceLang !== undefined) push('source_lang', patch.sourceLang)
-    if (patch.targetLangs !== undefined) push('target_langs', patch.targetLangs)
-    if (patch.fps !== undefined) push('fps', patch.fps)
-    if (patch.data !== undefined) push('data', JSON.stringify(patch.data))
-
-    if (!sets.length) {
-      const existing = await run<ProjectRow>(
-        `select * from projects where org_id = $1 and id = $2`,
-        [requireOrg(orgId), id],
-      )
-      return existing[0] ?? null
-    }
-
-    let guard = ''
-    if (opts.expectedVersion !== undefined) {
-      params.push(opts.expectedVersion)
-      guard = ` and version = $${params.length}`
-    }
-
-    const rows = await run<ProjectRow>(
-      `update projects set ${sets.join(', ')}
-       where org_id = $1 and id = $2${guard}
-       returning *`,
-      params,
-    )
-
-    if (rows.length) return rows[0]
-
-    // No row updated: either it is gone, or someone else saved first.
-    const still = await run<{ id: string }>(
-      `select id from projects where org_id = $1 and id = $2`,
-      [requireOrg(orgId), id],
-    )
-    if (opts.expectedVersion !== undefined && still.length) throw new ConflictError()
-    return null
+  if (patch.name !== undefined) {
+    params.push(patch.name)
+    sets.push(`name = $${params.length}`)
+  }
+  if (patch.glossary !== undefined) {
+    params.push(JSON.stringify(patch.glossary))
+    sets.push(`glossary = $${params.length}`)
   }
 
-  if (!opts.anchorOps?.length) return write(query)
+  if (!sets.length) {
+    return queryOne<ProjectRow>(`select * from projects where org_id = $1 and id = $2`, [
+      requireOrg(orgId),
+      id,
+    ])
+  }
 
-  // Cues and comment anchors are two tables describing the same renumbering.
-  // Committing one without the other is the failure this transaction exists for:
-  // it leaves every note below the edit quoting a line nobody wrote.
-  return transaction(async run => {
-    const project = await write(run)
-    if (project) await applyAnchorOps(orgId, id, opts.anchorOps!, run)
-    return project
-  })
+  const rows = await query<ProjectRow>(
+    `update projects set ${sets.join(', ')}
+      where org_id = $1 and id = $2
+      returning *`,
+    params,
+  )
+  return rows[0] ?? null
 }
 
+/**
+ * Delete a project and everything in it.
+ *
+ * The sequences go with it, and their comments, versions and media rows go with
+ * them — `on delete cascade` all the way down. That is the honest semantic for a
+ * container, and it is also why whoever calls this has to say out loud how many
+ * sequences are about to disappear.
+ *
+ * The stored media objects are NOT removed here. Only rows go; the bytes need
+ * the sweeper — see lib/db/media.ts.
+ */
 export async function deleteProject(orgId: string, id: string): Promise<boolean> {
   const rows = await query<{ id: string }>(
     `delete from projects where org_id = $1 and id = $2 returning id`,
     [requireOrg(orgId), id],
   )
   return rows.length > 0
-}
-
-export async function duplicateProject(
-  orgId: string,
-  id: string,
-  name: string,
-  createdBy?: string | null,
-): Promise<ProjectRow | null> {
-  const rows = await query<ProjectRow>(
-    `insert into projects (org_id, name, source_lang, target_langs, fps, data, created_by)
-     select org_id, $3, source_lang, target_langs, fps, data, $4
-       from projects where org_id = $1 and id = $2
-     returning *`,
-    [requireOrg(orgId), id, name, createdBy ?? null],
-  )
-  return rows[0] ?? null
-}
-
-// ── History ────────────────────────────────────────────────────────────────
-
-export interface VersionRow {
-  id: string
-  org_id: string
-  project_id: string
-  data: unknown
-  created_by: string | null
-  created_at: string
-}
-
-/**
- * Snapshot the project as it stands.
- *
- * The snapshot is taken from the stored row rather than from anything the
- * caller passes in, so it can never record a state that never existed.
- */
-export async function snapshotProject(
-  orgId: string,
-  projectId: string,
-  createdBy?: string | null,
-): Promise<VersionRow | null> {
-  return transaction(async run => {
-    const rows = await run<VersionRow>(
-      `insert into project_versions (org_id, project_id, data, created_by)
-       select org_id, id, data, $3 from projects where org_id = $1 and id = $2
-       returning *`,
-      [requireOrg(orgId), projectId, createdBy ?? null],
-    )
-    return rows[0] ?? null
-  })
-}
-
-export async function listVersions(
-  orgId: string,
-  projectId: string,
-  limit = 50,
-): Promise<Omit<VersionRow, 'data'>[]> {
-  return query<Omit<VersionRow, 'data'>>(
-    `select id, org_id, project_id, created_by, created_at
-       from project_versions
-      where org_id = $1 and project_id = $2
-      order by created_at desc
-      limit $3`,
-    [requireOrg(orgId), projectId, limit],
-  )
-}
-
-export async function getVersion(orgId: string, versionId: string): Promise<VersionRow | null> {
-  return queryOne<VersionRow>(`select * from project_versions where org_id = $1 and id = $2`, [
-    requireOrg(orgId),
-    versionId,
-  ])
 }

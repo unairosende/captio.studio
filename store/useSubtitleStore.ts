@@ -109,14 +109,27 @@ interface AppState {
   translations: TranslationStore
   backTranslations: BackTranslationStore
   /**
-   * Terms the translator must respect, for this project.
+   * Terms the translator must respect, for this whole project.
    *
    * One list for every target language, which covers what glossaries are
    * actually used for — character names, brands, the client's own vocabulary.
    * It belongs to the project rather than to the organisation because the same
-   * word is a brand in one job and an ordinary noun in the next.
+   * word is a brand in one job and an ordinary noun in the next; and to the
+   * project rather than the sequence because a character's name has to survive
+   * from reel one to reel six.
+   *
+   * Which means editing it here changes it for every sequence in the project.
    */
   glossary: GlossaryEntry[]
+  /**
+   * Whether the glossary has been touched since the last save.
+   *
+   * Tracked separately because it is stored on a different row from the cues,
+   * and because it is shared: writing the local copy back on every save would
+   * let somebody who never opened the panel overwrite a term a colleague added
+   * while they had the editor open.
+   */
+  glossaryDirty: boolean
 
   // UI state
   activeTab: 'source' | string
@@ -135,24 +148,34 @@ interface AppState {
   past: Snapshot[]
   future: Snapshot[]
 
-  // The saved project this editor is a view of, if any
+  /**
+   * The project this editor is working inside.
+   *
+   * Always set once the editor has been reached properly, because every sequence
+   * belongs to one and a new sequence has to know where to be created. Null only
+   * in the moment before a project has been chosen.
+   */
   projectId: string | null
   projectName: string
+
+  // The saved sequence this editor is a view of, if any
+  sequenceId: string | null
+  sequenceName: string
   /**
    * The version that was opened.
    *
    * Sent back on save so the server can refuse if somebody else saved in the
    * meantime. Without it the second person to save silently erases the first.
    */
-  projectVersion: number | null
+  sequenceVersion: number | null
   /** Whether there is work here that is not in the database. */
   dirty: boolean
 
   /**
-   * The notes on the open project, as last read from the server.
+   * The notes on the open sequence, as last read from the server.
    *
-   * Empty for a project that has never been saved: a comment needs a project id
-   * to hang from, and there is nobody to read it yet anyway.
+   * Empty for a sequence that has never been saved: a comment needs a sequence
+   * id to hang from, and there is nobody to read it yet anyway.
    */
   comments: ProjectComment[]
   /**
@@ -165,17 +188,21 @@ interface AppState {
    */
   anchorOps: AnchorOp[]
 
-  openProject: (project: {
+  openSequence: (sequence: {
     id: string
     name: string
     version: number
     subtitles: Subtitle[]
     translations: TranslationStore
+    /** The project it lives in, whose glossary comes with it. */
+    projectId: string
+    projectName: string
     glossary?: GlossaryEntry[]
   }) => void
   markSaved: (id: string, name: string, version: number) => void
-  newProject: () => void
-  setProjectName: (name: string) => void
+  /** A blank sequence in the given project. The glossary is the project's, so it stays. */
+  newSequence: (project: { id: string; name: string; glossary?: GlossaryEntry[] }) => void
+  setSequenceName: (name: string) => void
 
   // Actions
   /**
@@ -246,27 +273,33 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   transcribeJob: defaultJob,
   past: [],
   future: [],
+  glossaryDirty: false,
   projectId: null,
-  projectName: 'Untitled',
-  projectVersion: null,
+  projectName: '',
+  sequenceId: null,
+  sequenceName: 'Untitled',
+  sequenceVersion: null,
   dirty: false,
   comments: [],
   anchorOps: [],
 
-  openProject: p => set({
-    subtitles: p.subtitles,
-    translations: p.translations,
+  openSequence: s => set({
+    subtitles: s.subtitles,
+    translations: s.translations,
     backTranslations: {},
-    glossary: p.glossary ?? [],
+    glossary: s.glossary ?? [],
+    glossaryDirty: false,
     activeTab: 'source',
-    projectId: p.id,
-    projectName: p.name,
-    projectVersion: p.version,
+    projectId: s.projectId,
+    projectName: s.projectName,
+    sequenceId: s.id,
+    sequenceName: s.name,
+    sequenceVersion: s.version,
     // Freshly loaded is by definition identical to what is stored.
     dirty: false,
     past: [],
     future: [],
-    // The notes are fetched separately, and the anchors of the project being
+    // The notes are fetched separately, and the anchors of the sequence being
     // closed have nothing to do with the one being opened.
     comments: [],
     anchorOps: [],
@@ -275,17 +308,30 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   // The anchors went with the save, so replaying them would move every comment
   // a second time.
   markSaved: (id, name, version) =>
-    set({ projectId: id, projectName: name, projectVersion: version, dirty: false, anchorOps: [] }),
+    set({
+      sequenceId: id,
+      sequenceName: name,
+      sequenceVersion: version,
+      dirty: false,
+      glossaryDirty: false,
+      anchorOps: [],
+    }),
 
-  newProject: () => set({
+  // The glossary survives, because it belongs to the project rather than to the
+  // sequence being left behind: starting reel two should not mean re-typing
+  // every character's name.
+  newSequence: project => set({
     subtitles: [],
     translations: {},
     backTranslations: {},
-    glossary: [],
+    glossary: project.glossary ?? [],
+    glossaryDirty: false,
     activeTab: 'source',
-    projectId: null,
-    projectName: 'Untitled',
-    projectVersion: null,
+    projectId: project.id,
+    projectName: project.name,
+    sequenceId: null,
+    sequenceName: 'Untitled',
+    sequenceVersion: null,
     dirty: false,
     past: [],
     future: [],
@@ -293,7 +339,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     anchorOps: [],
   }),
 
-  setProjectName: name => set({ projectName: name, dirty: true }),
+  setSequenceName: name => set({ sequenceName: name, dirty: true }),
 
   // Opening a different file starts a different piece of work. Carrying the
   // history across would let undo paste the previous job's cues into this one.
@@ -459,7 +505,9 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
 
   // Not part of the undo history: the history is for the cues, and a table of
   // terminology is edited a field at a time by somebody who can see it.
-  setGlossary: entries => set({ glossary: entries, dirty: true }),
+  // `dirty` too, so the unsaved dot appears: the terms are part of the work even
+  // though they are written to a different row.
+  setGlossary: entries => set({ glossary: entries, glossaryDirty: true, dirty: true }),
 
   setTranslateJob:    j => set(s => ({ translateJob:    { ...s.translateJob,    ...j } })),
   setBackTranslateJob:j => set(s => ({ backTranslateJob:{ ...s.backTranslateJob,...j } })),

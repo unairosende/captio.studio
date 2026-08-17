@@ -96,7 +96,14 @@ export type UsageKind = 'translate' | 'transcribe'
 
 export interface UsageEventInput {
   orgId: string
-  projectId?: string | null
+  /**
+   * The sequence the work was done on, where there is one.
+   *
+   * Optional because a translation can be run before anything has been saved.
+   * The column is `on delete set null`: deleting a sequence must not delete the
+   * record of what was spent on it, or a past month's bill changes retroactively.
+   */
+  sequenceId?: string | null
   userId?: string | null
   kind: UsageKind
   model?: string | null
@@ -126,11 +133,11 @@ export async function logUsage(input: UsageEventInput): Promise<void> {
   try {
     await query(
       `insert into usage_events
-         (org_id, project_id, user_id, kind, model, units_in, units_out, cost_usd, cues)
+         (org_id, sequence_id, user_id, kind, model, units_in, units_out, cost_usd, cues)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
       [
         requireOrg(input.orgId),
-        input.projectId ?? null,
+        input.sequenceId ?? null,
         input.userId ?? null,
         input.kind,
         input.model ?? null,

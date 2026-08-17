@@ -8,6 +8,7 @@
  */
 export * from './client.ts'
 export * from './projects.ts'
+export * from './sequences.ts'
 export * from './billing.ts'
 export * from './media.ts'
 export * from './comments.ts'

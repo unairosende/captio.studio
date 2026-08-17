@@ -23,7 +23,7 @@ export default function EditorArea({ userId }: Props) {
     allowRephrase, srcLang, tgtLang,
     setBackTranslateJob,
     splitSubtitle, deleteSubtitle,
-    comments, projectId,
+    comments, sequenceId,
   } = useSubtitleStore()
 
   /** The cue whose thread is open, if any. */
@@ -197,7 +197,7 @@ export default function EditorArea({ userId }: Props) {
         // A comment needs a project to hang from, so an unsaved editor gets no
         // button rather than a button that fails.
         comments={{ total: onCue.length, open: onCue.filter(c => !c.resolved).length }}
-        onComments={projectId ? setCommentCue : undefined}
+        onComments={sequenceId ? setCommentCue : undefined}
       />
     )
   }
@@ -212,9 +212,9 @@ export default function EditorArea({ userId }: Props) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
-      {commentCue !== null && projectId && (
+      {commentCue !== null && sequenceId && (
         <CommentsPanel
-          projectId={projectId}
+          sequenceId={sequenceId}
           cueIndex={commentCue}
           userId={userId}
           onClose={() => setCommentCue(null)}

@@ -6,7 +6,7 @@ export type { AnchorOp }
 export interface CommentRow {
   id: string
   org_id: string
-  project_id: string
+  sequence_id: string
   cue_index: number
   lang: string | null
   body: string
@@ -21,7 +21,7 @@ export interface CommentWithAuthor extends CommentRow {
 }
 
 /**
- * Every comment on a project, oldest first within each cue.
+ * Every comment on a sequence, oldest first within each cue.
  *
  * The author is joined in rather than looked up by the caller: a thread of six
  * notes would otherwise be six queries, and printing `user_01H9…` over somebody's
@@ -29,22 +29,22 @@ export interface CommentWithAuthor extends CommentRow {
  */
 export async function listComments(
   orgId: string,
-  projectId: string,
+  sequenceId: string,
 ): Promise<CommentWithAuthor[]> {
   return query<CommentWithAuthor>(
     `select c.*, u."name" as author_name
        from comments c
        left join "user" u on u."id" = c.author_id
-      where c.org_id = $1 and c.project_id = $2
+      where c.org_id = $1 and c.sequence_id = $2
       order by c.cue_index, c.created_at`,
-    [requireOrg(orgId), projectId],
+    [requireOrg(orgId), sequenceId],
   )
 }
 
 export async function createComment(
   orgId: string,
   input: {
-    projectId: string
+    sequenceId: string
     cueIndex: number
     lang?: string | null
     body: string
@@ -52,12 +52,12 @@ export async function createComment(
   },
 ): Promise<CommentRow> {
   const rows = await query<CommentRow>(
-    `insert into comments (org_id, project_id, cue_index, lang, body, author_id)
+    `insert into comments (org_id, sequence_id, cue_index, lang, body, author_id)
      values ($1, $2, $3, $4, $5, $6)
      returning *`,
     [
       requireOrg(orgId),
-      input.projectId,
+      input.sequenceId,
       input.cueIndex,
       input.lang ?? null,
       input.body,
@@ -98,29 +98,29 @@ type Run = typeof query
 
 export async function shiftCommentAnchors(
   orgId: string,
-  projectId: string,
+  sequenceId: string,
   fromIndex: number,
   delta: number,
   run: Run = query,
 ): Promise<number> {
   const rows = await run<{ id: string }>(
     `update comments set cue_index = cue_index + $4
-      where org_id = $1 and project_id = $2 and cue_index >= $3
+      where org_id = $1 and sequence_id = $2 and cue_index >= $3
       returning id`,
-    [requireOrg(orgId), projectId, fromIndex, delta],
+    [requireOrg(orgId), sequenceId, fromIndex, delta],
   )
   return rows.length
 }
 
 export async function dropCommentsForCue(
   orgId: string,
-  projectId: string,
+  sequenceId: string,
   cueIndex: number,
   run: Run = query,
 ): Promise<number> {
   const rows = await run<{ id: string }>(
-    `delete from comments where org_id = $1 and project_id = $2 and cue_index = $3 returning id`,
-    [requireOrg(orgId), projectId, cueIndex],
+    `delete from comments where org_id = $1 and sequence_id = $2 and cue_index = $3 returning id`,
+    [requireOrg(orgId), sequenceId, cueIndex],
   )
   return rows.length
 }
@@ -134,16 +134,16 @@ export async function dropCommentsForCue(
  */
 export async function applyAnchorOps(
   orgId: string,
-  projectId: string,
+  sequenceId: string,
   ops: AnchorOp[],
   run: Run = query,
 ): Promise<void> {
   for (const op of ops) {
     if (op.dropIndex !== undefined) {
-      await dropCommentsForCue(orgId, projectId, op.dropIndex, run)
+      await dropCommentsForCue(orgId, sequenceId, op.dropIndex, run)
     }
     if (op.delta !== 0) {
-      await shiftCommentAnchors(orgId, projectId, op.fromIndex, op.delta, run)
+      await shiftCommentAnchors(orgId, sequenceId, op.fromIndex, op.delta, run)
     }
   }
 }
@@ -156,7 +156,7 @@ export function parseAnchorOps(value: unknown): AnchorOp[] {
     const { dropIndex, fromIndex, delta } = raw as Record<string, unknown>
     if (!Number.isInteger(fromIndex) || !Number.isInteger(delta)) return []
     // A cue moves by one place at a time; anything larger is not an edit the
-    // editor makes, and a stray thousand would scatter a project's notes.
+    // editor makes, and a stray thousand would scatter a sequence's notes.
     if (Math.abs(delta as number) !== 1) return []
     return [{
       ...(Number.isInteger(dropIndex) ? { dropIndex: dropIndex as number } : {}),
