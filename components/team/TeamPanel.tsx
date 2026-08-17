@@ -3,6 +3,7 @@
 import { type CSSProperties, useCallback, useEffect, useState } from 'react'
 
 import { organization } from '@/lib/auth/client'
+import { INVITATION_EXPIRY_DAYS } from '@/lib/auth/expiry'
 
 /**
  * Who is in the organisation, and what they may do.
@@ -224,7 +225,7 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
               </button>
             </div>
             <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 5 }}>
-              {ROLE_HELP[inviteRole]}. The link expires in seven days.
+              {ROLE_HELP[inviteRole]}. The link expires in {INVITATION_EXPIRY_DAYS} days.
             </div>
             {sent && (
               <div className="ok" style={{ marginTop: 5 }}>

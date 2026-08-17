@@ -1,5 +1,7 @@
 import { Resend } from 'resend'
 
+import { RESET_EXPIRY_HOURS } from '../auth/expiry.ts'
+
 /**
  * Transactional email.
  *
@@ -69,6 +71,15 @@ export async function sendMail(mail: Mail): Promise<boolean> {
 const esc = (s: string) =>
   s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
+/**
+ * The app's accent, written out.
+ *
+ * Mail clients have no custom properties, so `--accent` cannot reach here. The
+ * literal at least sits next to the only markup that uses it, which is as close
+ * to one source as an email template gets.
+ */
+const ACCENT = '#5b7cf6'
+
 /** Shared shell so every message looks like it came from the same product. */
 function layout(heading: string, body: string, cta?: { url: string; label: string }): string {
   return `
@@ -78,7 +89,7 @@ function layout(heading: string, body: string, cta?: { url: string; label: strin
   ${
     cta
       ? `<p style="margin:0 0 24px">
-    <a href="${cta.url}" style="display:inline-block;background:#111;color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:15px">
+    <a href="${cta.url}" style="display:inline-block;background:${ACCENT};color:#fff;text-decoration:none;padding:12px 20px;border-radius:8px;font-size:15px">
       ${cta.label}
     </a>
   </p>`
@@ -102,12 +113,18 @@ export function verificationEmail(url: string): Omit<Mail, 'to'> {
 }
 
 export function resetPasswordEmail(url: string): Omit<Mail, 'to'> {
+  // Said out loud because these are read hours later, on a phone, on the way
+  // somewhere. Somebody who knows the link is short-lived opens it now; somebody
+  // who does not blames the product when it has quietly gone stale.
+  const lifespan =
+    RESET_EXPIRY_HOURS === 1 ? 'El enlace caduca en una hora.' : `El enlace caduca en ${RESET_EXPIRY_HOURS} horas.`
+
   return {
     subject: 'Restablecer tu contraseña de captio',
-    text: `Alguien pidió restablecer la contraseña de esta cuenta:\n\n${url}\n\nSi no fuiste tú, ignora este correo: tu contraseña no cambia hasta que se use el enlace.`,
+    text: `Alguien pidió restablecer la contraseña de esta cuenta:\n\n${url}\n\n${lifespan}\n\nSi no fuiste tú, ignora este correo: tu contraseña no cambia hasta que se use el enlace.`,
     html: layout(
       'Restablecer tu contraseña',
-      'Alguien pidió restablecer la contraseña de esta cuenta. Si no fuiste tú, ignora este correo: la contraseña no cambia hasta que se use el enlace.',
+      `Alguien pidió restablecer la contraseña de esta cuenta. ${lifespan} Si no fuiste tú, ignora este correo: la contraseña no cambia hasta que se use el enlace.`,
       { url: esc(url), label: 'Elegir nueva contraseña' },
     ),
   }

@@ -11,6 +11,7 @@ import {
   labelStyle,
 } from '@/components/auth/AuthCard'
 import { requestPasswordReset } from '@/lib/auth/client'
+import { RESET_EXPIRY_HOURS } from '@/lib/auth/expiry'
 
 /**
  * Asking for a way back in.
@@ -65,7 +66,8 @@ export default function ForgotPasswordPage() {
       >
         <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
           Si <strong style={{ color: 'var(--text)' }}>{email}</strong> tiene una cuenta, le hemos
-          enviado un enlace para cambiar la contraseña.
+          enviado un enlace para cambiar la contraseña. Caduca en{' '}
+          {RESET_EXPIRY_HOURS === 1 ? 'una hora' : `${RESET_EXPIRY_HOURS} horas`}.
         </p>
         <p style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6, marginTop: 12 }}>
           ¿No llega? Mira en spam, y comprueba que la dirección esté bien escrita.

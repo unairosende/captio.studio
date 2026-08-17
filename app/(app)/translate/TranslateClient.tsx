@@ -98,7 +98,9 @@ export default function TranslateClient({ user, entitlement }: Props) {
           <ProjectBar />
         </div>
         <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <button onClick={() => setPalette(true)} title="Search and commands ⌘K" style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
+          {/* inline-flex and nowrap: as two inline children in a bar that
+              shrinks, this wrapped — the magnifier on one line, ⌘K on the next. */}
+          <button onClick={() => setPalette(true)} title="Search and commands ⌘K" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flexShrink: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
             ⌕ <span style={{ fontFamily: 'var(--mono)', fontSize: 10 }}>⌘K</span>
           </button>
           <button data-cmd="Manage the team" onClick={() => setTeam(true)} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>

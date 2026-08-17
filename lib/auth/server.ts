@@ -10,6 +10,7 @@ import {
   sendMail,
   verificationEmail,
 } from '../email/send.ts'
+import { INVITATION_EXPIRY_SECONDS, RESET_EXPIRY_SECONDS } from './expiry.ts'
 
 /**
  * Authentication and organisations.
@@ -57,6 +58,9 @@ export const authOptions = {
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: true,
+    // Set rather than left to the default, so the number the email quotes is
+    // the number the token actually obeys.
+    resetPasswordTokenExpiresIn: RESET_EXPIRY_SECONDS,
     sendResetPassword: async ({ user, url }) => {
       await sendMail({ to: user.email, ...resetPasswordEmail(url) })
     },
@@ -105,7 +109,7 @@ export const authOptions = {
       // A seat is a paid thing; the ceiling gets raised from the subscription,
       // not from a constant, once billing is wired.
       membershipLimit: 100,
-      invitationExpiresIn: 60 * 60 * 24 * 7,
+      invitationExpiresIn: INVITATION_EXPIRY_SECONDS,
       /**
        * Say so when the message did not go out — in the log, which is as far as
        * it can travel from here.
