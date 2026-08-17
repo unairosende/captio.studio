@@ -52,6 +52,8 @@ describe('the wall', () => {
     status: 'exhausted',
     kind,
     remaining: { transcribeSeconds: 0, translatedCues: 0 },
+    // No plan behind this one; the plan's own wall is in plan-limit.test.ts.
+    monthly: null,
   })
 
   it('answers 402, not 403', async () => {

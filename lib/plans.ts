@@ -26,6 +26,14 @@ export const TRIAL = {
   translatedCues: 2_000,
 } as const
 
+/**
+ * What a subscription buys.
+ *
+ * `monthlySubtitles` is enforced, not decoration: lib/entitlement.ts refuses
+ * translation past it for the calendar month, and /pricing prints this same
+ * figure. Raising it here raises the wall and the promise together, which is the
+ * only way the two can be trusted to agree.
+ */
 export const PLANS: Plan[] = [
   {
     id: 'individual',

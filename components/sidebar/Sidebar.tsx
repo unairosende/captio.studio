@@ -25,7 +25,7 @@ import { TRIAL } from '@/lib/plans'
 /**
  * A section heading.
  *
- * At module scope, like TrialMeter below: a component declared inside Sidebar
+ * At module scope, like AllowanceMeter below: a component declared inside Sidebar
  * is a new component type on every render, so React unmounts the old one and
  * mounts a fresh one each time — which throws away the state of anything
  * underneath it.
@@ -61,7 +61,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   /**
    * Money has been spent — go and read how much is left.
    *
-   * The trial meter is a prop from a server component, so it is only ever as
+   * The allowance meter is a prop from a server component, so it is only ever as
    * fresh as the last page load. Without this, somebody transcribes an episode
    * and the sidebar still shows the full hour: the warning that exists to
    * arrive *before* the wall arrives after it, on the next reload.
@@ -271,7 +271,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   return (
     <div style={{ width: 226, background: 'var(--bg1)', borderRight: '1px solid var(--border)', display: 'flex', flexDirection: 'column', flexShrink: 0, overflowY: 'auto' }}>
 
-      <TrialMeter entitlement={entitlement} />
+      <AllowanceMeter entitlement={entitlement} />
 
       {/* Import / Transcribe */}
       <div style={{ padding: '13px 12px 12px', borderBottom: '1px solid var(--border)' }}>
@@ -477,45 +477,71 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
 }
 
 /**
- * What is left of the trial, before any of it is spent.
+ * What is left, before any of it is spent — of the trial, or of the month a paid
+ * plan includes.
  *
  * The paywall itself lives in the API routes, because a limit enforced by the
  * component that draws the button is not a limit. This is the warning — and the
  * warning is what decides whether reaching the limit feels like a product or an
- * ambush. Without it, the first news of an exhausted trial arrives at the exact
- * moment somebody pressed Translate on a deadline.
+ * ambush. Without it, the first news of a spent allowance arrives at the exact
+ * moment somebody pressed Translate on a deadline. That applies to a paying
+ * customer as much as to a trial: they are the ones with the deadline.
  *
  * Declared at module scope rather than inside Sidebar: a component defined
  * during render is a new type on every render, and React throws away the
  * subtree each time.
  */
-function TrialMeter({ entitlement }: { entitlement: Entitlement }) {
-  // Nothing to say to somebody who already pays.
-  if (entitlement.status === 'subscribed') return null
+function AllowanceMeter({ entitlement }: { entitlement: Entitlement }) {
+  const meter =
+    entitlement.status === 'subscribed'
+      ? // Null when the plan is one this build cannot price, which getEntitlement
+        // leaves uncapped on purpose. Drawing a meter there would show a ceiling
+        // that is not being enforced.
+        entitlement.monthly && {
+          label: `${entitlement.monthly.plan} · this month`,
+          figures:
+            `${entitlement.monthly.remaining.toLocaleString('en-GB')} of ` +
+            `${entitlement.monthly.limit.toLocaleString('en-GB')} subtitles left`,
+          fraction: entitlement.monthly.remaining / entitlement.monthly.limit,
+          nearly: 'See plans',
+          spent: 'Month used up — see plans',
+        }
+      : {
+          label: 'Free trial',
+          figures:
+            `${Math.floor(entitlement.remaining.transcribeSeconds / 60)} min audio · ` +
+            `${entitlement.remaining.translatedCues.toLocaleString('en-GB')} subtitles`,
+          // The lower of the two, so either one running out colours the meter.
+          // They are separate promises, and whichever goes first is the news.
+          fraction: Math.min(
+            entitlement.remaining.transcribeSeconds / TRIAL.transcribeSeconds,
+            entitlement.remaining.translatedCues / TRIAL.translatedCues,
+          ),
+          nearly: 'Subscribe',
+          spent: 'Used up — subscribe',
+        }
 
-  const { transcribeSeconds, translatedCues } = entitlement.remaining
-  const spent = transcribeSeconds === 0 || translatedCues === 0
+  if (!meter) return null
+
+  const spent = meter.fraction <= 0
   // Warned at a fifth left, which is still enough to finish something with.
   // A warning that arrives at zero is not a warning.
-  const low =
-    !spent &&
-    (transcribeSeconds <= TRIAL.transcribeSeconds * 0.2 ||
-      translatedCues <= TRIAL.translatedCues * 0.2)
+  const low = !spent && meter.fraction <= 0.2
 
   return (
     <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--border)', fontSize: 11, lineHeight: 1.55, color: spent ? 'var(--red)' : low ? 'var(--amber)' : 'var(--text3)' }}>
-      {/* Colour comes from the meter around it — red once the trial is spent,
-          amber when it is nearly — so this one heading does not take the
+      {/* Colour comes from the meter around it — red once the allowance is
+          spent, amber when it is nearly — so this one heading does not take the
           class's own grey. */}
       <div className="caps" style={{ color: 'inherit', marginBottom: 3 }}>
-        Free trial
+        {meter.label}
       </div>
       <div style={{ fontFamily: 'var(--mono)' }}>
-        {Math.floor(transcribeSeconds / 60)} min audio · {translatedCues.toLocaleString('en-GB')} subtitles
+        {meter.figures}
       </div>
       {(spent || low) && (
         <a href="/pricing" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-          {spent ? 'Used up — subscribe' : 'Subscribe'}
+          {spent ? meter.spent : meter.nearly}
         </a>
       )}
     </div>

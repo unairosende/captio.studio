@@ -67,7 +67,7 @@ export default function EditorArea({ userId }: Props) {
   const leftRef  = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
 
-  // Re-reads the trial meter after anything that spends the allowance; see the
+  // Re-reads the allowance meter after anything that spends it; see the
   // note in the sidebar, which does the same after a translation or a
   // transcription.
   const router = useRouter()

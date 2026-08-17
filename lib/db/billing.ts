@@ -223,6 +223,29 @@ export async function usageByMonth(orgId: string, months = 12): Promise<UsageByM
   )
 }
 
+/**
+ * Subtitles translated in the current calendar month, for plan enforcement.
+ *
+ * A calendar month rather than the Stripe billing period: the pricing page says
+ * "per month", and an allowance turning over on whichever day somebody happened
+ * to subscribe is a different promise from the one they read.
+ *
+ * Counts `cues`, and only translation, because that is the unit the plans are
+ * sold in. A transcription row carries seconds, and seconds added to subtitles
+ * make a number that means nothing.
+ */
+export async function currentMonthCues(orgId: string): Promise<number> {
+  const row = await queryOne<{ total: string }>(
+    `select coalesce(sum(cues), 0) as total
+       from usage_events
+      where org_id = $1
+        and kind = $2
+        and created_at >= date_trunc('month', now())`,
+    [requireOrg(orgId), 'translate' satisfies UsageKind],
+  )
+  return Number(row?.total ?? 0)
+}
+
 /** Spend in the current calendar month, for quota enforcement. */
 export async function currentMonthCostUsd(orgId: string): Promise<number> {
   const row = await queryOne<{ total: string }>(
