@@ -14,7 +14,18 @@ import { NextResponse, type NextRequest } from 'next/server'
  * buys is bouncing obvious signed-out traffic before it costs a render.
  */
 
-const PUBLIC_PATHS = ['/', '/login', '/signup', '/pricing']
+// The recovery pages belong here, and the reason is worth writing down: somebody
+// who has forgotten their password is, by definition, not signed in. Guarding
+// them sends the one person who needs them to the login screen they cannot get
+// past — a locked door with the key behind it.
+const PUBLIC_PATHS = [
+  '/',
+  '/login',
+  '/signup',
+  '/pricing',
+  '/forgot-password',
+  '/reset-password',
+]
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true
