@@ -54,12 +54,23 @@ export default function ProjectClient({ project, sequences }: Props) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [renaming, setRenaming] = useState(false)
+  const [draftName, setDraftName] = useState(project.name)
   const [terms, setTerms] = useState<GlossaryEntry[]>(project.glossary ?? [])
   const [savingTerms, setSavingTerms] = useState(false)
   const [savedTerms, setSavedTerms] = useState(false)
 
-  async function rename() {
-    const name = prompt('Rename this project:', project.name)?.trim()
+  /**
+   * Renaming, inline rather than through `prompt()`.
+   *
+   * The browser dialog is not something to rely on: it is blocked outright in a
+   * sandboxed frame, browsers disable it after a page uses it a few times, and a
+   * refused call throws — which turns the button into one that silently does
+   * nothing while looking perfectly fine.
+   */
+  async function rename(next: string) {
+    const name = next.trim()
+    setRenaming(false)
     if (!name || name === project.name) return
 
     const res = await fetch(`/api/projects/${project.id}`, {
@@ -127,8 +138,31 @@ export default function ProjectClient({ project, sequences }: Props) {
 
       <div style={{ maxWidth: 1080, margin: '0 auto', padding: '22px 16px 60px' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
-          <h1 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)' }}>{project.name}</h1>
-          <button className="btn btn-quiet" onClick={() => void rename()}>Rename</button>
+          {renaming ? (
+            <input
+              className="field"
+              style={{ fontSize: 18, width: 360 }}
+              autoFocus
+              value={draftName}
+              aria-label="Project name"
+              onChange={e => setDraftName(e.target.value)}
+              onBlur={() => void rename(draftName)}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); void rename(draftName) }
+                if (e.key === 'Escape') { setDraftName(project.name); setRenaming(false) }
+              }}
+            />
+          ) : (
+            <>
+              <h1 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)' }}>{project.name}</h1>
+              <button
+                className="btn btn-quiet"
+                onClick={() => { setDraftName(project.name); setRenaming(true) }}
+              >
+                Rename
+              </button>
+            </>
+          )}
         </div>
         <div className="muted" style={{ marginBottom: 20 }}>
           {sequences.length} sequence{sequences.length === 1 ? '' : 's'}

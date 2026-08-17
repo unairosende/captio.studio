@@ -82,6 +82,17 @@ export default function DashboardClient({
   const [busyId, setBusyId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  /**
+   * The name being typed for a new project, and whether the field is showing.
+   *
+   * An inline field rather than `prompt()`. The browser dialog is not something
+   * to rely on: it is blocked outright in a sandboxed frame, browsers disable it
+   * after a page uses it a few times, and when it is refused the call throws —
+   * which is how this button came to do nothing at all, silently, while looking
+   * perfectly fine.
+   */
+  const [naming, setNaming] = useState(false)
+  const [newName, setNewName] = useState('')
 
   /**
    * This month by name, not by position.
@@ -96,7 +107,7 @@ export default function DashboardClient({
   const trial = entitlement.status === 'trial' ? entitlement.remaining : null
 
   async function create() {
-    const name = prompt('Name the project — the film, the series, the campaign:')?.trim()
+    const name = newName.trim()
     if (!name) return
 
     setCreating(true)
@@ -113,9 +124,37 @@ export default function DashboardClient({
       setError(json.error ?? `Could not create that project (HTTP ${res.status})`)
       return
     }
+    setNaming(false)
+    setNewName('')
     // Straight into it: nobody creates a project in order to look at it empty.
     router.push(`/projects/${json.project.id}`)
   }
+
+  /** The field, wherever it is shown — under the heading, or in the empty state. */
+  const nameField = (
+    <div className="card" style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+      <input
+        className="field"
+        style={{ flex: 1 }}
+        autoFocus
+        value={newName}
+        placeholder="The film, the series, the campaign…"
+        aria-label="Name of the new project"
+        onChange={e => setNewName(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter') { e.preventDefault(); void create() }
+          if (e.key === 'Escape') { setNaming(false); setNewName('') }
+        }}
+      />
+      <button className="btn btn-primary btn-lg" disabled={creating || !newName.trim()}
+        onClick={() => void create()}>
+        {creating ? 'Creating…' : 'Create'}
+      </button>
+      <button className="btn" onClick={() => { setNaming(false); setNewName('') }}>
+        Cancel
+      </button>
+    </div>
+  )
 
   async function remove(project: ProjectSummary) {
     // The count, not "are you sure?" — which is a question nobody has the
@@ -309,14 +348,16 @@ export default function DashboardClient({
           <button
             className="btn btn-primary btn-lg"
             style={{ marginLeft: 'auto' }}
-            disabled={creating}
-            onClick={() => void create()}
+            disabled={naming}
+            onClick={() => setNaming(true)}
           >
-            {creating ? 'Creating…' : 'New project'}
+            New project
           </button>
         </div>
 
         {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+
+        {naming && <div style={{ marginBottom: 12 }}>{nameField}</div>}
 
         {projects.length === 0 ? (
           <div className="card" style={{ textAlign: 'center', padding: '38px 16px' }}>
@@ -326,10 +367,12 @@ export default function DashboardClient({
               the sequences it breaks into, along with the terminology they all
               share. Everybody in {organizationName} sees it.
             </div>
-            <button className="btn btn-primary btn-lg" style={{ marginTop: 14 }}
-              disabled={creating} onClick={() => void create()}>
-              {creating ? 'Creating…' : 'Start a project'}
-            </button>
+            {!naming && (
+              <button className="btn btn-primary btn-lg" style={{ marginTop: 14 }}
+                onClick={() => setNaming(true)}>
+                Start a project
+              </button>
+            )}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12 }}>

@@ -147,8 +147,13 @@ export default function TranslateClient({ user, entitlement, project, sequence }
         <button
           data-cmd="Go back to the project"
           onClick={() => router.push(`/projects/${project.id}`)}
-          title="Back to the project"
-          style={{ marginLeft: 6, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+          title={`Back to ${project.name}`}
+          /* flexShrink: 0 is not decoration. This bar is a flex row of eight
+             things, so without it the browser is free to squash a 220px button
+             down to the 16px of its arrow — which is exactly what it did,
+             leaving a breadcrumb whose text was present, correct, and invisible.
+             The ⌘K button next door carries the same note for the same reason. */
+          style={{ marginLeft: 6, flexShrink: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
         >
           ← {project.name}
         </button>
