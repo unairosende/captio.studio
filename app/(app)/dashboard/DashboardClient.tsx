@@ -249,11 +249,37 @@ export default function DashboardClient({
               </>
             ) : (
               <>
+                {/* The plan's ceiling, now that there is one to draw. This card
+                    used to show plain figures because nothing enforced the
+                    monthly allowance; lib/entitlement.ts does, so a subscriber
+                    gets the same warning here as in the editor's sidebar rather
+                    than meeting the wall on a deadline.
+
+                    Still absent for a plan this build cannot price — that case
+                    is deliberately left uncapped, and a meter would draw a
+                    ceiling nobody is enforcing. */}
+                {entitlement.status === 'subscribed' && entitlement.monthly ? (
+                  <>
+                    <Meter
+                      label="Subtitles translated"
+                      used={entitlement.monthly.used}
+                      total={entitlement.monthly.limit}
+                      left={`${entitlement.monthly.remaining.toLocaleString('en-GB')} left`}
+                    />
+                    <div style={{ height: 12 }} />
+                  </>
+                ) : (
+                  <Figure
+                    value={(thisMonth?.translatedCues ?? 0).toLocaleString('en-GB')}
+                    label="subtitles translated"
+                  />
+                )}
+
+                {/* Audio is not capped: the plans are sold in subtitles and
+                    promise nothing about hours, so this is a figure and not a
+                    meter. */}
                 <Figure value={formatDuration(thisMonth?.transcribeSeconds ?? 0)} label="audio transcribed" />
-                <Figure
-                  value={(thisMonth?.translatedCues ?? 0).toLocaleString('en-GB')}
-                  label="subtitles translated"
-                />
+
                 <div className="muted" style={{ marginTop: 8 }}>
                   {(thisMonth?.calls ?? 0).toLocaleString('en-GB')} AI jobs run
                 </div>
