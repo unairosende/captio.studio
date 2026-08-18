@@ -27,7 +27,7 @@ const mono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'Captio — Professional Subtitle Translation',
-  description: 'AI-powered subtitle translation with quality checking, burn-in, and team collaboration.',
+  description: 'AI-powered subtitle translation with quality checking, glossaries, and team review.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
