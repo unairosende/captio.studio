@@ -25,6 +25,12 @@ const PUBLIC_PATHS = [
   '/pricing',
   '/forgot-password',
   '/reset-password',
+  // A crawler has no session and never will. Left out, both are answered with a
+  // redirect to the login page, which is a 307 where Google expects XML — the
+  // site reads as having no sitemap at all, and nothing about that is visible
+  // from inside the app.
+  '/robots.txt',
+  '/sitemap.xml',
 ]
 
 function isPublic(pathname: string): boolean {
