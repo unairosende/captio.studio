@@ -82,6 +82,8 @@ export default function DashboardClient({
   const [busyId, setBusyId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [portalBusy, setPortalBusy] = useState(false)
+  const [portalError, setPortalError] = useState<string | null>(null)
   /**
    * The name being typed for a new project, and whether the field is showing.
    *
@@ -128,6 +130,30 @@ export default function DashboardClient({
     setNewName('')
     // Straight into it: nobody creates a project in order to look at it empty.
     router.push(`/projects/${json.project.id}`)
+  }
+
+  /**
+   * Hand over to Stripe's portal rather than answering the question here.
+   *
+   * The link is single-use and short-lived, which is why it is fetched on the
+   * click instead of rendered into the page.
+   */
+  async function manageBilling() {
+    setPortalBusy(true)
+    setPortalError(null)
+
+    const res = await fetch('/api/portal', { method: 'POST' })
+    const json = await res.json().catch(() => ({}))
+
+    if (res.ok && json.url) {
+      // Left busy on purpose: the navigation is already happening, and a button
+      // that re-enables first invites a second portal session nobody asked for.
+      window.location.href = json.url
+      return
+    }
+
+    setPortalBusy(false)
+    setPortalError(json.error ?? `Could not open the billing portal (HTTP ${res.status})`)
   }
 
   /** The field, wherever it is shown — under the heading, or in the empty state. */
@@ -362,9 +388,18 @@ export default function DashboardClient({
               </div>
             )}
 
-            <a href="/pricing" className="btn" style={{ display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
-              {subscription ? 'Change plan' : 'Subscribe'}
-            </a>
+            {subscription && user.role !== 'member' ? (
+              <>
+                <button className="btn" style={{ marginTop: 12 }} disabled={portalBusy} onClick={manageBilling}>
+                  {portalBusy ? 'Opening…' : 'Manage billing'}
+                </button>
+                {portalError && <div className="err" style={{ marginTop: 6 }}>{portalError}</div>}
+              </>
+            ) : !subscription ? (
+              <a href="/pricing" className="btn" style={{ display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
+                Subscribe
+              </a>
+            ) : null}
           </div>
         </div>
 
