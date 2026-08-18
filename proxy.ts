@@ -31,6 +31,13 @@ const PUBLIC_PATHS = [
   // from inside the app.
   '/robots.txt',
   '/sitemap.xml',
+  // A contract read only by people who already have an account is not a
+  // contract anybody signs. These have to be reachable before signing up, and
+  // by a lawyer who never will.
+  '/terms',
+  '/privacy',
+  '/dpa',
+  '/subprocessors',
 ]
 
 function isPublic(pathname: string): boolean {

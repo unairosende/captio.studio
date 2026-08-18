@@ -264,3 +264,39 @@ body {
 }
 .meter-fill.low  { background: var(--amber); }
 .meter-fill.none { background: var(--red); }
+
+/* ── Legal documents ────────────────────────────────────────────────────────
+   The app is a dense tool at 13px; a contract is not. This is the smallest set
+   of rules that makes a page of prose and a table of subprocessors readable,
+   and it is scoped to .legal so it stays out of the editor's way. The redesign
+   will replace it wholesale — until then, four served documents are enough
+   repetition to deserve a class rather than four copies of the same inline
+   style. */
+.legal {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 24px 96px;
+  color: var(--text2);
+  font-size: 15px;
+  line-height: 1.7;
+}
+.legal h1 { font-size: 28px; font-weight: 600; color: var(--text); margin-bottom: 24px; letter-spacing: -.01em; }
+.legal h2 { font-size: 18px; font-weight: 600; color: var(--text); margin: 36px 0 12px; }
+.legal h3 { font-size: 15px; font-weight: 600; color: var(--text); margin: 24px 0 8px; }
+.legal p  { margin: 12px 0; }
+.legal ul { margin: 12px 0; padding-left: 20px; }
+.legal li { margin: 6px 0; }
+.legal hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+.legal strong { color: var(--text); font-weight: 600; }
+.legal a { color: var(--accent); }
+.legal code {
+  font-family: var(--mono);
+  font-size: .88em;
+  background: var(--bg2);
+  border-radius: var(--r-sm);
+  padding: 1px 5px;
+}
+/* Wide on a phone, and a contract nobody can read sideways is not served. */
+.legal table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 13px; display: block; overflow-x: auto; }
+.legal th, .legal td { border: 1px solid var(--border); padding: 8px 10px; text-align: left; vertical-align: top; }
+.legal th { color: var(--text); font-weight: 600; background: var(--bg1); }
