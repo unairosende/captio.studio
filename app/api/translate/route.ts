@@ -43,7 +43,17 @@ export const maxDuration = 300
  * generateContent call tells the truth.
  */
 const PRIMARY_MODEL = 'gemini-3.6-flash'
-const FALLBACK_MODEL = 'llama-3.3-70b-versatile'
+
+/**
+ * The fallback, and it needs the same check the primary got.
+ *
+ * `llama-3.3-70b-versatile` was here and answers 404: Groq retired every Llama
+ * chat model, leaving only the prompt-guard classifiers under that name. The
+ * fallback had therefore been dead for as long as it had been unused — which is
+ * the failure mode of a fallback nobody exercises, and the reason this one is
+ * now tested against the live API rather than assumed.
+ */
+const FALLBACK_MODEL = 'openai/gpt-oss-120b'
 
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
@@ -54,6 +64,19 @@ const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
  * a budget that was too small.
  */
 const MAX_OUTPUT_TOKENS = 16_000
+
+/**
+ * Groq's ceiling is the account's, not the model's.
+ *
+ * On the on-demand tier the whole request — prompt plus reply — is measured
+ * against 8,000 tokens per minute, and asking for 16,000 is refused with a 413
+ * before a single token is generated. Half the budget for the reply leaves the
+ * other half for a full batch of cues.
+ *
+ * Raise this the day the Groq account moves off the free tier, not before: the
+ * number that matters is on the billing page, not in the model card.
+ */
+const GROQ_MAX_OUTPUT_TOKENS = 4_000
 
 /** How many cues one request may carry. Enough for a batch, far short of a film. */
 const MAX_CUES = 60
@@ -98,7 +121,7 @@ async function callGroq(prompt: string): Promise<ProviderResult> {
     body: JSON.stringify({
       model: FALLBACK_MODEL,
       temperature: 0.3,
-      max_tokens: MAX_OUTPUT_TOKENS,
+      max_tokens: GROQ_MAX_OUTPUT_TOKENS,
       messages: [{ role: 'user', content: prompt }],
     }),
   })
