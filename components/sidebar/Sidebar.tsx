@@ -131,7 +131,17 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
             glossary,
           }),
         })
-        const data = await res.json()
+        const data = await res.json().catch(() => {
+        // A gateway that gives up answers with an HTML page, and `res.json()`
+        // then fails on `<!DOCTYPE` — which reads as a bug in the reply rather
+        // than as a request that was cut short before there was one.
+        throw new Error(`The server answered ${res.status} without JSON — the request was probably cut short.`)
+      }).catch(() => {
+          // A gateway that gives up answers with an HTML page, and `res.json()`
+          // then fails on `<!DOCTYPE` — which reads as a bug in the reply rather
+          // than as a request that was cut short before there was one.
+          throw new Error(`The server answered ${res.status} without JSON — the request was probably cut short.`)
+        })
         if (data.error) throw new Error(data.error)
         // No falling back to the source text. A cue left in the original
         // language but presented as translated ships as finished work.
@@ -175,7 +185,12 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({ filename: uploadName, contentType, bytes: audioBlob.size }),
       })
-      const grantData = await grant.json()
+      const grantData = await grant.json().catch(() => {
+        // A gateway that gives up answers with an HTML page, and `res.json()`
+        // then fails on `<!DOCTYPE` — which reads as a bug in the reply rather
+        // than as a request that was cut short before there was one.
+        throw new Error(`The server answered ${grant.status} without JSON — the request was probably cut short.`)
+      })
       if (!grant.ok) throw new Error(grantData.error ?? `HTTP ${grant.status}`)
 
       // Straight to object storage. Routing this through our own API would cap
@@ -200,7 +215,12 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
           outputMode,
         }),
       })
-      const data = await res.json()
+      const data = await res.json().catch(() => {
+        // A gateway that gives up answers with an HTML page, and `res.json()`
+        // then fails on `<!DOCTYPE` — which reads as a bug in the reply rather
+        // than as a request that was cut short before there was one.
+        throw new Error(`The server answered ${res.status} without JSON — the request was probably cut short.`)
+      })
       if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
 
       setTranscribeJob({ progress: 100 })

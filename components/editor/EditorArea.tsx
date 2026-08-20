@@ -113,7 +113,12 @@ export default function EditorArea({ userId }: Props) {
             outputMode,
           }),
         })
-        const data = await res.json()
+        const data = await res.json().catch(() => {
+          // A gateway that gives up answers with an HTML page, and `res.json()`
+          // then fails on `<!DOCTYPE` — which reads as a bug in the reply rather
+          // than as a request that was cut short before there was one.
+          throw new Error(`The server answered ${res.status} without JSON — the request was probably cut short.`)
+        })
         if (data.error) throw new Error(data.error)
         const parsed: string[] = data.translations
         batch.forEach((s, j) => { if (parsed[j]) updateSubtitle(lang, s.index, parsed[j]) })
@@ -150,7 +155,12 @@ export default function EditorArea({ userId }: Props) {
             sourceLang: srcLang,
           }),
         })
-        const data = await res.json()
+        const data = await res.json().catch(() => {
+          // A gateway that gives up answers with an HTML page, and `res.json()`
+          // then fails on `<!DOCTYPE` — which reads as a bug in the reply rather
+          // than as a request that was cut short before there was one.
+          throw new Error(`The server answered ${res.status} without JSON — the request was probably cut short.`)
+        })
         if (data.error) throw new Error(data.error)
         const parsed: string[] = data.translations
         batch.forEach((s, j) => result.push({ ...s, text: parsed[j] ?? s.text }))
