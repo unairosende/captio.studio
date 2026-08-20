@@ -58,6 +58,31 @@ const FALLBACK_MODEL = 'openai/gpt-oss-120b'
 const GROQ_ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions'
 
 /**
+ * How long a provider gets before we stop waiting for it.
+ *
+ * There is a proxy in front of this deployment that gives up at around a
+ * hundred seconds and answers with its own HTML error page. Whatever happens
+ * after that point cannot reach the caller, so a call left unbounded does not
+ * buy patience — it buys a gateway error in place of a JSON one, a client that
+ * fails parsing `<!DOCTYPE`, and a fallback that never gets its turn.
+ *
+ * Sixty seconds because Gemini's latency on a real batch is not a number, it is
+ * a range: the same prompt measured 14s, 53s and 87s within one afternoon, with
+ * intermittent 503s in between, and the spread is thinking tokens rather than
+ * network. Cutting shorter would send ordinary batches to the fallback and
+ * quietly change which provider does the work; cutting longer would not fit
+ * under the proxy with the fallback's turn still to come.
+ */
+const GEMINI_TIMEOUT_MS = 60_000
+
+/**
+ * The fallback answers in under a second when it answers at all, so its budget
+ * only has to cover a bad day rather than a slow one — and what is left of the
+ * proxy's patience has to cover it.
+ */
+const GROQ_TIMEOUT_MS = 20_000
+
+/**
  * Gemini spends output budget on its thinking pass before writing a single
  * character of the answer. At 4096 the reply gets truncated mid-JSON on an
  * ordinary batch, and the failure reads as a malformed response rather than as
@@ -101,6 +126,7 @@ async function callGemini(prompt: string): Promise<ProviderResult> {
       contents: [{ role: 'user', parts: [{ text: prompt }] }],
       generationConfig: { temperature: 0.3, maxOutputTokens: MAX_OUTPUT_TOKENS },
     }),
+    signal: AbortSignal.timeout(GEMINI_TIMEOUT_MS),
   })
   const data = await res.json()
   if (data.error) throw new Error(data.error.message)
@@ -124,6 +150,7 @@ async function callGroq(prompt: string): Promise<ProviderResult> {
       max_tokens: GROQ_MAX_OUTPUT_TOKENS,
       messages: [{ role: 'user', content: prompt }],
     }),
+    signal: AbortSignal.timeout(GROQ_TIMEOUT_MS),
   })
   const data = await res.json()
   if (!res.ok || data.error) throw new Error(data?.error?.message ?? `HTTP ${res.status}`)
