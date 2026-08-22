@@ -31,8 +31,11 @@ export interface TranslationRequest {
 const FIXED_COUNT_RULES = [
   'CRITICAL — THE SUBTITLE COUNT IS FIXED: return exactly one translation per input subtitle, in the same order.',
   '• NEVER split one subtitle into two entries, and NEVER merge two subtitles into one.',
-  '• If a translation is too long, break it into at most 2 lines using \\n INSIDE that same entry.',
-  '• Put that line break at punctuation or a conjunction — never mid-phrase.',
+  // Where a line breaks is lib/subtitles/layout.ts's job, and asking for it here
+  // is what made the count unreliable: told to break long text, a model that
+  // cannot write \n often opens a second array entry instead — thirty cues came
+  // back as thirty-two, and the batch was refused.
+  '• NEVER insert line breaks. Return each subtitle as one single line of text.',
   '',
 ]
 
@@ -83,9 +86,15 @@ export function buildTranslationPrompt(req: TranslationRequest): string {
   return [
     `You are a professional subtitle translator. Translate the following subtitles${from} into ${req.targetLang}.`,
     '',
-    'FORMAT CONSTRAINTS (hard limits — never exceed):',
-    `• Max ${req.maxChars} characters per line`,
-    '• Max 2 lines per subtitle — use \\n to split long lines',
+    // A budget, not a layout instruction. The model decides how much text to
+    // write, which is a translation decision; reflowText decides where it
+    // breaks, which is typography and is already solved, tested and free.
+    //
+    // Asking for both cost 15,000 thinking tokens and seventy seconds a batch,
+    // and one run answered with the deliberation itself — «"test confirmador"
+    // (16) vs "prueba confirmatoria" (20)» — where the JSON was supposed to be.
+    'LENGTH BUDGET:',
+    `• Keep each subtitle under ${req.maxChars * 2} characters — prefer shorter wording, never drop meaning`,
     '',
     ...FIXED_COUNT_RULES,
     'TRANSLATION RULES:',
@@ -157,10 +166,8 @@ export function buildShortenPrompt(req: {
   return [
     `You are a professional subtitle editor. Each subtitle in ${req.lang} is too long.`,
     '',
-    'FORMAT CONSTRAINTS (hard limits — never exceed):',
-    `• Max ${req.maxChars} characters per line`,
-    '• Max 2 lines per subtitle — use \\n to split long lines',
-    '• Put that line break at punctuation or a conjunction — never mid-phrase',
+    'LENGTH BUDGET:',
+    `• Keep each subtitle under ${req.maxChars * 2} characters in total`,
     '',
     'RULES:',
     '• Rephrase only as much as needed to fit — keep the exact same meaning',

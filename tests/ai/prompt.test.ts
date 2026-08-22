@@ -18,9 +18,25 @@ describe('buildTranslationPrompt', () => {
     assert.match(p, /exactly 2 strings/)
   })
 
-  it('carries the character limit through', () => {
-    assert.match(buildTranslationPrompt(base), /Max 42 characters per line/)
-    assert.match(buildTranslationPrompt({ ...base, maxChars: 32 }), /Max 32 characters per line/)
+  /**
+   * The budget is two lines' worth, because two lines is the ceiling a cue is
+   * laid out to. What the model is told is how much text to write; where it
+   * breaks is reflowText's decision, made after the reply arrives.
+   */
+  it('carries the character limit through as a total budget', () => {
+    assert.match(buildTranslationPrompt(base), /under 84 characters/)
+    assert.match(buildTranslationPrompt({ ...base, maxChars: 32 }), /under 64 characters/)
+  })
+
+  /**
+   * The rule that keeps the count honest. Asked to break long text, a model
+   * that will not write \n opens a second array entry instead, and a batch of
+   * thirty comes back as thirty-two — which parseTranslationResponse refuses,
+   * losing the whole batch rather than one cue.
+   */
+  it('forbids line breaks, so a break cannot become an extra entry', () => {
+    assert.match(buildTranslationPrompt(base), /NEVER insert line breaks/)
+    assert.doesNotMatch(buildTranslationPrompt(base), /characters per line/)
   })
 
   it('names the source language only when it is known', () => {
