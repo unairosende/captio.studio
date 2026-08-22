@@ -12,7 +12,7 @@ import {
 import { logUsage } from '@/lib/db/billing'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
-import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL } from '@/lib/subtitles'
+import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL, reflowText } from '@/lib/subtitles'
 
 export const maxDuration = 300
 
@@ -42,7 +42,7 @@ export const maxDuration = 300
  * `models.list` is not evidence — it still advertises 2.5-flash. Only a real
  * generateContent call tells the truth.
  */
-const PRIMARY_MODEL = 'gemini-3.6-flash'
+const PRIMARY_MODEL = 'gemini-3.5-flash-lite'
 
 /**
  * The fallback, and it needs the same check the primary got.
@@ -288,7 +288,19 @@ export async function POST(req: NextRequest) {
       cues: cues.length,
     })
 
-    return NextResponse.json({ translations: parseTranslationResponse(text, cues.length) })
+    const translations = parseTranslationResponse(text, cues.length)
+
+    // Layout happens here, not in the prompt. The model returns one line per
+    // cue and this puts the breaks in — the same rules the quality check
+    // measures against, so the two can never disagree.
+    //
+    // Not applied to a back-translation: that text exists to be diffed against
+    // the source, and a line break inserted for a reader it never has would
+    // show up as a difference nobody wrote.
+    const laidOut =
+      task === 'backTranslate' ? translations : translations.map(t => reflowText(t, maxChars))
+
+    return NextResponse.json({ translations: laidOut })
   } catch (err) {
     if (err instanceof TranslationFormatError) {
       // The caller can retry this one; it is the model misbehaving, not the request.
