@@ -81,7 +81,17 @@ export async function deleteMedia(orgId: string, id: string): Promise<string | n
 export async function orphanedStorageKeys(orgId: string, limit = 500): Promise<string[]> {
   const rows = await query<{ storage_key: string }>(
     `select storage_key from media
-      where org_id = $1 and sequence_id is null and created_at < now() - interval '24 hours'
+      -- The billed_at condition is not a refinement, it is the guard that stops
+      -- this deleting work somebody paid for. Nothing ever sets sequence_id
+      -- after the row is created, because the sequence does not exist yet at
+      -- upload time, so on its own the first condition matches every upload ever
+      -- made and this sweeps a customer's audio the night after they
+      -- transcribed it. Having been charged is the one durable proof the
+      -- material was real work.
+      where org_id = $1
+        and sequence_id is null
+        and billed_at is null
+        and created_at < now() - interval '24 hours'
       order by created_at
       limit $2`,
     [requireOrg(orgId), limit],
