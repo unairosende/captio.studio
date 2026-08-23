@@ -39,6 +39,7 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const {
     subtitles, translations, activeTab, outputMode,
     srcLang, tgtLang, allowRephrase, glossary, sequenceName,
+    sequenceId, mediaId, setMediaId,
     translateJob, transcribeJob,
     setSrcLang, setTgtLang, setAllowRephrase, setOutputMode,
     loadSubtitles, setTranslation, setTranslateJob, setTranscribeJob, clearAll,
@@ -126,6 +127,11 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
             targetLang: lang,
             sourceLang: srcLang,
             outputMode,
+            // Which material this belongs to. Plans are sold in minutes now, so
+            // a translation that names neither an upload nor a saved sequence
+            // has nothing the server can charge — and is refused.
+            sequenceId,
+            mediaId,
             // Sent with every batch. Each request is its own conversation, so a
             // term agreed in batch one is unknown by batch two unless repeated.
             glossary,
@@ -192,6 +198,10 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
         throw new Error(`The server answered ${grant.status} without JSON — the request was probably cut short.`)
       })
       if (!grant.ok) throw new Error(grantData.error ?? `HTTP ${grant.status}`)
+
+      // Remembered rather than used and forgotten: the save attaches it to the
+      // sequence, and a translation names it as the material it belongs to.
+      setMediaId(grantData.mediaId)
 
       // Straight to object storage. Routing this through our own API would cap
       // the file at the platform's request-body limit — a couple of minutes of

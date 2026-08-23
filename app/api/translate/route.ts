@@ -9,10 +9,12 @@ import {
   parseTranslationResponse,
   type GlossaryEntry,
 } from '@/lib/ai/prompt'
-import { logUsage } from '@/lib/db/billing'
+import { billSequence, logUsage } from '@/lib/db/billing'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
-import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL, reflowText } from '@/lib/subtitles'
+import { getMedia } from '@/lib/db/media'
+import { getSequence } from '@/lib/db/sequences'
+import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL, materialSeconds, reflowText } from '@/lib/subtitles'
 
 export const maxDuration = 300
 
@@ -192,6 +194,8 @@ interface Body {
   extraInstructions?: string
   previousContext?: string[]
   sequenceId?: string
+  /** The upload this work came from, when it was transcribed rather than imported. */
+  mediaId?: string
 }
 
 /**
@@ -265,6 +269,50 @@ export async function POST(req: NextRequest) {
   // request should hear why it is malformed, not that the trial is over.
   const allowance = await checkAllowance(ctx.orgId, 'translate')
   if (!allowance.allowed) return paywallResponse(allowance)
+
+  // WHICH MATERIAL THIS BELONGS TO.
+  //
+  // The plans are sold in minutes of material, so a translation has to name the
+  // material it is part of or there is nothing to charge. Two answers are
+  // valid: an upload, already paid for when it was transcribed, or a saved
+  // sequence, which is how subtitles that arrived as a file are measured.
+  //
+  // Neither is refused rather than waved through. An unsaved import is the one
+  // path that could translate a whole feature without ever spending a minute,
+  // and the fix is a save, which the message asks for.
+  //
+  // Only a translation. Shortening and back-translation rework text that is
+  // already there — they cannot bring new material in, and the minutes were
+  // charged when it arrived. Demanding an identifier from them would have
+  // broken the overlength auto-fix and the QA pass for nothing.
+  const sequenceId = typeof body.sequenceId === 'string' ? body.sequenceId : ''
+  const mediaId = typeof body.mediaId === 'string' ? body.mediaId : ''
+
+  if (task !== 'translate') {
+    // Nothing to charge, nothing to identify.
+  } else if (mediaId) {
+    // Ownership is the check that matters; the charge happened at transcription.
+    if (!(await getMedia(ctx.orgId, mediaId))) {
+      return NextResponse.json({ error: 'Unknown media' }, { status: 404 })
+    }
+  } else if (sequenceId) {
+    const sequence = await getSequence(ctx.orgId, sequenceId)
+    if (!sequence) return NextResponse.json({ error: 'Unknown sequence' }, { status: 404 })
+
+    // Computed from what is stored, never from the request. A duration the
+    // browser supplies is a duration the browser can set to one second.
+    const data = sequence.data as { subtitles?: unknown } | null
+    await billSequence(ctx.orgId, sequenceId, materialSeconds(data?.subtitles))
+  } else {
+    return NextResponse.json(
+      {
+        error:
+          'Save this sequence before translating it. The plan is measured in minutes of ' +
+          'material, and an unsaved import has nothing to measure yet.',
+      },
+      { status: 400 },
+    )
+  }
 
   try {
     const { text, tokensIn, tokensOut, model } = await translate(prompt)
