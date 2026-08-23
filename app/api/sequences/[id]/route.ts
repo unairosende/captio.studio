@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { parseAnchorOps } from '@/lib/db/comments'
+import { markSequencePaid } from '@/lib/db/billing'
+import { attachMedia } from '@/lib/db/media'
 import { ConflictError, deleteSequence, getSequence, updateSequence } from '@/lib/db/sequences'
 
 /**
@@ -67,6 +69,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     )
 
     if (!sequence) return NextResponse.json({ error: 'Sequence not found' }, { status: 404 })
+
+    // Attach the upload this work came from, if the client named one. Two things
+    // hang off the link: the sweeper stops treating a real recording as an
+    // abandoned one, and the sequence is marked as already paid so translating
+    // it does not charge for material the audio was charged for.
+    const mediaId = typeof body?.mediaId === 'string' ? body.mediaId : ''
+    if (mediaId && sequence && (await attachMedia(ctx.orgId, mediaId, sequence.id))) {
+      await markSequencePaid(ctx.orgId, sequence.id)
+    }
+
     return NextResponse.json({ sequence })
   } catch (err) {
     if (err instanceof ConflictError) {

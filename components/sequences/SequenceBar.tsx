@@ -42,7 +42,7 @@ export default function SequenceBar() {
   const {
     subtitles, translations, srcLang, glossary, glossaryDirty,
     projectId, projectName,
-    sequenceId, sequenceName, sequenceVersion, dirty, anchorOps,
+    sequenceId, sequenceName, sequenceVersion, dirty, anchorOps, mediaId,
     openSequence, markSaved, newSequence, setSequenceName, setComments,
   } = useSubtitleStore()
 
@@ -96,6 +96,12 @@ export default function SequenceBar() {
       // renumbered in the same transaction as the cues they are about. A brand
       // new sequence has nothing to renumber.
       ...(sequenceId && anchorOps.length ? { anchorOps } : {}),
+      // The recording this track was transcribed from, when there is one. The
+      // server uses it to attach the upload to the sequence — without which the
+      // nightly sweeper counts the audio as abandoned and deletes it — and to
+      // mark the sequence as already paid for, so translating it does not
+      // charge again for minutes the audio was charged for.
+      ...(mediaId ? { mediaId } : {}),
     }
 
     const res = await fetch(sequenceId ? `/api/sequences/${sequenceId}` : '/api/sequences', {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { cuesFromWords, type TimedWord } from '../../lib/subtitles/cues.ts'
+import { cuesFromWords, materialSeconds, type TimedWord } from '../../lib/subtitles/cues.ts'
 import { DEFAULT_QC } from '../../lib/subtitles/types.ts'
 
 /**
@@ -152,5 +152,38 @@ describe('cues from word timings', () => {
 
     assert.equal(cues.length, 1)
     assert.equal(cues[0].text, monster)
+  })
+})
+
+describe('how long the material runs', () => {
+  const cue = (start: string, end: string) => ({ index: 1, start, end, text: 'x' })
+
+  it('measures the span, not the speech', () => {
+    // A documentary with wordless stretches is not a shorter job than a
+    // dialogue-heavy one of the same length. Charging by the sum of the cues
+    // would say it was.
+    const subs = [cue('00:00:10,000', '00:00:12,000'), cue('00:05:00,000', '00:05:02,500')]
+
+    assert.equal(materialSeconds(subs), 293)
+  })
+
+  it('does not assume the cues arrive in order', () => {
+    const subs = [cue('00:01:00,000', '00:01:02,000'), cue('00:00:05,000', '00:00:07,000')]
+
+    assert.equal(materialSeconds(subs), 57)
+  })
+
+  /**
+   * `data` is free-form jsonb and has held every shape this product has ever
+   * had. Refusing to translate because the duration could not be computed would
+   * turn a billing detail into an outage, so anything unmeasurable is worth
+   * zero.
+   */
+  it('answers zero for anything it cannot measure', () => {
+    assert.equal(materialSeconds(undefined), 0)
+    assert.equal(materialSeconds([]), 0)
+    assert.equal(materialSeconds('nonsense'), 0)
+    assert.equal(materialSeconds([{ start: 'later', end: 'sooner' }]), 0)
+    assert.equal(materialSeconds([cue('00:00:10,000', '00:00:10,000')]), 0)
   })
 })

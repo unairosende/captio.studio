@@ -248,6 +248,26 @@ export async function billSequence(
 }
 
 /**
+ * Mark a sequence as already paid for, because its audio was.
+ *
+ * Called when a saved sequence is attached to an upload. Without it the same
+ * material would be charged twice — once as minutes of audio at transcription,
+ * again as a span of cues the first time somebody translated it — and the
+ * customer would have no way of telling which of the two was the mistake.
+ *
+ * Zero seconds rather than the duration: the minutes are already recorded
+ * against the media row, and counting them here as well would double the
+ * month's consumption for every transcribed job.
+ */
+export async function markSequencePaid(orgId: string, sequenceId: string): Promise<void> {
+  await query(
+    `update sequences set billed_seconds = 0, billed_at = now()
+      where org_id = $1 and id = $2 and billed_at is null`,
+    [requireOrg(orgId), sequenceId],
+  )
+}
+
+/**
  * Material charged in the current calendar month, in seconds.
  *
  * A calendar month rather than the Stripe billing period: the pricing page says

@@ -158,6 +158,17 @@ interface AppState {
   projectId: string | null
   projectName: string
 
+  /**
+   * The upload the current material came from, if it was transcribed here.
+   *
+   * Kept because two separate places need it later and neither is the component
+   * that obtained it: the save, which attaches the recording to the sequence so
+   * the sweeper stops treating it as abandoned, and a translation, which has to
+   * name the material it belongs to now that plans are sold in minutes.
+   */
+  mediaId: string | null
+  setMediaId: (id: string | null) => void
+
   // The saved sequence this editor is a view of, if any
   sequenceId: string | null
   sequenceName: string
@@ -276,6 +287,8 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   glossaryDirty: false,
   projectId: null,
   projectName: '',
+  mediaId: null,
+  setMediaId: id => set({ mediaId: id }),
   sequenceId: null,
   sequenceName: 'Untitled',
   sequenceVersion: null,
@@ -294,6 +307,9 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     projectName: s.projectName,
     sequenceId: s.id,
     sequenceName: s.name,
+    // Not known when opening from storage, and not needed: a saved sequence is
+    // already attached to its upload and already paid for.
+    mediaId: null,
     sequenceVersion: s.version,
     // Freshly loaded is by definition identical to what is stored.
     dirty: false,
@@ -332,6 +348,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     sequenceId: null,
     sequenceName: 'Untitled',
     sequenceVersion: null,
+    mediaId: null,
     dirty: false,
     past: [],
     future: [],

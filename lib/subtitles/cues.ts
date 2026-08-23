@@ -1,5 +1,5 @@
 import { reflowText } from './layout.ts'
-import { secToSrt } from './timecode.ts'
+import { looksLikeTimecode, secToSrt, tcToMs } from './timecode.ts'
 import { DEFAULT_QC, type QcConfig, type Subtitle } from './types.ts'
 
 /**
@@ -123,4 +123,38 @@ function toSeconds(srt: string): number {
   const [h, m, rest] = srt.split(':')
   const [s, ms] = rest.split(',')
   return Number(h) * 3600 + Number(m) * 60 + Number(s) + Number(ms) / 1000
+}
+
+/**
+ * How long the material runs, from the first cue to the last.
+ *
+ * This is what a subtitle file is billed by when it arrived as a file rather
+ * than as audio: there is no recording to measure, but the timecodes describe
+ * the same thing the recording would have — the span of the material the work
+ * covers.
+ *
+ * The span, not the sum of the cues. Silence between them is still material:
+ * a documentary with long wordless stretches is not a shorter job than a
+ * dialogue-heavy one of the same length, and charging by speech would say so.
+ *
+ * Defensive about its input because it reads `data` out of jsonb, which is
+ * free-form and has held every shape this product has ever had. A file it
+ * cannot measure is worth zero rather than an exception: refusing to translate
+ * because the duration could not be computed would turn a billing detail into
+ * an outage.
+ */
+export function materialSeconds(subs: unknown): number {
+  if (!Array.isArray(subs) || subs.length === 0) return 0
+
+  let first = Infinity
+  let last = 0
+  for (const cue of subs) {
+    const start = looksLikeTimecode(cue?.start) ? tcToMs(cue.start) : null
+    const end = looksLikeTimecode(cue?.end) ? tcToMs(cue.end) : null
+    if (start !== null) first = Math.min(first, start)
+    if (end !== null) last = Math.max(last, end)
+  }
+
+  if (!Number.isFinite(first) || last <= first) return 0
+  return Math.round((last - first) / 1000)
 }

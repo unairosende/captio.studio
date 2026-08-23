@@ -78,6 +78,33 @@ export async function deleteMedia(orgId: string, id: string): Promise<string | n
  * bill nobody is watching and an unmet erasure request, so a sweeper needs to
  * be able to find them.
  */
+/**
+ * Attach an upload to the sequence the work was saved as.
+ *
+ * The column existed from the first migration and nothing ever wrote it: the
+ * row is created by /api/media, before there is a sequence to point at, and
+ * saving never came back to say which one it became. The sweeper reads exactly
+ * this column to decide what is abandoned, so the omission was not cosmetic —
+ * see the note on orphanedStorageKeys below.
+ *
+ * Scoped to the organisation on both sides, so a crafted media id cannot pull
+ * somebody else's upload into this tenant's sequence.
+ */
+export async function attachMedia(
+  orgId: string,
+  mediaId: string,
+  sequenceId: string,
+): Promise<boolean> {
+  const rows = await query<{ id: string }>(
+    `update media set sequence_id = $3
+      where org_id = $1 and id = $2
+        and exists (select 1 from sequences where org_id = $1 and id = $3)
+      returning id`,
+    [requireOrg(orgId), mediaId, sequenceId],
+  )
+  return rows.length > 0
+}
+
 export async function orphanedStorageKeys(orgId: string, limit = 500): Promise<string[]> {
   const rows = await query<{ storage_key: string }>(
     `select storage_key from media
