@@ -528,15 +528,8 @@ function AllowanceMeter({ entitlement }: { entitlement: Entitlement }) {
         }
       : {
           label: 'Free trial',
-          figures:
-            `${Math.floor(entitlement.remaining.transcribeSeconds / 60)} min audio · ` +
-            `${entitlement.remaining.translatedCues.toLocaleString('en-GB')} subtitles`,
-          // The lower of the two, so either one running out colours the meter.
-          // They are separate promises, and whichever goes first is the news.
-          fraction: Math.min(
-            entitlement.remaining.transcribeSeconds / TRIAL.transcribeSeconds,
-            entitlement.remaining.translatedCues / TRIAL.translatedCues,
-          ),
+          figures: `${Math.floor(entitlement.remaining.mediaSeconds / 60)} min of material`,
+          fraction: entitlement.remaining.mediaSeconds / (TRIAL.mediaMinutes * 60),
           nearly: 'Subscribe',
           spent: 'Used up — subscribe',
         }

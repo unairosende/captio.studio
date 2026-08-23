@@ -1,9 +1,9 @@
 import type { Plan } from '@/types/subtitle'
 
 import {
-  currentMonthCues,
+  currentMonthMediaSeconds,
   getLiveSubscription,
-  trialConsumption,
+  trialMediaSeconds,
   type UsageKind,
 } from './db/billing.ts'
 import { PLANS, TRIAL } from './plans.ts'
@@ -15,28 +15,39 @@ import { PLANS, TRIAL } from './plans.ts'
  * routes is a paywall with a hole in it, and the hole is always in the route
  * somebody added last.
  *
- * Two ceilings, not one. The trial is an amount that never refills; a paid plan
- * is an amount every calendar month. Both are real limits: a subscription with
- * no ceiling is an open bar at our expense, because every translated cue is a
- * provider call we pay for and 19 EUR buys a finite number of them.
+ * ONE POOL, DENOMINATED IN MINUTES OF MATERIAL.
+ *
+ * There used to be two ceilings measured in different things — hours of audio
+ * for the trial, subtitles a month for a plan — and paid transcription was
+ * capped by neither. A customer could therefore transcribe without limit at our
+ * expense, and nothing on the pricing page said otherwise.
+ *
+ * Minutes fix both. It is the unit a producer can estimate before starting, the
+ * unit every competitor quotes, and the one that covers transcription and
+ * translation alike, because both spend the same material.
+ *
+ * Charged once per piece of material, however many languages follow — see
+ * db/migrations/0008. Nothing here has to know that: the counter cannot be set
+ * twice, so "every language included" holds even for a caller who never read
+ * this file.
  */
 
 export interface TrialRemaining {
-  transcribeSeconds: number
-  translatedCues: number
+  /** Seconds of material the trial has left. */
+  mediaSeconds: number
 }
 
 /**
  * What a paid plan has left of the current calendar month.
  *
- * Denominated in subtitles because that is what the plans are sold in — the
- * figure printed on /pricing comes from the same `monthlySubtitles` this is
+ * Denominated in minutes because that is what the plans are sold in — the
+ * figure printed on /pricing comes from the same `monthlyMediaMinutes` this is
  * built from, so the promise and the wall cannot drift apart.
  */
 export interface MonthlyAllowance {
   /** The plan's name, for the message that has to say which plan ran out. */
   plan: string
-  /** Subtitles the plan includes each month. */
+  /** Minutes of material the plan includes each month. */
   limit: number
   used: number
   /** Clamped at zero, for the same reason the trial's remainder is. */
@@ -55,25 +66,24 @@ export interface Allowance {
 }
 
 /** What is left of the trial. Pure, so the arithmetic is testable on its own. */
-export function remainingFrom(used: {
-  transcribeSeconds: number
-  translatedCues: number
-}): TrialRemaining {
+export function remainingFrom(usedSeconds: number): TrialRemaining {
   return {
     // Clamped at zero: a job is allowed to overshoot its allowance (see below),
     // and a negative remainder shown to a customer reads as a debt they owe.
-    transcribeSeconds: Math.max(0, TRIAL.transcribeSeconds - used.transcribeSeconds),
-    translatedCues: Math.max(0, TRIAL.translatedCues - used.translatedCues),
+    mediaSeconds: Math.max(0, TRIAL.mediaMinutes * 60 - usedSeconds),
   }
 }
 
-/** What is left of a plan's month. Pure, for the same reason as above. */
-export function monthlyFrom(plan: Plan, used: number): MonthlyAllowance {
+/** What is left of a plan's month, in minutes. Pure, for the same reason. */
+export function monthlyFrom(plan: Plan, usedSeconds: number): MonthlyAllowance {
+  // Rounded up, so nobody is told they have minutes left that are really
+  // seconds, and so this figure agrees with the one an invoice would show.
+  const used = Math.ceil(usedSeconds / 60)
   return {
     plan: plan.name,
-    limit: plan.monthlySubtitles,
+    limit: plan.monthlyMediaMinutes,
     used,
-    remaining: Math.max(0, plan.monthlySubtitles - used),
+    remaining: Math.max(0, plan.monthlyMediaMinutes - used),
   }
 }
 
@@ -101,13 +111,13 @@ export async function getEntitlement(orgId: string): Promise<Entitlement> {
       // that has since been renamed or retired; walling a paying customer over
       // that costs them their deadline, while letting it through costs us one
       // month of provider spend on one account.
-      monthly: plan ? monthlyFrom(plan, await currentMonthCues(orgId)) : null,
+      monthly: plan ? monthlyFrom(plan, await currentMonthMediaSeconds(orgId)) : null,
     }
   }
   return {
     status: 'trial',
     plan: 'free',
-    remaining: remainingFrom(await trialConsumption(orgId)),
+    remaining: remainingFrom(await trialMediaSeconds(orgId)),
     monthly: null,
   }
 }
@@ -123,19 +133,18 @@ export async function checkAllowance(orgId: string, kind: UsageKind): Promise<Al
  * database — the trial's and the plan's. It is still only ever called from the
  * API routes: a limit enforced by the component that draws the button is not a
  * limit.
+ *
+ * The test is "is there anything left", not "is there enough", and it is now the
+ * same test for transcription and translation because they share a pool. How
+ * long a recording runs is not known until it has been transcribed, so demanding
+ * the whole cost up front would refuse work nobody could have measured. The
+ * overshoot is bounded by one job, and one job is cheaper than the support
+ * conversation it saves.
  */
 export function allowanceFor(entitlement: Entitlement, kind: UsageKind): Allowance {
   if (entitlement.status === 'subscribed') {
     const { monthly } = entitlement
-
-    // Only translation is denominated in subtitles. The plans promise a number
-    // of subtitles a month and say nothing about hours of audio, so refusing an
-    // upload here would enforce a limit nobody was ever sold.
-    //
-    // Same "is there anything left" test as the trial below, for the same
-    // reason: refusing a 500-cue batch because 400 remain is worse than one
-    // bounded overrun.
-    const over = kind === 'translate' && monthly !== null && monthly.remaining <= 0
+    const over = monthly !== null && monthly.remaining <= 0
 
     return {
       allowed: !over,
@@ -148,19 +157,9 @@ export function allowanceFor(entitlement: Entitlement, kind: UsageKind): Allowan
 
   const { remaining } = entitlement
 
-  // Checked against the matching limit only: the two are separate promises, and
-  // running out of audio minutes must not block translating an imported file.
-  //
-  // The test is "is there anything left", not "is there enough". How long an
-  // audio file runs cannot be known until the provider has already transcribed
-  // it, and refusing a 500-cue batch because 400 remain would be a worse
-  // experience than letting the last job run over. The overshoot is bounded by
-  // one job, and one job is cheaper than the support conversation.
-  const left = kind === 'transcribe' ? remaining.transcribeSeconds : remaining.translatedCues
-
   return {
-    allowed: left > 0,
-    status: left > 0 ? 'trial' : 'exhausted',
+    allowed: remaining.mediaSeconds > 0,
+    status: remaining.mediaSeconds > 0 ? 'trial' : 'exhausted',
     kind,
     remaining,
     monthly: null,
@@ -179,18 +178,13 @@ export function allowanceFor(entitlement: Entitlement, kind: UsageKind): Allowan
  * is over would go to support rather than to checkout, and rightly.
  */
 export function paywallResponse(allowance: Allowance): Response {
-  const what =
-    allowance.kind === 'transcribe'
-      ? `the ${TRIAL.transcribeSeconds / 3600} hour of transcription`
-      : `the ${TRIAL.translatedCues.toLocaleString('en-GB')} translated subtitles`
-
   const error =
     allowance.status === 'over-plan' && allowance.monthly
       ? `Your ${allowance.monthly.plan} plan includes ` +
-        `${allowance.monthly.limit.toLocaleString('en-GB')} translated subtitles a month, ` +
+        `${allowance.monthly.limit.toLocaleString('en-GB')} minutes of material a month, ` +
         'and this month is spent. The allowance starts again at the beginning of next month, ' +
         'or a larger plan raises it now — your projects stay where they are and can still be exported.'
-      : `Your free trial has used ${what} it includes. ` +
+      : `Your free trial has used the ${TRIAL.mediaMinutes} minutes it includes. ` +
         'Subscribe to run new jobs — your projects stay where they are and can still be exported.'
 
   return Response.json(

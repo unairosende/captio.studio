@@ -256,18 +256,14 @@ export default function DashboardClient({
 
             {trial ? (
               <>
+                {/* One meter, because there is one pool now. Two bars for two
+                    limits was how a customer discovered, mid-job, that the one
+                    they were not watching had run out. */}
                 <Meter
-                  label="Audio transcribed"
-                  used={TRIAL.transcribeSeconds - trial.transcribeSeconds}
-                  total={TRIAL.transcribeSeconds}
-                  left={`${formatDuration(trial.transcribeSeconds)} left`}
-                />
-                <div style={{ height: 12 }} />
-                <Meter
-                  label="Subtitles translated"
-                  used={TRIAL.translatedCues - trial.translatedCues}
-                  total={TRIAL.translatedCues}
-                  left={`${trial.translatedCues.toLocaleString('en-GB')} left`}
+                  label="Material processed"
+                  used={TRIAL.mediaMinutes * 60 - trial.mediaSeconds}
+                  total={TRIAL.mediaMinutes * 60}
+                  left={`${formatDuration(trial.mediaSeconds)} left`}
                 />
                 <a href="/pricing" style={{ display: 'inline-block', marginTop: 12, fontSize: 'var(--fs-sm)', color: 'var(--accent)', textDecoration: 'none' }}>
                   See plans →

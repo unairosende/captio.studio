@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
-import { logUsage } from '@/lib/db/billing'
+import { billMedia, logUsage } from '@/lib/db/billing'
 import { getMedia } from '@/lib/db/media'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
@@ -119,6 +119,11 @@ export async function POST(req: NextRequest) {
   // Billed by audio duration, which Scribe does not report. The last word ends
   // where the speech does, and silence at the tail is not worth charging for.
   const seconds = Math.round(words.at(-1)?.end ?? 0)
+
+  // Charged here, against the upload, because this is the first moment anybody
+  // knows how long the material runs — and the last moment before it becomes
+  // subtitles that can be translated into any number of languages for free.
+  await billMedia(ctx.orgId, mediaId, seconds)
 
   await logUsage({
     orgId: ctx.orgId,

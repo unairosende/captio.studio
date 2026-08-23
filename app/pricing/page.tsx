@@ -37,10 +37,8 @@ export default function PricingPage() {
             Start free — no card
           </div>
           <div style={{ fontSize: 14, color: 'var(--text2)', lineHeight: 1.6 }}>
-            {TRIAL.transcribeSeconds / 3600} hour of transcription and{' '}
-            {TRIAL.translatedCues.toLocaleString('en-GB')} translated subtitles: a full episode,
-            transcribed and subtitled end to end. An amount, not a fortnight — a quiet week costs
-            you nothing.
+            {TRIAL.mediaMinutes} minutes of material — transcribed, subtitled and translated into
+            every language you need. An amount, not a fortnight: a quiet week costs you nothing.
             <br />
             When it runs out, new AI jobs stop. Your projects stay where they are and still export.
           </div>
@@ -57,17 +55,20 @@ export default function PricingPage() {
               )}
               <div style={{ fontSize: 13, fontWeight: 500, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: '.08em', marginBottom: 8 }}>{plan.name}</div>
               <div style={{ marginBottom: 24 }}>
-                <span style={{ fontSize: 42, fontWeight: 700, color: 'var(--text)' }}>${plan.price}</span>
+                <span style={{ fontSize: 42, fontWeight: 700, color: 'var(--text)' }}>{plan.price} €</span>
                 <span style={{ fontSize: 14, color: 'var(--text3)' }}>/month</span>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 32, flex: 1 }}>
                 {[
-                  `${(plan.monthlySubtitles / 1000).toFixed(0)}K subtitles / month`,
+                  `${plan.monthlyMediaMinutes / 60} hours of material / month`,
+                  // The line that does the selling. Every competitor charges per
+                  // language; translating one episode into six costs us about
+                  // seventy cents more than into one, so this is a promise we can
+                  // afford to keep and they cannot afford to match.
+                  'Every language included — no per-language fee',
                   `${plan.seats} seat${plan.seats > 1 ? 's' : ''}`,
-                  'All AI providers',
                   'Back-translation QA',
                   'SRT · TXT · CSV · VTT export',
-                  'Video burn-in (coming soon)',
                 ].map(f => (
                   <div key={f} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 14, color: 'var(--text2)' }}>
                     <span style={{ color: 'var(--green)', fontWeight: 600 }}>✓</span> {f}

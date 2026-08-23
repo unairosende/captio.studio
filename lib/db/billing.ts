@@ -152,37 +152,6 @@ export async function logUsage(input: UsageEventInput): Promise<void> {
   }
 }
 
-export interface TrialConsumption {
-  /** Seconds of audio transcribed. */
-  transcribeSeconds: number
-  /** Subtitles translated. */
-  translatedCues: number
-}
-
-/**
- * Everything this organisation has ever spent against the free trial.
- *
- * Counted over the whole history rather than a window, because the trial has no
- * clock: it is an amount, and an amount that refilled monthly would be a free
- * plan with extra steps.
- *
- * The kinds are parameters rather than literals so this statement obeys the
- * same rule as every other one here — see tests/tenancy/scoping.test.ts.
- */
-export async function trialConsumption(orgId: string): Promise<TrialConsumption> {
-  const row = await queryOne<{ seconds: string; cues: string }>(
-    `select coalesce(sum(units_in) filter (where kind = $2), 0) as seconds,
-            coalesce(sum(cues)     filter (where kind = $3), 0) as cues
-       from usage_events
-      where org_id = $1`,
-    [requireOrg(orgId), 'transcribe' satisfies UsageKind, 'translate' satisfies UsageKind],
-  )
-  return {
-    transcribeSeconds: Number(row?.seconds ?? 0),
-    translatedCues: Number(row?.cues ?? 0),
-  }
-}
-
 export interface UsageByMonth {
   month: string
   kind: UsageKind
@@ -224,24 +193,95 @@ export async function usageByMonth(orgId: string, months = 12): Promise<UsageByM
 }
 
 /**
- * Subtitles translated in the current calendar month, for plan enforcement.
+ * Charge a piece of material, once and only once.
+ *
+ * `billed_at is null` is the whole mechanism: the second call for the same
+ * upload updates no rows and returns nothing, so translating it into a seventh
+ * language costs nothing. That is how "every language included" survives
+ * contact with a future caller who does not know it was promised.
+ *
+ * The duration is the one the server measured from the provider's own answer,
+ * never `media.duration_seconds`: that column is filled from the browser at
+ * upload time, and a billing quantity the browser supplies is a billing
+ * quantity the browser can set to one second.
+ *
+ * Returns the seconds this call actually charged — zero when the material had
+ * already been paid for.
+ */
+export async function billMedia(
+  orgId: string,
+  mediaId: string,
+  seconds: number,
+): Promise<number> {
+  const row = await queryOne<{ billed_seconds: number }>(
+    `update media
+        set billed_seconds = $3,
+            billed_at      = now()
+      where org_id = $1 and id = $2 and billed_at is null
+      returning billed_seconds`,
+    [requireOrg(orgId), mediaId, Math.max(0, Math.ceil(seconds))],
+  )
+  return row?.billed_seconds ?? 0
+}
+
+/**
+ * The same, for material that arrived as subtitles rather than as audio.
+ *
+ * The duration is the span of the cues, computed by the caller from the saved
+ * sequence — never from the request. A billing quantity the browser supplies is
+ * a billing quantity the browser can set to zero.
+ */
+export async function billSequence(
+  orgId: string,
+  sequenceId: string,
+  seconds: number,
+): Promise<number> {
+  const row = await queryOne<{ billed_seconds: number }>(
+    `update sequences
+        set billed_seconds = $3,
+            billed_at      = now()
+      where org_id = $1 and id = $2 and billed_at is null
+      returning billed_seconds`,
+    [requireOrg(orgId), sequenceId, Math.max(0, Math.ceil(seconds))],
+  )
+  return row?.billed_seconds ?? 0
+}
+
+/**
+ * Material charged in the current calendar month, in seconds.
  *
  * A calendar month rather than the Stripe billing period: the pricing page says
  * "per month", and an allowance turning over on whichever day somebody happened
  * to subscribe is a different promise from the one they read.
  *
- * Counts `cues`, and only translation, because that is the unit the plans are
- * sold in. A transcription row carries seconds, and seconds added to subtitles
- * make a number that means nothing.
+ * Summed across both places material can enter from — an upload and an import —
+ * because they spend the same pool.
  */
-export async function currentMonthCues(orgId: string): Promise<number> {
+export async function currentMonthMediaSeconds(orgId: string): Promise<number> {
   const row = await queryOne<{ total: string }>(
-    `select coalesce(sum(cues), 0) as total
-       from usage_events
-      where org_id = $1
-        and kind = $2
-        and created_at >= date_trunc('month', now())`,
-    [requireOrg(orgId), 'translate' satisfies UsageKind],
+    `select coalesce((select sum(billed_seconds) from media
+                       where org_id = $1 and billed_at >= date_trunc('month', now())), 0)
+          + coalesce((select sum(billed_seconds) from sequences
+                       where org_id = $1 and billed_at >= date_trunc('month', now())), 0)
+            as total`,
+    [requireOrg(orgId)],
+  )
+  return Number(row?.total ?? 0)
+}
+
+/**
+ * Everything this organisation has ever spent against the free trial.
+ *
+ * Counted over the whole history rather than a window, because the trial has no
+ * clock: it is an amount, and an amount that refilled monthly would be a free
+ * plan with extra steps.
+ */
+export async function trialMediaSeconds(orgId: string): Promise<number> {
+  const row = await queryOne<{ total: string }>(
+    `select coalesce((select sum(billed_seconds) from media     where org_id = $1), 0)
+          + coalesce((select sum(billed_seconds) from sequences where org_id = $1), 0)
+            as total`,
+    [requireOrg(orgId)],
   )
   return Number(row?.total ?? 0)
 }

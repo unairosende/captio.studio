@@ -13,36 +13,26 @@ import { TRIAL } from '../../lib/plans.ts'
  */
 
 describe('what is left of the trial', () => {
+  const FULL = TRIAL.mediaMinutes * 60
+
   it('starts at the full allowance', () => {
-    assert.deepEqual(remainingFrom({ transcribeSeconds: 0, translatedCues: 0 }), {
-      transcribeSeconds: TRIAL.transcribeSeconds,
-      translatedCues: TRIAL.translatedCues,
-    })
+    assert.deepEqual(remainingFrom(0), { mediaSeconds: FULL })
   })
 
-  it('spends each limit separately', () => {
-    // Running out of audio must not touch the subtitle allowance: somebody who
-    // imports their own SRT never transcribes anything at all.
-    const left = remainingFrom({
-      transcribeSeconds: TRIAL.transcribeSeconds,
-      translatedCues: 10,
-    })
-
-    assert.equal(left.transcribeSeconds, 0)
-    assert.equal(left.translatedCues, TRIAL.translatedCues - 10)
+  /**
+   * One pool, spent by transcription and translation alike. The two used to be
+   * separate promises measured in different units, which meant a customer could
+   * exhaust the one they were not watching without warning.
+   */
+  it('spends transcription and translation from the same pool', () => {
+    assert.equal(remainingFrom(600).mediaSeconds, FULL - 600)
   })
 
   it('never reports a negative remainder', () => {
     // A job is allowed to overrun its allowance, so consumption above the limit
-    // is expected rather than exceptional. Showing "-380 subtitles left" reads
-    // as a debt, which is not what was sold.
-    const left = remainingFrom({
-      transcribeSeconds: TRIAL.transcribeSeconds * 3,
-      translatedCues: TRIAL.translatedCues + 380,
-    })
-
-    assert.equal(left.transcribeSeconds, 0)
-    assert.equal(left.translatedCues, 0)
+    // is expected rather than exceptional. Showing "-6 minutes left" reads as a
+    // debt, which is not what was sold.
+    assert.equal(remainingFrom(FULL + 380).mediaSeconds, 0)
   })
 })
 
@@ -51,7 +41,7 @@ describe('the wall', () => {
     allowed: false,
     status: 'exhausted',
     kind,
-    remaining: { transcribeSeconds: 0, translatedCues: 0 },
+    remaining: { mediaSeconds: 0 },
     // No plan behind this one; the plan's own wall is in plan-limit.test.ts.
     monthly: null,
   })
@@ -65,13 +55,18 @@ describe('the wall', () => {
     assert.equal((await res.json()).upgradeUrl, '/pricing')
   })
 
-  it('names the limit that ran out', async () => {
+  /**
+   * One pool means one sentence. The message used to name whichever of two
+   * limits had run out, and that distinction is gone on purpose: transcription
+   * and translation spend the same minutes, so telling somebody which of them
+   * emptied the pool would be describing an accounting that no longer exists.
+   */
+  it('names the minutes that ran out, whichever job asked', async () => {
     const audio = await paywallResponse(exhausted('transcribe')).json()
     const subtitles = await paywallResponse(exhausted('translate')).json()
 
-    assert.match(audio.error, /transcription/i)
-    assert.match(subtitles.error, /subtitles/i)
-    assert.notEqual(audio.error, subtitles.error)
+    assert.match(audio.error, new RegExp(`${TRIAL.mediaMinutes} minutes`))
+    assert.equal(audio.error, subtitles.error)
   })
 
   it('says the work is still theirs', async () => {
