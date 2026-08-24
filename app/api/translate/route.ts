@@ -315,28 +315,54 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const { text, tokensIn, tokensOut, model } = await translate(prompt)
+    /**
+     * Two attempts, because a miscount is a dice roll rather than a verdict.
+     *
+     * The count coming back wrong — thirty cues answered with twenty-nine,
+     * two merged into one — cannot be repaired here: nothing says which two,
+     * and guessing attaches every later translation to the wrong timecode.
+     * So the batch is refused, and refusing a whole batch over one unlucky
+     * reply is what makes a second roll worth its fraction of a cent.
+     *
+     * Two, not more. A prompt a model keeps mis-segmenting will keep
+     * mis-segmenting, and a retry loop is how one bad request becomes a bill.
+     */
+    let translations: string[] | null = null
+    let lastFormatError: TranslationFormatError | null = null
 
-    // Metered before parsing: the tokens were spent whether or not the reply
-    // was usable, and a bill that only counts successes under-reports cost.
-    await logUsage({
-      orgId: ctx.orgId,
-      userId: ctx.userId,
-      sequenceId: body.sequenceId ?? null,
-      kind: 'translate',
-      model,
-      unitsIn: tokensIn,
-      unitsOut: tokensOut,
-      // Priced against whichever model actually answered, which is not always
-      // the primary one: a batch served by the fallback is not priced as Gemini.
-      costUsd: costUsd(model, { unitsIn: tokensIn, unitsOut: tokensOut }),
-      // What the trial is denominated in. Counted here rather than from the
-      // reply, so a batch that came back unusable still spends its allowance —
-      // the provider charged for it either way.
-      cues: cues.length,
-    })
+    for (let attempt = 0; attempt < 2 && translations === null; attempt++) {
+      const { text, tokensIn, tokensOut, model } = await translate(prompt)
 
-    const translations = parseTranslationResponse(text, cues.length)
+      // Metered before parsing, and on every attempt: the tokens were spent
+      // whether or not the reply was usable, and a bill that only counts
+      // successes under-reports cost.
+      await logUsage({
+        orgId: ctx.orgId,
+        userId: ctx.userId,
+        sequenceId: body.sequenceId ?? null,
+        kind: 'translate',
+        model,
+        unitsIn: tokensIn,
+        unitsOut: tokensOut,
+        // Priced against whichever model actually answered, which is not always
+        // the primary one: a batch served by the fallback is not priced as Gemini.
+        costUsd: costUsd(model, { unitsIn: tokensIn, unitsOut: tokensOut }),
+        // What the trial is denominated in. Counted here rather than from the
+        // reply, so a batch that came back unusable still spends its allowance —
+        // the provider charged for it either way.
+        cues: cues.length,
+      })
+
+      try {
+        translations = parseTranslationResponse(text, cues.length)
+      } catch (err) {
+        if (!(err instanceof TranslationFormatError)) throw err
+        console.warn(`translation format rejected (attempt ${attempt + 1}):`, err.message)
+        lastFormatError = err
+      }
+    }
+
+    if (translations === null) throw lastFormatError
 
     // Layout happens here, not in the prompt. The model returns one line per
     // cue and this puts the breaks in — the same rules the quality check
