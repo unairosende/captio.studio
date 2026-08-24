@@ -95,6 +95,38 @@ describe('the minutes a plan includes', { skip: !HAS_DB && 'DATABASE_URL not set
     assert.equal(await currentMonthMediaSeconds(org), 900)
   })
 
+  /**
+   * Optimistic locking is by version counter, and the trigger on `sequences`
+   * bumps it on every UPDATE — including the one that records a charge. Left
+   * alone, translating your own work told you somebody else had saved first,
+   * with nobody else there. A conflict warning that cries wolf is worse than
+   * none, because the next real one gets clicked through.
+   */
+  it('does not spend the version the editor is holding', async () => {
+    // Its own organisation: the totals the tests above assert are cumulative,
+    // and a charge booked here would move them.
+    const solo = `test_org_${randomBytes(6).toString('hex')}`
+    const soloProject = await newOrg(solo)
+
+    try {
+      const sequence = await newSequence(solo, soloProject)
+      const before = await queryOne<{ version: number }>(
+        'select version from sequences where org_id = $1 and id = $2',
+        [solo, sequence],
+      )
+
+      await billSequence(solo, sequence, 120)
+
+      const after = await queryOne<{ version: number }>(
+        'select version from sequences where org_id = $1 and id = $2',
+        [solo, sequence],
+      )
+      assert.equal(after!.version, before!.version)
+    } finally {
+      await query('delete from "organization" where id = $1', [solo])
+    }
+  })
+
   it('forgets what was charged last month', async () => {
     const media = await newMedia(org, 9_000)
     // Backdated by hand: billMedia always writes now(), and the whole question
