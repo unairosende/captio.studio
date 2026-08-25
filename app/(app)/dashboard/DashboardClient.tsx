@@ -282,11 +282,16 @@ export default function DashboardClient({
                     ceiling nobody is enforcing. */}
                 {entitlement.status === 'subscribed' && entitlement.monthly ? (
                   <>
+                    {/* Minutes of material, which is what the plans are sold
+                        in and what monthlyFrom() counts — not subtitles. This
+                        read "Subtitles translated" over a Studio ceiling of
+                        3 000, which is fifty hours of footage and not three
+                        thousand lines; the customer had no way to tell which. */}
                     <Meter
-                      label="Subtitles translated"
+                      label="Material processed"
                       used={entitlement.monthly.used}
                       total={entitlement.monthly.limit}
-                      left={`${entitlement.monthly.remaining.toLocaleString('en-GB')} left`}
+                      left={`${formatDuration(entitlement.monthly.remaining * 60)} left`}
                     />
                     <div style={{ height: 12 }} />
                   </>

@@ -21,6 +21,7 @@ import {
 import type { Subtitle } from '@/types/subtitle'
 import type { Entitlement } from '@/lib/entitlement'
 import { TRIAL } from '@/lib/plans'
+import { formatDuration } from '@/lib/usage'
 
 /**
  * A section heading.
@@ -529,9 +530,11 @@ function AllowanceMeter({ entitlement }: { entitlement: Entitlement }) {
         // that is not being enforced.
         entitlement.monthly && {
           label: `${entitlement.monthly.plan} · this month`,
+          // Material, in the same words /pricing sells it in. The allowance
+          // has always been minutes; only these two labels said otherwise.
           figures:
-            `${entitlement.monthly.remaining.toLocaleString('en-GB')} of ` +
-            `${entitlement.monthly.limit.toLocaleString('en-GB')} subtitles left`,
+            `${formatDuration(entitlement.monthly.remaining * 60)} of ` +
+            `${formatDuration(entitlement.monthly.limit * 60)} material left`,
           fraction: entitlement.monthly.remaining / entitlement.monthly.limit,
           nearly: 'See plans',
           spent: 'Month used up — see plans',

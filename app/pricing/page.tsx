@@ -88,7 +88,7 @@ export default function PricingPage() {
 
         {/* Footer note */}
         <div style={{ textAlign: 'center', fontSize: 13, color: 'var(--text3)', lineHeight: 1.8 }}>
-          {/* The subtitle figure above is enforced, so this page says what
+          {/* The material figure above is enforced, so this page says what
               reaching it does. A ceiling nobody was told about is the same
               ambush as one nobody was warned of. */}
           The monthly allowance starts again at the beginning of each calendar month. When it is
