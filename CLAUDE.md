@@ -86,4 +86,4 @@ tiene clase.
 
 Un commit por cambio lógico, nunca varios asuntos juntos. Resumen imperativo
 corto, y el cuerpo explicando **por qué**, no qué. Terminar con:
-`Co-Authored-By: Claude Sonnet 4.6 <noreply@anthropic.com>`
+`Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
