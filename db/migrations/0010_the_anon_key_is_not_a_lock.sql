@@ -28,6 +28,11 @@
 revoke all on all tables in schema public from anon, authenticated;
 alter default privileges in schema public revoke all on tables from anon, authenticated;
 
--- Belt and braces, and the one that actually blocks a reachable table: without
--- USAGE on the schema, a grant that comes back is unusable.
+-- This last one buys less than its name suggests, and the file had better say
+-- so. Postgres grants USAGE on `public` to the PUBLIC pseudo-role rather than to
+-- `anon` by name, so `has_schema_privilege('anon', 'public', 'usage')` is still
+-- true once this has run. Revoking from PUBLIC instead would reach every role on
+-- the database, Supabase's own service roles included, to shut a door the grants
+-- above have already shut. It stays for the one case it does cover: somebody
+-- granting USAGE to these two roles directly, later, and nobody noticing.
 revoke usage on schema public from anon, authenticated;
