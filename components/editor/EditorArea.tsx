@@ -46,14 +46,26 @@ export default function EditorArea({ userId }: Props) {
   const qc         = useMemo(() => qcForMode(outputMode), [outputMode])
   const limit      = qc.maxChars
   const isSource   = activeTab === 'source'
-  const hasTrans   = !isSource && !!translations[activeTab]
+  /**
+   * The stored track for the open tab.
+   *
+   * Held as its own value so the memo below can depend on it. `getFinalSubs`
+   * reads the same array out of the store and is a stable reference, so a memo
+   * that only called it never recomputed when a translated cue changed: the
+   * edit reached the store and the screen kept the old text until something
+   * else — switching tabs — invalidated the memo. Naming the array here makes
+   * the dependency real rather than asserted, which the exhaustive-deps rule
+   * can check and cannot check through a call.
+   */
+  const activeTrack = isSource ? undefined : translations[activeTab]
+  const hasTrans   = !!activeTrack
   // Memoised because getFinalSubs derives a fresh array every call. Without
   // this the quality check below re-runs on every render — the memo would be
   // decoration, and the cost lands on exactly the long tracks it was there to
   // protect.
   const activeSubs = useMemo(
-    () => (isSource ? subtitles : hasTrans ? getFinalSubs(activeTab) : []),
-    [activeTab, getFinalSubs, hasTrans, isSource, subtitles],
+    () => (isSource ? subtitles : activeTrack ? getFinalSubs(activeTab) : []),
+    [activeTab, activeTrack, getFinalSubs, isSource, subtitles],
   )
   const bt         = hasTrans ? bts[activeTab] : undefined
 
