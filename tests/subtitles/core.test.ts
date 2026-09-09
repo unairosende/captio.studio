@@ -265,6 +265,21 @@ describe('glossary consistency', () => {
     }
   })
 
+  it('sees a term the layout broke across two lines', () => {
+    // Found on screen, not here: "Reserva de la Familia" is twenty-one
+    // characters, so reflow wraps it mid-term and the raw text carries a
+    // newline where the glossary has a space. Matching that text found
+    // nothing — correct or not — on exactly the long names this is for.
+    assert.deepEqual(check('el reserva de la\nfamilia es el que guardamos.', [
+      { term: 'Reserva de la Familia' },
+    ]), ['Glossary term written as "reserva de la familia" — should be "Reserva de la Familia"'])
+
+    // And stays quiet when the wrapped term is written correctly.
+    assert.deepEqual(check('el Reserva de la\nFamilia es el que guardamos.', [
+      { term: 'Reserva de la Familia' },
+    ]), [])
+  })
+
   it('is off unless a glossary is supplied', () => {
     assert.deepEqual(check('reserva de la familia', []), [])
   })

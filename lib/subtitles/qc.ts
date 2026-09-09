@@ -156,8 +156,17 @@ export function glossaryIssues(text: string, terms: readonly GlossaryPattern[]):
   const issues: QcIssue[] = []
   const seen = new Set<string>()
 
+  // Line breaks are collapsed first, because layout puts them inside terms.
+  // "Reserva de la Familia" is twenty-one characters and does not fit a
+  // forty-two character line beside anything else, so reflow wraps it in the
+  // middle — and a term matched against the raw text then contains a newline
+  // where the glossary has a space. It matches nothing, whether it was written
+  // correctly or not, which makes this check quietly useless on exactly the
+  // long multi-word names it exists for.
+  const flat = (text || '').replace(/\s+/g, ' ')
+
   for (const { expected, re } of terms) {
-    for (const match of (text || '').matchAll(re)) {
+    for (const match of flat.matchAll(re)) {
       const found = match[0]
       if (found === expected) continue
 
@@ -165,7 +174,7 @@ export function glossaryIssues(text: string, terms: readonly GlossaryPattern[]):
       const onlyFirstLetter =
         found.slice(1) === expected.slice(1) &&
         found[0]?.toLowerCase() === expected[0]?.toLowerCase()
-      if (onlyFirstLetter && atSentenceStart(text, match.index)) continue
+      if (onlyFirstLetter && atSentenceStart(flat, match.index)) continue
 
       const msg = `Glossary term written as "${found}" — should be "${expected}"`
       if (seen.has(msg)) continue
