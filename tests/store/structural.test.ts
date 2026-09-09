@@ -34,6 +34,7 @@ beforeEach(() => {
   store().loadSubtitles(source)
   store().setTranslation('Spanish', spanish)
   store().setBackTranslation('Spanish', spanish)
+  store().setReviewNotes('Spanish', [{ cue: 2, level: 'error', note: 'The negation is lost.' }])
 })
 
 describe('splitSubtitle', () => {
@@ -52,6 +53,15 @@ describe('splitSubtitle', () => {
     store().splitSubtitle(1)
 
     assert.deepEqual(store().backTranslations, {})
+  })
+
+  it('drops review notes, which cite cue numbers that just moved', () => {
+    // The note said "#2 loses the negation". After splitting #1 the line it
+    // was written about is #3, and #2 is half a sentence nobody reviewed —
+    // still on screen, still carrying somebody's verdict on other words.
+    store().splitSubtitle(1)
+
+    assert.deepEqual(store().reviewNotes, {})
   })
 
   it('is one undo step, marked by itself', () => {

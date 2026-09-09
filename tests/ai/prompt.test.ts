@@ -3,8 +3,10 @@ import { describe, it } from 'node:test'
 
 import {
   TranslationFormatError,
+  buildReviewPrompt,
   buildRevisionPrompt,
   buildTranslationPrompt,
+  parseReviewResponse,
   parseTranslationResponse,
 } from '../../lib/ai/prompt.ts'
 
@@ -192,5 +194,95 @@ describe('parseTranslationResponse', () => {
       threw = true
     }
     assert.equal(threw, true)
+  })
+})
+
+describe('buildReviewPrompt', () => {
+  const review = {
+    cues: ['Lo intentamos mejorar. No había mucha más información,', 'sobre el suelo.'],
+    sourceTexts: ['We tried to improve it. There is far more information now,', 'about the soil.'],
+    numbers: [17, 18],
+    lang: 'Spanish',
+    sourceLang: 'English',
+  }
+
+  it('pairs each subtitle with its number in one object', () => {
+    // Three arrays to be read in step made the model count, and it counted
+    // wrong: a fault in the sixth subtitle came back filed against the fifth.
+    const p = buildReviewPrompt(review)
+    assert.match(p, /"n":17/)
+    assert.match(p, /"source":"We tried to improve it/)
+    assert.match(p, /"translation":"Lo intentamos mejorar/)
+  })
+
+  it('makes the model quote what it is complaining about', () => {
+    // The anchor that keeps a review honest: asked for problems, a model
+    // produces problems, and the invented ones read exactly like the real ones
+    // until it has to quote words that are not there.
+    assert.match(buildReviewPrompt(review), /quote the exact words/)
+  })
+
+  it('says that finding nothing is an answer', () => {
+    assert.match(buildReviewPrompt(review), /empty array is the correct answer/)
+  })
+
+  it('leaves length and timing to the checks that measure them', () => {
+    assert.match(buildReviewPrompt(review), /those are measured elsewhere/)
+  })
+})
+
+describe('parseReviewResponse', () => {
+  const batch = [17, 18, 19]
+
+  it('reads notes and keeps the cue numbers they name', () => {
+    const notes = parseReviewResponse(
+      '[{"cue":17,"level":"error","note":"The meaning is inverted."}]',
+      batch,
+    )
+    assert.deepEqual(notes, [{ cue: 17, level: 'error', note: 'The meaning is inverted.' }])
+  })
+
+  it('accepts an empty review', () => {
+    assert.deepEqual(parseReviewResponse('[]', batch), [])
+  })
+
+  it('drops a note about a cue this batch does not contain', () => {
+    // It would otherwise be shown beside whatever cue 84 happens to be, and
+    // send somebody to correct a line that is already right.
+    assert.deepEqual(parseReviewResponse('[{"cue":84,"level":"error","note":"x"}]', batch), [])
+  })
+
+  it('keeps one note per cue', () => {
+    const notes = parseReviewResponse(
+      '[{"cue":17,"level":"warn","note":"first"},{"cue":17,"level":"error","note":"second"}]',
+      batch,
+    )
+    assert.equal(notes.length, 1)
+    assert.equal(notes[0].note, 'first')
+  })
+
+  it('clamps a note to a sentence and an unknown level to a warning', () => {
+    const notes = parseReviewResponse(
+      JSON.stringify([{ cue: 18, level: 'catastrophic', note: 'z'.repeat(9_000) }]),
+      batch,
+    )
+    assert.equal(notes[0].level, 'warn')
+    assert.ok(notes[0].note.length <= 240, `got ${notes[0].note.length}`)
+  })
+
+  it('drops the unusable entries and keeps the rest', () => {
+    // Unlike a miscounted translation, which has to be refused: there every
+    // later cue would land on the wrong timecode, and here nine good notes
+    // would be thrown away over one bad one.
+    const notes = parseReviewResponse(
+      '[null,{"cue":"17","note":"not a number"},{"cue":19,"note":"   "},{"cue":18,"level":"error","note":"real"}]',
+      batch,
+    )
+    assert.deepEqual(notes, [{ cue: 18, level: 'error', note: 'real' }])
+  })
+
+  it('refuses a reply that is not an array at all', () => {
+    assert.throws(() => parseReviewResponse('nonsense', batch), TranslationFormatError)
+    assert.throws(() => parseReviewResponse('{"cue":17}', batch), TranslationFormatError)
   })
 })

@@ -6,6 +6,7 @@ import { useSubtitleStore } from '@/store/useSubtitleStore'
 import { charStatus, qcForMode, qcTrack, reflowText } from '@/lib/subtitles'
 import { playheadSeconds } from '@/lib/timeline/playhead'
 import CommentsPanel from '@/components/comments/CommentsPanel'
+import ReviewNotes from './ReviewNotes'
 import SubtitleCard from './SubtitleCard'
 
 interface Props {
@@ -22,6 +23,7 @@ export default function EditorArea({ userId }: Props) {
     backTranslations: bts, setBackTranslation, clearBackTranslation,
     allowRephrase, srcLang, tgtLang, glossary,
     setBackTranslateJob,
+    reviewNotes, setReviewNotes, clearReviewNotes, reviewJob, setReviewJob,
     splitSubtitle, deleteSubtitle,
     comments, sequenceId,
   } = useSubtitleStore()
@@ -70,9 +72,24 @@ export default function EditorArea({ userId }: Props) {
   const warns = [...quality.values()].filter(q => q.status === 'warn').length
   const errs  = [...quality.values()].filter(q => q.status === 'error').length
 
-  /** Narrow the list to what needs attention. Null shows everything. */
-  const [filter, setFilter] = useState<'warn' | 'error' | null>(null)
-  const shown = filter ? activeSubs.filter(s => quality.get(s.index)?.status === filter) : activeSubs
+  /** What the review pass found about the language on screen, if it has run. */
+  const notes = hasTrans ? reviewNotes[activeTab] : undefined
+
+  /**
+   * Narrow the list to what needs attention. Null shows everything.
+   *
+   * 'noted' is the review's own filter. A list of four problems in a track of
+   * a hundred and four is only half a tool until it can put those four on
+   * screen by themselves.
+   */
+  const [filter, setFilter] = useState<'warn' | 'error' | 'noted' | null>(null)
+  const noted = useMemo(() => new Set((notes ?? []).map(n => n.cue)), [notes])
+  const shown =
+    filter === 'noted'
+      ? activeSubs.filter(s => noted.has(s.index))
+      : filter
+        ? activeSubs.filter(s => quality.get(s.index)?.status === filter)
+        : activeSubs
 
   const leftRef  = useRef<HTMLDivElement>(null)
   const rightRef = useRef<HTMLDivElement>(null)
@@ -213,6 +230,74 @@ export default function EditorArea({ userId }: Props) {
     router.refresh()
   }
 
+  /**
+   * Read the translation back and report what is wrong with it.
+   *
+   * Its own pass, never folded into the translation reply. Asking one request
+   * for translated cues *and* commentary is what taught the model to
+   * re-segment in the first place — the count stops being fixed the moment
+   * there is anything else in the answer.
+   *
+   * Reads rather than writes, so no undo step: nothing on screen changes.
+   */
+  async function handleReview() {
+    if (!hasTrans || reviewJob.running) return
+    const lang = activeTab
+    const subs = translations[lang]
+    if (!subs.length) return
+
+    setReviewJob({ running: true, message: `Reviewing ${subs.length} subtitles…`, progress: 0, error: null })
+
+    const BATCH = 30
+    const found: typeof notes = []
+    for (let i = 0; i < subs.length; i += BATCH) {
+      const batch = subs.slice(i, i + BATCH)
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task: 'review',
+            cues: batch.map(s => s.text),
+            sourceTexts: batch.map(s => subtitles.find(o => o.index === s.index)?.text ?? ''),
+            cueNumbers: batch.map(s => s.index),
+            targetLang: lang,
+            sourceLang: srcLang,
+            glossary,
+          }),
+        })
+        const data = await res.json().catch(() => {
+          // A gateway that gives up answers with an HTML page, and `res.json()`
+          // then fails on `<!DOCTYPE` — which reads as a bug in the reply rather
+          // than as a request that was cut short before there was one.
+          throw new Error(`The server answered ${res.status} without JSON — the request was probably cut short.`)
+        })
+        if (data.error) throw new Error(data.error)
+        found!.push(...data.notes)
+        setReviewJob({
+          progress: Math.round((i + batch.length) / subs.length * 100),
+          message: `Reviewing… ${Math.min(i + BATCH, subs.length)}/${subs.length}`,
+        })
+      } catch (e: unknown) {
+        setReviewJob({ running: false, error: e instanceof Error ? e.message : 'Error', message: '' })
+        router.refresh()
+        return
+      }
+    }
+
+    // Written even when empty. "Nothing found" is a result, and a panel that
+    // only ever appears when there is bad news would leave somebody who ran
+    // the pass on clean work wondering whether it had run at all.
+    setReviewNotes(lang, found!)
+    setReviewJob({
+      running: false,
+      progress: 100,
+      message: found!.length ? `${found!.length} to look at` : 'Nothing to report',
+      error: null,
+    })
+    router.refresh()
+  }
+
   async function handleBackTranslate() {
     if (!hasTrans) return
     const lang = activeTab
@@ -341,6 +426,13 @@ export default function EditorArea({ userId }: Props) {
             {errs} errors
           </button>
         )}
+        {!!notes?.length && (
+          <button onClick={() => setFilter(f => (f === 'noted' ? null : 'noted'))}
+            title={filter === 'noted' ? 'Show everything' : 'Show only the reviewed subtitles'}
+            style={{ padding: '2px 7px', borderRadius: 12, fontSize: 11, fontFamily: 'var(--mono)', fontWeight: 500, cursor: 'pointer', background: 'var(--accent-dim)', color: '#8ba8ff', border: `1px solid ${filter === 'noted' ? 'var(--accent)' : 'transparent'}` }}>
+            {notes.length} notes
+          </button>
+        )}
         {filter && (
           <span style={{ fontSize: 11, color: 'var(--text3)' }}>
             {shown.length} of {activeSubs.length} shown
@@ -358,6 +450,12 @@ export default function EditorArea({ userId }: Props) {
           </button>
         )}
         {hasTrans && (
+          <button data-cmd="Read the translation back and report what is wrong" onClick={handleReview} disabled={reviewJob.running} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: reviewJob.running ? 'default' : 'pointer', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text3)', transition: 'all .15s' }}>
+            {reviewJob.running ? <span className="spinner" /> : '☰'}
+            {reviewJob.running ? reviewJob.message : 'Review'}
+          </button>
+        )}
+        {hasTrans && (
           <button data-cmd="Correct the translation with a note" onClick={() => setReviseOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: 'pointer', border: `1px solid ${reviseOpen ? 'var(--accent)' : 'var(--border)'}`, background: reviseOpen ? 'var(--accent-dim)' : 'transparent', color: reviseOpen ? '#8ba8ff' : 'var(--text3)', transition: 'all .15s' }}>
             {translateJob.running && reviseOpen ? <span className="spinner" /> : '✎'}
             Revise
@@ -369,6 +467,26 @@ export default function EditorArea({ userId }: Props) {
           </span>
         )}
       </div>
+
+      {reviewJob.error && (
+        <div style={{ background: 'var(--red-dim)', borderBottom: '1px solid #5a1a1a', padding: '6px 14px', fontSize: 11, color: 'var(--red)', flexShrink: 0 }}>
+          {reviewJob.error}
+        </div>
+      )}
+
+      {notes && (
+        <ReviewNotes
+          notes={notes}
+          lang={activeTab}
+          filtered={filter === 'noted'}
+          onToggleFilter={() => setFilter(f => (f === 'noted' ? null : 'noted'))}
+          onClear={() => {
+            clearReviewNotes(activeTab)
+            // The filter names cues that are about to stop being named.
+            setFilter(f => (f === 'noted' ? null : f))
+          }}
+        />
+      )}
 
       {/* The corrections box. A bar rather than a dialog: the notes are read
           off the subtitles behind it, and a modal would cover them. */}

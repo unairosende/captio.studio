@@ -4,11 +4,14 @@ import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import {
   TranslationFormatError,
   buildBackTranslationPrompt,
+  buildReviewPrompt,
   buildRevisionPrompt,
   buildShortenPrompt,
   buildTranslationPrompt,
+  parseReviewResponse,
   parseTranslationResponse,
   type GlossaryEntry,
+  type ReviewNote,
 } from '@/lib/ai/prompt'
 import { billSequence, logUsage } from '@/lib/db/billing'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
@@ -186,7 +189,7 @@ async function translate(prompt: string): Promise<ProviderResult & { model: stri
  * enforces, and what stops any of them becoming a way to get arbitrary text
  * back out of a subtitling subscription.
  */
-type Task = 'translate' | 'backTranslate' | 'shorten' | 'revise'
+type Task = 'translate' | 'backTranslate' | 'shorten' | 'revise' | 'review'
 
 interface Body {
   task?: Task
@@ -195,7 +198,13 @@ interface Body {
   sourceTexts?: string[]
   /** What to change. `revise` only — the reviewer's own words. */
   instructions?: string
-  /** The cue numbers behind this batch, so a correction naming one can find it. */
+  /**
+   * The cue numbers behind this batch.
+   *
+   * Required by `revise`, so a correction naming a cue can find it, and by
+   * `review`, so a note can say which cue it is about. Both are meaningless
+   * without them, which is why neither defaults to positions.
+   */
   cueNumbers?: number[]
   targetLang?: string
   sourceLang?: string
@@ -246,6 +255,8 @@ export async function POST(req: NextRequest) {
   const task: Task = body.task ?? 'translate'
 
   let prompt: string
+  /** Set by the two tasks that cite cue numbers; the review parser reads it back. */
+  let cueNumbers: number[] = []
   if (task === 'backTranslate') {
     prompt = buildBackTranslationPrompt({
       cues,
@@ -261,17 +272,11 @@ export async function POST(req: NextRequest) {
       lang: body.targetLang,
       maxChars,
     })
-  } else if (task === 'revise') {
-    if (typeof body.instructions !== 'string' || !body.instructions.trim()) {
-      return NextResponse.json(
-        { error: 'instructions are required to revise a translation' },
-        { status: 400 },
-      )
-    }
-    // Demanded rather than defaulted. Numbering a batch by its own positions is
-    // right for the first batch and wrong for every one after it, and the damage
-    // is silent: the model never finds the cue a correction names, and the batch
-    // comes back untouched as though there had been nothing to do.
+  } else if (task === 'revise' || task === 'review') {
+    // Demanded rather than defaulted, for both. Numbering a batch by its own
+    // positions is right for the first batch and wrong for every one after it,
+    // and the damage is silent: a correction never finds the cue it names, and
+    // a note arrives pointing at somebody else's subtitle.
     if (
       !Array.isArray(body.cueNumbers) ||
       body.cueNumbers.length !== cues.length ||
@@ -279,15 +284,40 @@ export async function POST(req: NextRequest) {
     ) {
       return NextResponse.json({ error: 'cueNumbers must be one number per cue' }, { status: 400 })
     }
-    prompt = buildRevisionPrompt({
-      cues,
-      sourceTexts: Array.isArray(body.sourceTexts) ? body.sourceTexts.slice(0, cues.length) : cues,
-      numbers: body.cueNumbers,
-      lang: body.targetLang,
-      maxChars,
-      instructions: body.instructions,
-      glossary: body.glossary,
-    })
+    cueNumbers = body.cueNumbers
+
+    // Falls back to the translations themselves when no source is supplied,
+    // as `shorten` does — worse, but never an unbounded free-text field.
+    const sourceTexts = Array.isArray(body.sourceTexts)
+      ? body.sourceTexts.slice(0, cues.length)
+      : cues
+
+    if (task === 'review') {
+      prompt = buildReviewPrompt({
+        cues,
+        sourceTexts,
+        numbers: cueNumbers,
+        lang: body.targetLang,
+        sourceLang: body.sourceLang,
+        glossary: body.glossary,
+      })
+    } else {
+      if (typeof body.instructions !== 'string' || !body.instructions.trim()) {
+        return NextResponse.json(
+          { error: 'instructions are required to revise a translation' },
+          { status: 400 },
+        )
+      }
+      prompt = buildRevisionPrompt({
+        cues,
+        sourceTexts,
+        numbers: cueNumbers,
+        lang: body.targetLang,
+        maxChars,
+        instructions: body.instructions,
+        glossary: body.glossary,
+      })
+    }
   } else if (task === 'translate') {
     prompt = buildTranslationPrompt({
       cues,
@@ -318,11 +348,11 @@ export async function POST(req: NextRequest) {
   // path that could translate a whole feature without ever spending a minute,
   // and the fix is a save, which the message asks for.
   //
-  // Only a translation. Shortening, back-translation and revision rework text
-  // that is already there — they cannot bring new material in, and the minutes
-  // were charged when it arrived. Demanding an identifier from them would have
-  // broken the overlength auto-fix, the QA pass and the correction pass for
-  // nothing.
+  // Only a translation. Everything else here reads or reworks text that is
+  // already present — it cannot bring new material in, and the minutes were
+  // charged when the material arrived. Demanding an identifier from those would
+  // have broken the overlength auto-fix, the QA pass, the correction pass and
+  // the review for nothing.
   const sequenceId = typeof body.sequenceId === 'string' ? body.sequenceId : ''
   const mediaId = typeof body.mediaId === 'string' ? body.mediaId : ''
 
@@ -365,10 +395,10 @@ export async function POST(req: NextRequest) {
      * Two, not more. A prompt a model keeps mis-segmenting will keep
      * mis-segmenting, and a retry loop is how one bad request becomes a bill.
      */
-    let translations: string[] | null = null
+    let answer: string[] | ReviewNote[] | null = null
     let lastFormatError: TranslationFormatError | null = null
 
-    for (let attempt = 0; attempt < 2 && translations === null; attempt++) {
+    for (let attempt = 0; attempt < 2 && answer === null; attempt++) {
       const { text, tokensIn, tokensOut, model } = await translate(prompt)
 
       // Metered before parsing, and on every attempt: the tokens were spent
@@ -392,7 +422,10 @@ export async function POST(req: NextRequest) {
       })
 
       try {
-        translations = parseTranslationResponse(text, cues.length)
+        answer =
+          task === 'review'
+            ? parseReviewResponse(text, cueNumbers)
+            : parseTranslationResponse(text, cues.length)
       } catch (err) {
         if (!(err instanceof TranslationFormatError)) throw err
         console.warn(`translation format rejected (attempt ${attempt + 1}):`, err.message)
@@ -400,7 +433,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (translations === null) throw lastFormatError
+    if (answer === null) throw lastFormatError
+
+    // A review answers with notes about the subtitles rather than with
+    // subtitles, so nothing here is laid out and nothing is a cue. It leaves by
+    // its own door: a caller reading `translations` must never find prose in it.
+    if (task === 'review') return NextResponse.json({ notes: answer as ReviewNote[] })
+
+    const translations = answer as string[]
 
     // Layout happens here, not in the prompt. The model returns one line per
     // cue and this puts the breaks in — the same rules the quality check

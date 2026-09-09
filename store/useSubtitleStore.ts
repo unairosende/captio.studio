@@ -8,7 +8,7 @@ import type {
   Subtitle, TranslationStore, BackTranslationStore,
   OutputMode, ViewMode,
 } from '../types/subtitle.ts'
-import type { GlossaryEntry } from '../lib/ai/prompt.ts'
+import type { GlossaryEntry, ReviewNote } from '../lib/ai/prompt.ts'
 import type { AnchorEdit, AnchorOp, ProjectComment } from '../types/comment.ts'
 import { deleteAnchors, splitAnchors } from '../types/comment.ts'
 import { deleteCue, finalSubs, qcForMode, splitCue } from '../lib/subtitles/index.ts'
@@ -92,6 +92,10 @@ function structural(
       Object.entries(s.translations).map(([lang, subs]) => [lang, apply(subs)]),
     ),
     backTranslations: {},
+    // Dropped for the same reason, and it is the sharper of the two: a note
+    // reads "#41 inverts the meaning", and after a split #41 is a line nobody
+    // reviewed. Wrong beside the right cue is worse than absent.
+    reviewNotes: {},
     dirty: true,
   }
 }
@@ -108,6 +112,16 @@ interface AppState {
   subtitles: Subtitle[]
   translations: TranslationStore
   backTranslations: BackTranslationStore
+  /**
+   * What the reviewer pass found, by language.
+   *
+   * Held here rather than in the editor so that a structural edit can throw it
+   * away, which is the whole hazard: every note names a cue number, and
+   * splitting or deleting a cue moves the numbers under it. Not saved to the
+   * database either — a note is about the draft that was read, and the draft
+   * changes the moment somebody acts on it.
+   */
+  reviewNotes: Record<string, ReviewNote[]>
   /**
    * Terms the translator must respect, for this whole project.
    *
@@ -142,6 +156,7 @@ interface AppState {
   // Jobs
   translateJob: TranslationJob
   backTranslateJob: TranslationJob
+  reviewJob: TranslationJob
   transcribeJob: TranslationJob
 
   // History
@@ -246,6 +261,8 @@ interface AppState {
   deleteSubtitle: (index: number) => void
   setBackTranslation: (lang: string, subs: Subtitle[]) => void
   clearBackTranslation: (lang: string) => void
+  setReviewNotes: (lang: string, notes: ReviewNote[]) => void
+  clearReviewNotes: (lang: string) => void
   closeTab: (lang: string) => void
   switchToTab: (tab: string) => void
   setOutputMode: (mode: OutputMode) => void
@@ -260,6 +277,7 @@ interface AppState {
   setGlossary: (entries: GlossaryEntry[]) => void
   setTranslateJob: (j: Partial<TranslationJob>) => void
   setBackTranslateJob: (j: Partial<TranslationJob>) => void
+  setReviewJob: (j: Partial<TranslationJob>) => void
   setTranscribeJob: (j: Partial<TranslationJob>) => void
 
   // Derived helpers
@@ -272,6 +290,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   subtitles: [],
   translations: {},
   backTranslations: {},
+  reviewNotes: {},
   glossary: [],
   activeTab: 'source',
   outputMode: 'horizontal',
@@ -281,6 +300,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   allowRephrase: false,
   translateJob: defaultJob,
   backTranslateJob: defaultJob,
+  reviewJob: defaultJob,
   transcribeJob: defaultJob,
   past: [],
   future: [],
@@ -300,6 +320,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     subtitles: s.subtitles,
     translations: s.translations,
     backTranslations: {},
+    reviewNotes: {},
     glossary: s.glossary ?? [],
     glossaryDirty: false,
     activeTab: 'source',
@@ -340,6 +361,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     subtitles: [],
     translations: {},
     backTranslations: {},
+    reviewNotes: {},
     glossary: project.glossary ?? [],
     glossaryDirty: false,
     activeTab: 'source',
@@ -370,6 +392,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     subtitles: subs,
     translations: {},
     backTranslations: {},
+    reviewNotes: {},
     activeTab: 'source',
     translateJob: defaultJob,
     past: [],
@@ -382,6 +405,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     subtitles: [],
     translations: {},
     backTranslations: {},
+    reviewNotes: {},
     activeTab: 'source',
     translateJob: defaultJob,
     backTranslateJob: defaultJob,
@@ -497,6 +521,16 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     backTranslations: { ...s.backTranslations, [lang]: subs },
   })),
 
+  setReviewNotes: (lang, notes) => set(s => ({
+    reviewNotes: { ...s.reviewNotes, [lang]: notes },
+  })),
+
+  clearReviewNotes: lang => set(s => {
+    const reviewNotes = { ...s.reviewNotes }
+    delete reviewNotes[lang]
+    return { reviewNotes }
+  }),
+
   clearBackTranslation: lang => set(s => {
     const bt = { ...s.backTranslations }
     delete bt[lang]
@@ -506,9 +540,11 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   closeTab: lang => set(s => {
     const translations   = { ...s.translations };    delete translations[lang]
     const backTranslations = { ...s.backTranslations }; delete backTranslations[lang]
+    const reviewNotes = { ...s.reviewNotes }; delete reviewNotes[lang]
     return {
       translations,
       backTranslations,
+      reviewNotes,
       activeTab: s.activeTab === lang ? 'source' : s.activeTab,
     }
   }),
@@ -528,6 +564,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
 
   setTranslateJob:    j => set(s => ({ translateJob:    { ...s.translateJob,    ...j } })),
   setBackTranslateJob:j => set(s => ({ backTranslateJob:{ ...s.backTranslateJob,...j } })),
+  setReviewJob:       j => set(s => ({ reviewJob:       { ...s.reviewJob,       ...j } })),
   setTranscribeJob:   j => set(s => ({ transcribeJob:   { ...s.transcribeJob,   ...j } })),
 
   getFinalSubs: lang => {

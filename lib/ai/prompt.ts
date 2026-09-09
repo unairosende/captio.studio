@@ -67,6 +67,9 @@ const MAX_GLOSSARY_CHARS = 200
  */
 const MAX_INSTRUCTION_CHARS = 2_000
 
+/** How long one review note may be. A sentence, not a paragraph. */
+const MAX_NOTE_CHARS = 240
+
 /** A prose section, clamped, or nothing at all when there is no prose. */
 function instructionBlock(heading: string, text?: string): string[] {
   const trimmed = (text ?? '').trim().slice(0, MAX_INSTRUCTION_CHARS)
@@ -277,6 +280,85 @@ export function buildRevisionPrompt(req: RevisionRequest): string {
   ].join('\n')
 }
 
+/**
+ * Read the translation and say what is wrong with it.
+ *
+ * The pass that finds what the quality check cannot measure: a line whose
+ * meaning drifted, a term spelled two ways, text duplicated across a split.
+ * Its output is notes, not subtitles — so it runs on its own and never shares
+ * a reply with a translation. Asking for both in one answer is what taught the
+ * model to re-segment in the first place, and every rule in FIXED_COUNT_RULES
+ * is a scar from it.
+ *
+ * Takes no prose from the caller, deliberately. `revise` is where a reviewer's
+ * own words belong; a task that accepted free text *and* answered with free
+ * text would be a general-purpose model wearing a subtitle editor's clothes.
+ */
+export function buildReviewPrompt(req: {
+  /** The translations to read. */
+  cues: string[]
+  /** The originals they came from, which is what makes drift visible. */
+  sourceTexts: string[]
+  /** The numbers these cues carry on screen — every note cites one. */
+  numbers: number[]
+  lang: string
+  sourceLang?: string
+  glossary?: GlossaryEntry[]
+}): string {
+  const from = req.sourceLang && req.sourceLang !== 'Auto-detect' ? ` from ${req.sourceLang}` : ''
+
+  return [
+    `You are a senior subtitle reviewer. Read these subtitles translated${from} into ${req.lang} against their source and report only what is wrong.`,
+    '',
+    'WHAT TO REPORT:',
+    '• Text duplicated across two subtitles — the end of one repeated at the start of the next',
+    '• Meaning that changed: a negation lost, a tense flipped, a number or name altered',
+    '• A term translated one way here and another way elsewhere in the batch',
+    '• Capitalisation of a proper name that disagrees with the rest of the batch',
+    '• Wording no native speaker would use',
+    '',
+    'WHAT NOT TO REPORT:',
+    // Left to itself a model writes one note per subtitle, because it was asked
+    // for notes and an empty answer feels like a failure. A hundred notes that
+    // each say "this is fine, though you could consider…" is not a review; it is
+    // a wall nobody reads twice, and it buries the four that mattered.
+    '• Anything you would describe as "fine", "good", "acceptable" or "could be slightly better"',
+    '• Style preferences, alternative phrasings, or praise',
+    '• Line length, reading speed and timing — those are measured elsewhere, not by you',
+    '',
+    'RULES:',
+    '• Report NOTHING unless it is a real mistake a professional would correct',
+    '• An empty array is the correct answer for a batch with no mistakes — return it',
+    '• At most one note per subtitle',
+    // The anchor that keeps a review honest. A model asked for problems will
+    // produce problems, and the invented ones read exactly like the real ones
+    // — until it has to quote the words, at which point there is nothing to
+    // quote. It also fixes the number: the quote and the "n" come off the same
+    // object, so there is no arithmetic left to get wrong.
+    '• Every note must quote the exact words it is about, copied character for character from that subtitle\'s "translation"',
+    '• "cue" is the "n" of the subtitle you quoted. Do not report a note against any other number',
+    `• Each note is one sentence, under ${MAX_NOTE_CHARS} characters, naming what is wrong and what it should be`,
+    '• "level" is "error" when the meaning is wrong, "warn" when it reads badly but says the right thing',
+    '',
+    ...glossaryRules(req.glossary),
+    'Return ONLY a JSON array of objects, each {"cue": <n>, "level": "error"|"warn", "note": "<text>"}. No markdown, no commentary.',
+    '',
+    // One object per subtitle rather than three arrays to be read in step.
+    // Parallel arrays made the model count, and it counted wrong: a fault in
+    // the sixth subtitle came back filed against the fifth, which is worse
+    // than no review at all — it sends somebody to correct a line that is
+    // already right.
+    'SUBTITLES:',
+    JSON.stringify(
+      req.numbers.map((n, i) => ({
+        n,
+        source: req.sourceTexts[i] ?? '',
+        translation: req.cues[i] ?? '',
+      })),
+    ),
+  ].join('\n')
+}
+
 export class TranslationFormatError extends Error {
   constructor(message: string) {
     super(message)
@@ -317,4 +399,68 @@ export function parseTranslationResponse(raw: string, expected: number): string[
   }
 
   return parsed as string[]
+}
+
+/** One thing a reviewer would fix, tied to the cue it is about. */
+export interface ReviewNote {
+  /** The cue number on screen, not a position in any batch. */
+  cue: number
+  level: 'warn' | 'error'
+  note: string
+}
+
+/**
+ * Read the review, and bound it.
+ *
+ * Every other task here answers with exactly one string per input cue, and
+ * that shared shape is what stops any of them being used to get arbitrary text
+ * out of a subtitling subscription. A review cannot keep it — notes are prose,
+ * and there are fewer of them than there are cues.
+ *
+ * So it is bounded deliberately rather than by luck: at most one note per cue
+ * in the batch, each clamped to a sentence, and every note naming a cue this
+ * batch does not contain is dropped. What comes back is still shaped by the
+ * subtitles that went in. Together with the prompt taking no prose from the
+ * caller, there is no request whose reply is larger or freer than the material
+ * it was asked about.
+ *
+ * Malformed replies are dropped entry by entry rather than refused wholesale.
+ * A miscounted translation has to be refused because every later cue would
+ * land on the wrong timecode; a review that came back with one unusable note
+ * still has the other nine, and losing them would be the more expensive
+ * mistake.
+ */
+export function parseReviewResponse(raw: string, cueNumbers: number[]): ReviewNote[] {
+  const cleaned = raw.replace(/```json\n?|```\n?/g, '').trim()
+
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(cleaned)
+  } catch {
+    throw new TranslationFormatError(`model returned malformed JSON — ${cleaned.slice(0, 120)}`)
+  }
+
+  if (!Array.isArray(parsed)) {
+    throw new TranslationFormatError('model returned something other than an array')
+  }
+
+  const inBatch = new Set(cueNumbers)
+  const seen = new Set<number>()
+  const notes: ReviewNote[] = []
+
+  for (const entry of parsed) {
+    if (!entry || typeof entry !== 'object') continue
+    const { cue, level, note } = entry as Record<string, unknown>
+
+    // A note about a cue that is not here cannot be shown next to anything.
+    if (typeof cue !== 'number' || !inBatch.has(cue) || seen.has(cue)) continue
+
+    const text = typeof note === 'string' ? note.trim().slice(0, MAX_NOTE_CHARS) : ''
+    if (!text) continue
+
+    seen.add(cue)
+    notes.push({ cue, level: level === 'error' ? 'error' : 'warn', note: text })
+  }
+
+  return notes
 }
