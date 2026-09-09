@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 
 import {
   TranslationFormatError,
+  buildRevisionPrompt,
   buildTranslationPrompt,
   parseTranslationResponse,
 } from '../../lib/ai/prompt.ts'
@@ -96,6 +97,63 @@ describe('buildTranslationPrompt', () => {
     })
     assert.match(p, /Tutea al espectador/)
     assert.match(p, /Previously translated line/)
+  })
+
+  it('bounds the prose the caller writes, as it bounds the glossary', () => {
+    const p = buildTranslationPrompt({ ...base, extraInstructions: 'x'.repeat(9_000) })
+    const line = p.split('\n').find(l => l.startsWith('xxx'))!
+    assert.ok(line.length <= 2_000, `instructions should be clamped, got ${line.length}`)
+  })
+})
+
+describe('buildRevisionPrompt', () => {
+  const revision = {
+    cues: ['A nivel varietal, a nivel de producciones', 'Lo embotellamos'],
+    sourceTexts: ['At varietal level, at production level', 'We bottle it'],
+    numbers: [18, 19],
+    lang: 'Spanish',
+    maxChars: 42,
+    instructions: 'Subtítulo 18: recorta la repetición del anterior.',
+  }
+
+  it('keeps the fixed-count contract every other task keeps', () => {
+    const p = buildRevisionPrompt(revision)
+    assert.match(p, /THE SUBTITLE COUNT IS FIXED/)
+    assert.match(p, /exactly 2 strings/)
+  })
+
+  it('sends the cue numbers, so a correction naming one can find it', () => {
+    // Without these, cue 18 is the eighteenth line of some batch and the
+    // eighteenth line of a batch is not cue 18.
+    assert.match(buildRevisionPrompt(revision), /\[18,19\]/)
+  })
+
+  it('shows the source beside the translation being corrected', () => {
+    const p = buildRevisionPrompt(revision)
+    assert.match(p, /At varietal level, at production level/)
+    assert.match(p, /CURRENT TRANSLATIONS/)
+    assert.match(p, /Lo embotellamos/)
+    assert.match(p, /recorta la repetición del anterior/)
+  })
+
+  it('orders every untouched subtitle returned exactly as it came', () => {
+    // The whole point of revising rather than retranslating: a model left to
+    // improve what nobody complained about undoes the hand edits already made,
+    // and nothing in the reply says which changes were asked for.
+    const p = buildRevisionPrompt(revision)
+    assert.match(p, /Change ONLY the ones the corrections name/)
+    assert.match(p, /EXACTLY as given, character for character/)
+  })
+
+  it('bounds the corrections, which are prose the caller writes freely', () => {
+    const p = buildRevisionPrompt({ ...revision, instructions: 'y'.repeat(9_000) })
+    const line = p.split('\n').find(l => l.startsWith('yyy'))!
+    assert.ok(line.length <= 2_000, `corrections should be clamped, got ${line.length}`)
+  })
+
+  it('applies the glossary, which a correction pass still has to respect', () => {
+    const p = buildRevisionPrompt({ ...revision, glossary: [{ term: 'Terroir' }] })
+    assert.match(p, /"Terroir" must be kept unchanged/)
   })
 })
 

@@ -20,7 +20,7 @@ export default function EditorArea({ userId }: Props) {
     updateSubtitle, getFinalSubs, pushUndo,
     setTranslateJob, translateJob, backTranslateJob,
     backTranslations: bts, setBackTranslation, clearBackTranslation,
-    allowRephrase, srcLang, tgtLang,
+    allowRephrase, srcLang, tgtLang, glossary,
     setBackTranslateJob,
     splitSubtitle, deleteSubtitle,
     comments, sequenceId,
@@ -28,6 +28,16 @@ export default function EditorArea({ userId }: Props) {
 
   /** The cue whose thread is open, if any. */
   const [commentCue, setCommentCue] = useState<number | null>(null)
+
+  /**
+   * The corrections to apply, and whether the box for them is showing.
+   *
+   * Kept after a pass rather than cleared: the second reading of a draft
+   * usually repeats most of the first, and retyping it is the reason nobody
+   * would run this twice.
+   */
+  const [reviseOpen, setReviseOpen] = useState(false)
+  const [reviseText, setReviseText] = useState('')
 
   // One source of truth for the thresholds, so the character bar, the QC counts
   // and the reflow limit cannot disagree about what fits.
@@ -129,6 +139,77 @@ export default function EditorArea({ userId }: Props) {
     // Rewriting cues is a translation request like any other, and it comes out
     // of the same allowance. Re-read what is left rather than leaving the
     // sidebar showing a figure from before the sweep.
+    router.refresh()
+  }
+
+  /**
+   * Apply a reviewer's corrections to the translation that is already there.
+   *
+   * Not a retranslation. Running the whole track through the model again
+   * throws away every fix made by hand since, and re-rolls the ninety-nine
+   * cues nobody complained about in order to change the five that were named
+   * — which is why a draft that came back "nearly right" never got a second
+   * pass and got fixed by hand instead.
+   */
+  async function handleRevise() {
+    if (!hasTrans || !reviseText.trim() || translateJob.running) return
+    const lang = activeTab
+    const subs = translations[lang]
+    if (!subs.length) return
+
+    // One step for the whole sweep, as with Fix. A correction pass is one
+    // decision, and undoing it cue by cue would be its own punishment.
+    pushUndo()
+    setTranslateJob({ running: true, message: `Revising ${subs.length} subtitles…`, progress: 0, error: null })
+
+    const BATCH = 30
+    for (let i = 0; i < subs.length; i += BATCH) {
+      const batch = subs.slice(i, i + BATCH)
+      try {
+        const res = await fetch('/api/translate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            task: 'revise',
+            cues: batch.map(s => s.text),
+            sourceTexts: batch.map(s => subtitles.find(o => o.index === s.index)?.text ?? ''),
+            // The numbers the reviewer is writing about. Each request is its own
+            // conversation, so a correction naming cue 84 reaches the model with
+            // every batch and only the batch holding 84 can act on it.
+            cueNumbers: batch.map(s => s.index),
+            instructions: reviseText,
+            targetLang: lang,
+            outputMode,
+            glossary,
+          }),
+        })
+        const data = await res.json().catch(() => {
+          // A gateway that gives up answers with an HTML page, and `res.json()`
+          // then fails on `<!DOCTYPE` — which reads as a bug in the reply rather
+          // than as a request that was cut short before there was one.
+          throw new Error(`The server answered ${res.status} without JSON — the request was probably cut short.`)
+        })
+        if (data.error) throw new Error(data.error)
+        const parsed: string[] = data.translations
+        batch.forEach((s, j) => {
+          if (parsed[j] && parsed[j] !== s.text) updateSubtitle(lang, s.index, parsed[j])
+        })
+        setTranslateJob({
+          progress: Math.round((i + batch.length) / subs.length * 100),
+          message: `Revising… ${Math.min(i + BATCH, subs.length)}/${subs.length}`,
+        })
+      } catch (e: unknown) {
+        // Stops here rather than carrying on. The batches already applied stay
+        // applied — one undo takes the whole pass back — but running the rest
+        // after a failure would spend the allowance on a pass nobody can trust.
+        setTranslateJob({ running: false, error: e instanceof Error ? e.message : 'Error', message: '' })
+        router.refresh()
+        return
+      }
+    }
+
+    setTranslateJob({ running: false, message: `Revised ${subs.length} subtitles`, progress: 100, error: null })
+    // Rewriting cues comes out of the same allowance as translating them.
     router.refresh()
   }
 
@@ -277,11 +358,49 @@ export default function EditorArea({ userId }: Props) {
           </button>
         )}
         {hasTrans && (
+          <button data-cmd="Correct the translation with a note" onClick={() => setReviseOpen(o => !o)} style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 10px', borderRadius: 5, fontSize: 11, fontWeight: 500, cursor: 'pointer', border: `1px solid ${reviseOpen ? 'var(--accent)' : 'var(--border)'}`, background: reviseOpen ? 'var(--accent-dim)' : 'transparent', color: reviseOpen ? '#8ba8ff' : 'var(--text3)', transition: 'all .15s' }}>
+            {translateJob.running && reviseOpen ? <span className="spinner" /> : '✎'}
+            Revise
+          </button>
+        )}
+        {hasTrans && (
           <span style={{ fontSize: 11, color: 'var(--text3)', marginLeft: 'auto', fontStyle: 'italic' }}>
             Click any subtitle to edit
           </span>
         )}
       </div>
+
+      {/* The corrections box. A bar rather than a dialog: the notes are read
+          off the subtitles behind it, and a modal would cover them. */}
+      {reviseOpen && hasTrans && (
+        <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '9px 14px', display: 'flex', flexDirection: 'column', gap: 7, flexShrink: 0 }}>
+          <textarea
+            className="field"
+            value={reviseText}
+            onChange={e => setReviseText(e.target.value)}
+            rows={3}
+            maxLength={2000}
+            placeholder={'What should change? Name the subtitle numbers — everything else is returned untouched.\n\ne.g. 18: trim the repeated ending, it is already in 19. 53: capitalise "Reserva de la Familia".'}
+            style={{ resize: 'vertical', lineHeight: 1.5 }}
+          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <button className="btn btn-primary" onClick={handleRevise} disabled={!reviseText.trim() || translateJob.running}>
+              Apply to {activeTab}
+            </button>
+            <button className="btn" onClick={() => setReviseOpen(false)}>Close</button>
+            {/* The job status is in the sidebar, which the eye is not on while
+                reading the corrections back. */}
+            {translateJob.error ? (
+              <span style={{ fontSize: 11, color: 'var(--red)' }}>{translateJob.error}</span>
+            ) : translateJob.message ? (
+              <span style={{ fontSize: 11, color: 'var(--text3)' }}>{translateJob.message}</span>
+            ) : null}
+            <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text3)', fontFamily: 'var(--mono)' }}>
+              {reviseText.length}/2000
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Editor area */}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>

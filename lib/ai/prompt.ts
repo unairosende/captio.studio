@@ -51,6 +51,28 @@ const FIXED_COUNT_RULES = [
 const MAX_GLOSSARY_ENTRIES = 200
 const MAX_GLOSSARY_CHARS = 200
 
+/**
+ * How much prose a caller may put in front of the model in one request.
+ *
+ * The same reasoning as the glossary limits above, applied to the field that
+ * is actually prose. A reviewer's corrections are a handful of lines — "the
+ * 18th repeats the end of the 17th, trim it" — and past this somebody is using
+ * a subtitle editor as a text box.
+ *
+ * The cap is the second line of defence, not the first. The output contract is
+ * the first: every task here must answer with exactly one string per input cue
+ * or `parseTranslationResponse` refuses the batch, so even an instruction that
+ * talked the model into writing something else would produce nothing the
+ * caller could read back.
+ */
+const MAX_INSTRUCTION_CHARS = 2_000
+
+/** A prose section, clamped, or nothing at all when there is no prose. */
+function instructionBlock(heading: string, text?: string): string[] {
+  const trimmed = (text ?? '').trim().slice(0, MAX_INSTRUCTION_CHARS)
+  return trimmed ? [heading, trimmed, ''] : []
+}
+
 const clean = (v: unknown): string =>
   typeof v === 'string' ? v.trim().slice(0, MAX_GLOSSARY_CHARS) : ''
 
@@ -106,9 +128,10 @@ export function buildTranslationPrompt(req: TranslationRequest): string {
     '• Maintain consistent terminology throughout',
     '',
     ...glossaryRules(req.glossary),
-    ...(req.extraInstructions?.trim()
-      ? ['ADDITIONAL INSTRUCTIONS (apply to every subtitle):', req.extraInstructions.trim(), '']
-      : []),
+    ...instructionBlock(
+      'ADDITIONAL INSTRUCTIONS (apply to every subtitle):',
+      req.extraInstructions,
+    ),
     ...(req.previousContext?.length
       ? [
           'PREVIOUS SUBTITLES (already translated — use for terminology consistency):',
@@ -180,6 +203,76 @@ export function buildShortenPrompt(req: {
     JSON.stringify(req.sourceTexts),
     '',
     'CURRENT TRANSLATIONS (too long — rewrite these):',
+    JSON.stringify(req.cues),
+  ].join('\n')
+}
+
+/**
+ * Correct a translation that already exists, without redoing it.
+ *
+ * The pass a reviewer actually asks for. Retranslating from scratch throws
+ * away every fix already made by hand and rolls the dice again on the rest;
+ * what somebody wants after reading a draft is these five lines changed and
+ * the other ninety-nine left exactly as they are.
+ *
+ * The source texts go in beside the translations for the same reason they do
+ * in `buildShortenPrompt`: without them a correction is applied to wording the
+ * model can no longer check against what was said.
+ */
+export interface RevisionRequest {
+  /** The current translations — the text being corrected. */
+  cues: string[]
+  /** The original cues, in the same order, so a correction cannot drift. */
+  sourceTexts: string[]
+  /**
+   * The cue numbers these translations carry on screen, in the same order.
+   *
+   * A reviewer writes "subtitle 18 repeats the end of 17", and a request only
+   * ever carries a batch — cue 18 is somewhere in the middle of one batch and
+   * absent from every other. Without the numbers the model has nothing to
+   * match that instruction against, and the batch that does contain cue 18
+   * would count it as its own eighteenth line.
+   */
+  numbers: number[]
+  lang: string
+  maxChars: number
+  /** What to change. The reviewer's own words. */
+  instructions: string
+  glossary?: GlossaryEntry[]
+}
+
+export function buildRevisionPrompt(req: RevisionRequest): string {
+  return [
+    `You are a professional subtitle editor. Revise these subtitles in ${req.lang} by applying the corrections below.`,
+    '',
+    'LENGTH BUDGET:',
+    `• Keep each subtitle under ${req.maxChars * 2} characters — prefer shorter wording, never drop meaning`,
+    '',
+    ...FIXED_COUNT_RULES,
+    'REVISION RULES:',
+    // The instruction the whole feature rests on. A model handed a list of
+    // corrections and a batch of subtitles will happily improve the ones
+    // nobody complained about, and the reviewer's earlier hand edits go with
+    // them — so the batch comes back changed in places they had already
+    // settled, and there is no way to tell which changes were asked for.
+    '• Return every subtitle. Change ONLY the ones the corrections name or describe',
+    '• Reproduce every other subtitle EXACTLY as given, character for character',
+    '• A correction naming a subtitle number applies to that number and no other',
+    '• If a correction names a number that is not in this batch, ignore it',
+    '• Keep the meaning of the original source text — corrections adjust wording, not content',
+    '• Maintain consistent terminology throughout',
+    '',
+    ...glossaryRules(req.glossary),
+    ...instructionBlock('CORRECTIONS TO APPLY:', req.instructions),
+    `Return ONLY a JSON array of exactly ${req.cues.length} strings — one per input subtitle, same order, same count. No markdown, no commentary.`,
+    '',
+    'SUBTITLE NUMBERS (same order as the two arrays below):',
+    JSON.stringify(req.numbers),
+    '',
+    'ORIGINAL SOURCE TEXTS (for meaning):',
+    JSON.stringify(req.sourceTexts),
+    '',
+    'CURRENT TRANSLATIONS (revise these):',
     JSON.stringify(req.cues),
   ].join('\n')
 }

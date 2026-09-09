@@ -4,6 +4,7 @@ import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import {
   TranslationFormatError,
   buildBackTranslationPrompt,
+  buildRevisionPrompt,
   buildShortenPrompt,
   buildTranslationPrompt,
   parseTranslationResponse,
@@ -179,14 +180,23 @@ async function translate(prompt: string): Promise<ProviderResult & { model: stri
   }
 }
 
-/** The three things the editor asks a model for. There is no fourth. */
-type Task = 'translate' | 'backTranslate' | 'shorten'
+/**
+ * What the editor asks a model for. Every one of them answers with exactly one
+ * string per input cue — that shared contract is what `parseTranslationResponse`
+ * enforces, and what stops any of them becoming a way to get arbitrary text
+ * back out of a subtitling subscription.
+ */
+type Task = 'translate' | 'backTranslate' | 'shorten' | 'revise'
 
 interface Body {
   task?: Task
   cues?: unknown
-  /** Original source texts, so `shorten` compresses without inventing. */
+  /** Original source texts, so `shorten` and `revise` work without inventing. */
   sourceTexts?: string[]
+  /** What to change. `revise` only — the reviewer's own words. */
+  instructions?: string
+  /** The cue numbers behind this batch, so a correction naming one can find it. */
+  cueNumbers?: number[]
   targetLang?: string
   sourceLang?: string
   outputMode?: 'horizontal' | 'vertical'
@@ -251,6 +261,33 @@ export async function POST(req: NextRequest) {
       lang: body.targetLang,
       maxChars,
     })
+  } else if (task === 'revise') {
+    if (typeof body.instructions !== 'string' || !body.instructions.trim()) {
+      return NextResponse.json(
+        { error: 'instructions are required to revise a translation' },
+        { status: 400 },
+      )
+    }
+    // Demanded rather than defaulted. Numbering a batch by its own positions is
+    // right for the first batch and wrong for every one after it, and the damage
+    // is silent: the model never finds the cue a correction names, and the batch
+    // comes back untouched as though there had been nothing to do.
+    if (
+      !Array.isArray(body.cueNumbers) ||
+      body.cueNumbers.length !== cues.length ||
+      !body.cueNumbers.every(n => typeof n === 'number')
+    ) {
+      return NextResponse.json({ error: 'cueNumbers must be one number per cue' }, { status: 400 })
+    }
+    prompt = buildRevisionPrompt({
+      cues,
+      sourceTexts: Array.isArray(body.sourceTexts) ? body.sourceTexts.slice(0, cues.length) : cues,
+      numbers: body.cueNumbers,
+      lang: body.targetLang,
+      maxChars,
+      instructions: body.instructions,
+      glossary: body.glossary,
+    })
   } else if (task === 'translate') {
     prompt = buildTranslationPrompt({
       cues,
@@ -281,10 +318,11 @@ export async function POST(req: NextRequest) {
   // path that could translate a whole feature without ever spending a minute,
   // and the fix is a save, which the message asks for.
   //
-  // Only a translation. Shortening and back-translation rework text that is
-  // already there — they cannot bring new material in, and the minutes were
-  // charged when it arrived. Demanding an identifier from them would have
-  // broken the overlength auto-fix and the QA pass for nothing.
+  // Only a translation. Shortening, back-translation and revision rework text
+  // that is already there — they cannot bring new material in, and the minutes
+  // were charged when it arrived. Demanding an identifier from them would have
+  // broken the overlength auto-fix, the QA pass and the correction pass for
+  // nothing.
   const sequenceId = typeof body.sequenceId === 'string' ? body.sequenceId : ''
   const mediaId = typeof body.mediaId === 'string' ? body.mediaId : ''
 
