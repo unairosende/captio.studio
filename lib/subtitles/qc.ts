@@ -152,8 +152,20 @@ function atSentenceStart(text: string, at: number): boolean {
  * be the term — this reports what it can prove: the words are here, and they
  * are not written the way they were promised.
  */
-export function glossaryIssues(text: string, terms: readonly GlossaryPattern[]): QcIssue[] {
-  const issues: QcIssue[] = []
+/**
+ * Every place `terms` appear written some other way than `expected`.
+ *
+ * Shared by the two checks that compare casing: the glossary, which knows the
+ * right form because a person typed it, and the track's own proper names,
+ * which only know that two spellings disagree. They can claim different
+ * things, so each writes its own message — but the matching, and the
+ * sentence-opening exception, are the same work either way.
+ */
+function casingMismatches(
+  text: string,
+  terms: readonly GlossaryPattern[],
+): { found: string; expected: string }[] {
+  const out: { found: string; expected: string }[] = []
   const seen = new Set<string>()
 
   // Line breaks are collapsed first, because layout puts them inside terms.
@@ -176,14 +188,168 @@ export function glossaryIssues(text: string, terms: readonly GlossaryPattern[]):
         found[0]?.toLowerCase() === expected[0]?.toLowerCase()
       if (onlyFirstLetter && atSentenceStart(flat, match.index)) continue
 
-      const msg = `Glossary term written as "${found}" — should be "${expected}"`
-      if (seen.has(msg)) continue
-      seen.add(msg)
-      issues.push({ level: 'warn', msg })
+      const key = `${found}\u0000${expected}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      out.push({ found, expected })
     }
   }
 
-  return issues
+  return out
+}
+
+export function glossaryIssues(text: string, terms: readonly GlossaryPattern[]): QcIssue[] {
+  return casingMismatches(text, terms).map(({ found, expected }) => ({
+    level: 'warn' as const,
+    msg: `Glossary term written as "${found}" — should be "${expected}"`,
+  }))
+}
+
+/**
+ * The shortest word that stands on its own as a name.
+ *
+ * Four, because three-letter capitals are mostly initials and abbreviations,
+ * and because everything shorter is a connector: "de", "la", "of", "the".
+ * A three-letter name is missed, which is the safe direction — this check
+ * exists to be quiet enough that somebody reads it.
+ */
+const MIN_NAME_CHARS = 4
+
+/**
+ * The longest lower-case word that can sit inside a name.
+ *
+ * Measured rather than listed. A table of connectors per language — de, del,
+ * la, of, the, von, du — is a table to be wrong about in the language nobody
+ * tested, and it would say this check understands languages it has never
+ * seen. Length covers the same words without the pretence.
+ */
+const MAX_CONNECTOR_CHARS = 3
+
+const TOKEN_RE = /[\p{L}\p{N}'’]+/gu
+
+/**
+ * The proper names a cue writes for itself.
+ *
+ * A run of capitalised words, connectors allowed inside it, taken whole:
+ * "Reserva de la Familia" is one name, not four words. That is the difference
+ * between a check somebody keeps and one they turn off. Comparing word by word
+ * reports "Familia" against "familia" — and in a film about a family winery
+ * both are correct, one as part of a name and one as an ordinary noun. The
+ * phrase can tell them apart; the word cannot.
+ *
+ * A capital that opens a sentence says nothing about the word, so a run that
+ * starts at one is dropped entirely rather than resumed from its second word.
+ * Resuming is what turns "Reserva de la Familia." at a full stop into a claim
+ * about "Familia".
+ */
+function nameRuns(text: string): string[] {
+  const flat = (text || '').replace(/\s+/g, ' ')
+  const toks = [...flat.matchAll(TOKEN_RE)]
+  // All-caps is shouting or a title card: it carries no casing information.
+  const isCap = (t: string) => /^\p{Lu}/u.test(t) && t !== t.toUpperCase()
+  const isConnector = (t: string) => t.length <= MAX_CONNECTOR_CHARS && /^\p{Ll}/u.test(t)
+
+  const runs: string[] = []
+  for (let i = 0; i < toks.length; i++) {
+    if (!isCap(toks[i][0])) continue
+    if (atSentenceStart(flat, toks[i].index)) {
+      // Only a connector can carry a name across the word that opened the
+      // sentence: "Reserva de la Familia" begun at a full stop would otherwise
+      // leave "Familia" behind as a name of its own, and "familia" is an
+      // ordinary noun. A capital straight after is a separate word — "El
+      // Terroir", "Ese Reserva" — and swallowing it loses the name entirely,
+      // which in Spanish is most of them.
+      if (isConnector(toks[i + 1]?.[0] ?? '')) {
+        while (i + 1 < toks.length && (isCap(toks[i + 1][0]) || isConnector(toks[i + 1][0]))) i++
+      }
+      continue
+    }
+
+    // Walk forward: capitals extend the name, connectors only survive if a
+    // capital follows them, anything else ends it.
+    let end = i
+    for (let j = i + 1; j < toks.length; j++) {
+      if (isCap(toks[j][0])) { end = j; continue }
+      if (isConnector(toks[j][0])) continue
+      break
+    }
+
+    const first = toks[i]
+    const last = toks[end]
+    if (end > i || first[0].length >= MIN_NAME_CHARS) {
+      runs.push(flat.slice(first.index, last.index! + last[0].length))
+    }
+    i = end
+  }
+  return runs
+}
+
+/**
+ * The names this track disagrees with itself about.
+ *
+ * The glossary answers "did the translation keep the words we promised". This
+ * answers the question nobody typed a list for: a name the track itself uses
+ * twenty times one way and once another. The original reviewer's third note —
+ * one subtitle saying "el reserva de la familia" where the rest of the file
+ * said "Reserva de la Familia" — is this, and it cost a model call to find.
+ *
+ * Two passes, because they need different things. The first reads capitalised
+ * runs, which is the only way to learn *which strings are names at all*. The
+ * second counts how every one of them is actually spelled across the track,
+ * lower-case occurrences included — and those the first pass can never see,
+ * since it is looking for capitals.
+ *
+ * What it refuses to guess:
+ * - A name written only one way. Nothing to disagree about.
+ * - A tie. Two spellings used equally often is not evidence of which is right,
+ *   and picking the earlier one would be inventing an answer.
+ * - Anything the glossary already governs, which would report it twice.
+ * - Occurrences that open a sentence, whose capital is grammar.
+ */
+export function nameCasingTerms(
+  subs: readonly Subtitle[],
+  glossary: readonly GlossaryPattern[] = [],
+): GlossaryPattern[] {
+  const governed = new Set(glossary.map(t => t.expected.toLowerCase()))
+  const candidates = new Set<string>()
+  for (const sub of subs) {
+    for (const run of nameRuns(sub.text)) {
+      const key = run.toLowerCase()
+      if (!governed.has(key)) candidates.add(key)
+    }
+  }
+
+  const out: GlossaryPattern[] = []
+  for (const key of candidates) {
+    const re = new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(key)}(?![\\p{L}\\p{N}])`, 'giu')
+    const counts = new Map<string, number>()
+    for (const sub of subs) {
+      const flat = (sub.text || '').replace(/\s+/g, ' ')
+      for (const match of flat.matchAll(re)) {
+        if (atSentenceStart(flat, match.index)) continue
+        counts.set(match[0], (counts.get(match[0]) ?? 0) + 1)
+      }
+    }
+    if (counts.size < 2) continue
+    const ranked = [...counts].sort((a, b) => b[1] - a[1])
+    if (ranked[0][1] === ranked[1][1]) continue
+    out.push({ expected: ranked[0][0], re })
+  }
+  return out
+}
+
+/**
+ * Report the spellings that disagree with the rest of the track.
+ *
+ * Worded as an observation, not an instruction. The glossary can say "should
+ * be", because somebody wrote the term down; this only knows that the file
+ * contradicts itself, and which side is outnumbered.
+ */
+export function nameCasingIssues(text: string, names: readonly GlossaryPattern[]): QcIssue[] {
+  return casingMismatches(text, names).map(({ found, expected }) => ({
+    level: 'warn' as const,
+    msg: `"${found}" is written "${expected}" elsewhere`,
+  }))
 }
 
 /**
@@ -290,8 +456,18 @@ export function qcTrack(
   const out = new Map<number, { status: Severity; issues: QcIssue[] }>()
   // Once for the track, not once per cue.
   const terms = compileGlossary(glossary)
+  /**
+   * Runs on the source too, unlike the glossary.
+   *
+   * A glossary is a promise the translation made, so holding the client's own
+   * file to it would report their spelling back to them as a fault. This makes
+   * no promise: it reports the file disagreeing with itself, which is worth
+   * knowing whoever wrote it.
+   */
+  const names = nameCasingTerms(subs, terms)
   subs.forEach((sub, i) => {
     const issues = qcIssues(sub, i > 0 ? subs[i - 1] : null, cfg, terms)
+    issues.push(...nameCasingIssues(sub.text, names))
     const status: Severity = issues.some(x => x.level === 'error')
       ? 'error'
       : issues.length

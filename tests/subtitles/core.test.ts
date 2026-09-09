@@ -285,6 +285,79 @@ describe('glossary consistency', () => {
   })
 })
 
+describe('proper-name casing', () => {
+  const track = (texts: string[]): Subtitle[] =>
+    texts.map((text, i) => cue({
+      index: i + 1,
+      start: `00:00:${String(i * 3).padStart(2, '0')},000`,
+      end: `00:00:${String(i * 3 + 2).padStart(2, '0')},000`,
+      text,
+    }))
+
+  const casing = (texts: string[], glossary: { term?: string }[] = []): string[] =>
+    [...qcTrack(track(texts), DEFAULT_QC, glossary)]
+      .flatMap(([n, v]) => v.issues.filter(i => /is written/.test(i.msg)).map(i => `#${n} ${i.msg}`))
+
+  it('reports a name the track spells one way once and another way the rest of the time', () => {
+    assert.deepEqual(
+      casing([
+        'Probamos el Reserva de la Familia.',
+        'Ese Reserva de la Familia es del 98.',
+        'Nadie toca el Reserva de la Familia.',
+        'Sacamos el reserva de la familia\nsolo en fiestas.',
+      ]),
+      ['#4 "reserva de la familia" is written "Reserva de la Familia" elsewhere'],
+    )
+  })
+
+  it('leaves an ordinary noun alone when a proper name happens to contain it', () => {
+    // The case that rules out comparing word by word. Both are correct: one is
+    // part of a name, the other is the noun. Word-level matching calls it a
+    // fault, and a film about a family winery is full of it.
+    assert.deepEqual(
+      casing([
+        'La viña lleva cuatro generaciones\nen la familia.',
+        'el Reserva de la Familia\nes el que guardamos.',
+        'Toda la familia trabaja aquí.',
+      ]),
+      [],
+    )
+  })
+
+  it('does not treat a capital that opens a sentence as evidence', () => {
+    assert.deepEqual(
+      casing([
+        'Terroir es una palabra francesa.',
+        'Hablamos del terroir todo el rato.',
+        'Ese terroir no se compra.',
+      ]),
+      [],
+    )
+  })
+
+  it('says nothing when the two spellings are used equally often', () => {
+    assert.deepEqual(
+      casing([
+        'Aquí el Terroir manda.',
+        'Sin ese Terroir no hay vino.',
+        'Nuestro terroir es único.',
+        'Ese terroir cambia cada año.',
+      ]),
+      [],
+    )
+  })
+
+  it('leaves a term the glossary already governs to the glossary check', () => {
+    const texts = [
+      'Probamos el Reserva de la Familia.',
+      'Ese Reserva de la Familia es del 98.',
+      'Sacamos el reserva de la familia hoy.',
+    ]
+    assert.equal(casing(texts).length, 1)
+    assert.deepEqual(casing(texts, [{ term: 'Reserva de la Familia' }]), [])
+  })
+})
+
 describe('quality checks', () => {
   const cfg = { ...DEFAULT_QC, maxChars: 42 }
 
