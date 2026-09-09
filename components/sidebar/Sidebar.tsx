@@ -75,7 +75,9 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   const spent = () => router.refresh()
 
   const hasSubs   = subtitles.length > 0
-  const hasTrans  = activeTab !== 'source' && !!translations[activeTab]
+  // The source tab exports too: its cues live in `subtitles`, not in
+  // `translations`, which is the only reason it was ever excluded.
+  const canExport = activeTab === 'source' ? hasSubs : !!translations[activeTab]
   const langCount = Object.keys(translations).length
   const limit    = qcForMode(outputMode).maxChars
 
@@ -261,8 +263,9 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
   }
 
   function doExport() {
-    if (!hasTrans) return
-    const subs = finalSubs(translations[activeTab], outputMode, qcForMode(outputMode))
+    if (!canExport) return
+    const cues = activeTab === 'source' ? subtitles : translations[activeTab]
+    const subs = finalSubs(cues, outputMode, qcForMode(outputMode))
     // The BOM matters: Excel misreads accented characters in UTF-8 CSV without
     // one, and some players expect it in SRT.
     const content =
@@ -485,8 +488,8 @@ export default function Sidebar({ entitlement }: { entitlement: Entitlement }) {
           <option value="csv">CSV</option>
           <option value="vtt">VTT</option>
         </select>
-        <button data-cmd="Export the tab on screen" onClick={doExport} disabled={!hasTrans}
-          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: hasTrans ? 'pointer' : 'not-allowed', border: '1px solid #2a7a50', background: 'var(--green-dim)', color: 'var(--green)', opacity: hasTrans ? 1 : .4, transition: 'all .15s' }}>
+        <button data-cmd="Export the tab on screen" onClick={doExport} disabled={!canExport}
+          style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '7px 12px', borderRadius: 6, fontSize: 13, fontWeight: 500, cursor: canExport ? 'pointer' : 'not-allowed', border: '1px solid #2a7a50', background: 'var(--green-dim)', color: 'var(--green)', opacity: canExport ? 1 : .4, transition: 'all .15s' }}>
           ↓ Export
         </button>
       </div>
