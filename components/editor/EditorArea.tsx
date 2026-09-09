@@ -66,7 +66,13 @@ export default function EditorArea({ userId }: Props) {
    * to read, which is the kind of thing a client notices and a character
    * counter never will.
    */
-  const quality       = useMemo(() => qcTrack(activeSubs, qc), [activeSubs, qc])
+  // The glossary is checked against the translation only. It says what the
+  // translation must say; the source is the client's own file and holding it to
+  // the same list would report their spelling back to them as a fault.
+  const quality       = useMemo(
+    () => qcTrack(activeSubs, qc, isSource ? [] : glossary),
+    [activeSubs, qc, isSource, glossary],
+  )
   const sourceQuality = useMemo(() => qcTrack(subtitles, qc), [subtitles, qc])
 
   const warns = [...quality.values()].filter(q => q.status === 'warn').length

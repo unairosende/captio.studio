@@ -87,6 +87,97 @@ export function repeatedWords(prev: string, next: string): number {
 }
 
 /**
+ * A glossary term, ready to be looked for.
+ *
+ * Compiled once per track rather than once per cue. A feature-length job is a
+ * thousand cues and a glossary is a few dozen terms, so building the patterns
+ * inside the per-cue check would construct tens of thousands of identical
+ * regular expressions to read the same list every time.
+ */
+export interface GlossaryPattern {
+  /** Exactly how the term must appear. */
+  expected: string
+  re: RegExp
+}
+
+const escapeRe = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Prepare the glossary for checking.
+ *
+ * The word boundaries are lookarounds over Unicode letters rather than `\b`,
+ * which is defined on ASCII: `\bÑoño\b` does not match, because JavaScript
+ * does not consider "Ñ" a word character and so finds no boundary in front of
+ * it. A glossary of Spanish brand names is exactly where that shows up.
+ */
+export function compileGlossary(
+  entries: readonly { term?: string; translation?: string }[] = [],
+): GlossaryPattern[] {
+  const out: GlossaryPattern[] = []
+  for (const entry of entries) {
+    // An entry with no translation means "leave this exactly as written", so
+    // the term is its own expected form.
+    const expected = (entry?.translation?.trim() || entry?.term?.trim()) ?? ''
+    if (!expected) continue
+    out.push({
+      expected,
+      re: new RegExp(`(?<![\\p{L}\\p{N}])${escapeRe(expected)}(?![\\p{L}\\p{N}])`, 'giu'),
+    })
+  }
+  return out
+}
+
+/**
+ * Nothing but sentence-opening punctuation stands before this position.
+ *
+ * Needed for the one case where a term that does not match the glossary is
+ * still correct: a term whose agreed form is lower case — "terroir" is a
+ * common noun in English — is capitalised when it opens a sentence. That is
+ * grammar, not a translator ignoring the glossary.
+ */
+function atSentenceStart(text: string, at: number): boolean {
+  return /(?:^|[.!?…:\n])["'«»¿¡\s\-—–]*$/.test(text.slice(0, at))
+}
+
+/**
+ * Check the cue against the terms the translation promised to use.
+ *
+ * The glossary is the product's answer to "will the client's vocabulary come
+ * out the same in cue 4 and in cue 900". The model is told about it on every
+ * request and nothing has ever checked the reply — so a term it quietly
+ * ignored, or spelled two ways, shipped looking like finished work.
+ *
+ * Case only. A term the model translated into something else entirely is a
+ * different failure, and finding it means guessing which words were meant to
+ * be the term — this reports what it can prove: the words are here, and they
+ * are not written the way they were promised.
+ */
+export function glossaryIssues(text: string, terms: readonly GlossaryPattern[]): QcIssue[] {
+  const issues: QcIssue[] = []
+  const seen = new Set<string>()
+
+  for (const { expected, re } of terms) {
+    for (const match of (text || '').matchAll(re)) {
+      const found = match[0]
+      if (found === expected) continue
+
+      // Differs in the first letter only, and opens a sentence: correct.
+      const onlyFirstLetter =
+        found.slice(1) === expected.slice(1) &&
+        found[0]?.toLowerCase() === expected[0]?.toLowerCase()
+      if (onlyFirstLetter && atSentenceStart(text, match.index)) continue
+
+      const msg = `Glossary term written as "${found}" — should be "${expected}"`
+      if (seen.has(msg)) continue
+      seen.add(msg)
+      issues.push({ level: 'warn', msg })
+    }
+  }
+
+  return issues
+}
+
+/**
  * Full quality check for one cue.
  *
  * `prev` is the preceding cue, needed for gap and overlap checks. Timings live
@@ -97,6 +188,8 @@ export function qcIssues(
   sub: Subtitle,
   prev?: Subtitle | null,
   cfg: QcConfig = DEFAULT_QC,
+  /** Compiled by `compileGlossary`, once per track. Empty skips the check. */
+  terms: readonly GlossaryPattern[] = [],
 ): QcIssue[] {
   const issues: QcIssue[] = []
   const lines = (sub.text || '').split('\n')
@@ -151,6 +244,8 @@ export function qcIssues(
     }
   }
 
+  issues.push(...glossaryIssues(sub.text, terms))
+
   return issues
 }
 
@@ -158,8 +253,9 @@ export function qcStatus(
   sub: Subtitle,
   prev?: Subtitle | null,
   cfg: QcConfig = DEFAULT_QC,
+  terms: readonly GlossaryPattern[] = [],
 ): Severity {
-  const issues = qcIssues(sub, prev, cfg)
+  const issues = qcIssues(sub, prev, cfg, terms)
   if (issues.some(i => i.level === 'error')) return 'error'
   return issues.length ? 'warn' : 'ok'
 }
@@ -173,10 +269,20 @@ export function qcStatus(
 export function qcTrack(
   subs: Subtitle[],
   cfg: QcConfig = DEFAULT_QC,
+  /**
+   * The terms this track promised to use, if it is a translation.
+   *
+   * Left out for the source: a glossary governs what the translation must say,
+   * and holding the client's own file to it would report their spelling back
+   * to them as a fault.
+   */
+  glossary: readonly { term?: string; translation?: string }[] = [],
 ): Map<number, { status: Severity; issues: QcIssue[] }> {
   const out = new Map<number, { status: Severity; issues: QcIssue[] }>()
+  // Once for the track, not once per cue.
+  const terms = compileGlossary(glossary)
   subs.forEach((sub, i) => {
-    const issues = qcIssues(sub, i > 0 ? subs[i - 1] : null, cfg)
+    const issues = qcIssues(sub, i > 0 ? subs[i - 1] : null, cfg, terms)
     const status: Severity = issues.some(x => x.level === 'error')
       ? 'error'
       : issues.length

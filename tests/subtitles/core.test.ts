@@ -5,7 +5,9 @@ import {
   DEFAULT_QC,
   bomFor,
   charStatus,
+  compileGlossary,
   cueCps,
+  glossaryIssues,
   formatSubs,
   looksLikeTimecode,
   midTimecode,
@@ -188,6 +190,83 @@ describe('formatting', () => {
     // A BOM breaks several VTT parsers.
     assert.equal(bomFor('vtt'), '')
     assert.equal(bomFor('ttml'), '')
+  })
+})
+
+describe('glossary consistency', () => {
+  const check = (text: string, entries: { term?: string; translation?: string }[]) =>
+    glossaryIssues(text, compileGlossary(entries)).map(i => i.msg)
+
+  it('catches a term written in the wrong case', () => {
+    // The case that started this: the file says "Reserva de la Familia"
+    // everywhere and one cue says "reserva de la familia". Both read fine on
+    // their own line, and the client sees it immediately.
+    const msgs = check('el reserva de la familia es el que guardamos.', [
+      { term: 'Reserva de la Familia' },
+    ])
+    assert.equal(msgs.length, 1)
+    assert.match(msgs[0], /written as "reserva de la familia" — should be "Reserva de la Familia"/)
+  })
+
+  it('says nothing when the term is written as agreed', () => {
+    assert.deepEqual(check('El Reserva de la Familia es el que guardamos.', [
+      { term: 'Reserva de la Familia' },
+    ]), [])
+  })
+
+  it('checks the agreed translation, not the source term', () => {
+    assert.deepEqual(check('La hacienda lo aprobó.', [
+      { term: 'Tax Office', translation: 'Hacienda' },
+    ]), ['Glossary term written as "hacienda" — should be "Hacienda"'])
+    // The English side is not what the translation is measured against.
+    assert.deepEqual(check('The tax office approved it.', [
+      { term: 'Tax Office', translation: 'Hacienda' },
+    ]), [])
+  })
+
+  it('leaves a lower-case term alone when it opens a sentence', () => {
+    // "terroir" is a common noun and the glossary agrees it stays lower case,
+    // but a sentence still starts with a capital. That is grammar, not drift.
+    assert.deepEqual(check('Terroir is what we sell.', [{ term: 'terroir' }]), [])
+    assert.deepEqual(check('Es un vino. Terroir, dicen.', [{ term: 'terroir' }]), [])
+    // Mid-sentence it is a real inconsistency.
+    assert.deepEqual(check('We sell Terroir here.', [{ term: 'terroir' }]),
+      ['Glossary term written as "Terroir" — should be "terroir"'])
+  })
+
+  it('matches whole words only', () => {
+    assert.deepEqual(check('Solo vino, sin sol.', [{ term: 'Sol' }]),
+      ['Glossary term written as "sol" — should be "Sol"'])
+  })
+
+  it('finds a term that begins with a letter outside ASCII', () => {
+    // `\bÑoño\b` does not match: JavaScript's \b is defined on ASCII and
+    // finds no boundary in front of "Ñ".
+    assert.deepEqual(check('Pregunta por ñoño, el de siempre.', [{ term: 'Ñoño' }]),
+      ['Glossary term written as "ñoño" — should be "Ñoño"'])
+  })
+
+  it('survives a term containing regex punctuation', () => {
+    assert.deepEqual(check('Compramos c++ ayer.', [{ term: 'C++' }]),
+      ['Glossary term written as "c++" — should be "C++"'])
+  })
+
+  it('reports one term once however often the cue repeats it', () => {
+    assert.deepEqual(check('hacienda dijo que hacienda decide.', [{ term: 'Hacienda' }]).length, 1)
+  })
+
+  it('reuses one compiled glossary across a whole track', () => {
+    // Compiled once per track and matched against every cue. A regex with the
+    // global flag that carried its lastIndex between cues would find the term
+    // in the first and miss it in the next.
+    const terms = compileGlossary([{ term: 'Hacienda' }])
+    for (const text of ['dice hacienda uno', 'dice hacienda dos', 'dice hacienda tres']) {
+      assert.equal(glossaryIssues(text, terms).length, 1, text)
+    }
+  })
+
+  it('is off unless a glossary is supplied', () => {
+    assert.deepEqual(check('reserva de la familia', []), [])
   })
 })
 
