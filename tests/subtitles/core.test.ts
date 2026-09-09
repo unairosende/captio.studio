@@ -18,6 +18,7 @@ import {
   qcStatus,
   qcTrack,
   renumber,
+  repeatedWords,
   secToSrt,
   srtToSec,
   tcToMs,
@@ -225,6 +226,58 @@ describe('quality checks', () => {
     const issues = qcIssues(tight, prev, cfg)
     assert.equal(issues.some(i => i.level === 'error'), false)
     assert.equal(issues.some(i => /Gap/.test(i.msg)), true)
+  })
+
+  it('measures how much of a cue repeats the text of the one before it', () => {
+    // The real shape of the bug: a long subtitle divided in two, with the tail
+    // written into both halves instead of moved into the second.
+    assert.equal(
+      repeatedWords(
+        'a nivel casi mundial, a nivel varietal, a nivel de',
+        'a nivel varietal, a nivel de producciones',
+      ),
+      6,
+    )
+
+    // The run is not the tail of the first cue: what follows it was duplicated
+    // too, and then half-corrected — "De Ruar" here, "Terroir" there. Comparing
+    // the two ends would see a mismatch and report nothing.
+    assert.equal(
+      repeatedWords(
+        'Lo metemos en una botella, lo embotellamos y es nuestro De Ruar en una botella.',
+        'lo embotellamos y es nuestro Terroir en una botella.',
+      ),
+      5,
+    )
+
+    // Case and punctuation differ across the split more often than not.
+    assert.equal(repeatedWords('siempre la calidad, que es lo', 'Que es lo que nos ha movido'), 3)
+
+    // Dialogue repeats itself constantly. Only a repeat the next cue *opens*
+    // with is a split gone wrong.
+    assert.equal(repeatedWords('Yo creo que, yo creo que ahora', 'estamos en un buen momento'), 0)
+    assert.equal(repeatedWords('Cuando llega septiembre, todo el pueblo', 'se pone a vendimiar, todo el pueblo'), 0)
+
+    // Two words is chance, not a bad split.
+    assert.equal(repeatedWords('y es nuestro vino', 'nuestro vino de la casa'), 0)
+
+    assert.equal(repeatedWords('Una frase entera', 'Otra distinta del todo'), 0)
+  })
+
+  it('warns when a cue opens with text already in the previous one', () => {
+    const prev = cue({ index: 18, text: 'para el consumo propio, pero ha terminado' })
+    const next = cue({
+      index: 19,
+      text: 'pero ha terminado siendo otra cosa',
+      start: '00:00:02,500',
+      end: '00:00:05,000',
+    })
+
+    const issues = qcIssues(next, prev, cfg)
+    // A guess about content never blocks the work.
+    assert.equal(issues.some(i => i.level === 'error'), false)
+    assert.equal(issues.some(i => /Opens with 3 words already in cue #18/.test(i.msg)), true)
+    assert.equal(qcStatus(next, prev, cfg), 'warn')
   })
 
   it('caps lines at two no matter what the config says', () => {

@@ -29,6 +29,64 @@ export function charStatus(text: string, cfg: QcConfig = DEFAULT_QC): Severity {
 }
 
 /**
+ * The smallest repeat worth reporting.
+ *
+ * Two words is ordinary: Spanish runs on short function words, and "de la" or
+ * "que no" landing on both sides of a cue boundary is chance rather than a
+ * mistake. Three in a row, opening the next cue, is the signature of a subtitle
+ * that was divided by copying instead of by cutting.
+ */
+const MIN_REPEATED_WORDS = 3
+
+/**
+ * Words, lowercased and stripped of punctuation.
+ *
+ * Apostrophes stay inside the word so "don't" and "l'eau" count as one each;
+ * every other mark goes, because the same phrase either side of a split is
+ * routinely punctuated differently — a comma on one line, nothing on the other.
+ */
+const words = (text: string): string[] =>
+  (text || '')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}'’]+/gu, ' ')
+    .split(' ')
+    .filter(Boolean)
+
+/**
+ * How many words `next` opens with that already appear inside `prev`.
+ *
+ * Splitting a long subtitle in two should move the tail down, not copy it, but
+ * a model asked to divide one often writes the overlap into both halves. Each
+ * line then reads correctly on its own, which is why this survives proofreading
+ * and only shows up on screen, where the same phrase is said twice.
+ *
+ * Anchored at the start of `next` and searched anywhere in `prev`, rather than
+ * comparing the two ends. The copy always lands at the head of the second cue,
+ * but it is not always the tail of the first: where the duplicated run is
+ * followed by more duplicated text that was then edited — one cue saying "De
+ * Ruar" where the next says "Terroir" — an end-to-end comparison sees a
+ * mismatch and reports nothing. The anchor is what keeps the wider search
+ * quiet: ordinary dialogue repeats itself often, but rarely by beginning a cue
+ * with three words said verbatim in the one before.
+ *
+ * Longest match first, so the message names the whole repeat rather than part
+ * of it. The nested scan is bounded by the character limit — a cue is a couple
+ * of dozen words, not a paragraph.
+ */
+export function repeatedWords(prev: string, next: string): number {
+  const a = words(prev)
+  const b = words(next)
+
+  for (let k = Math.min(a.length, b.length); k >= MIN_REPEATED_WORDS; k--) {
+    const head = b.slice(0, k)
+    for (let i = 0; i + k <= a.length; i++) {
+      if (head.every((w, j) => w === a[i + j])) return k
+    }
+  }
+  return 0
+}
+
+/**
  * Full quality check for one cue.
  *
  * `prev` is the preceding cue, needed for gap and overlap checks. Timings live
@@ -78,6 +136,18 @@ export function qcIssues(
       issues.push({ level: 'error', msg: `Overlaps cue #${prev.index} by ${Math.abs(gap).toFixed(2)}s` })
     } else if (gap < cfg.minGap) {
       issues.push({ level: 'warn', msg: `Gap ${gap.toFixed(2)}s after cue #${prev.index} (min ${cfg.minGap}s)` })
+    }
+
+    // A warning, never an error: everything above this line is a measurement
+    // and this one is a guess about content. A cue can legitimately repeat the
+    // one before it — a chorus, somebody stammering — and a check that blocked
+    // the work over that would be worse than one that is sometimes dismissed.
+    const repeated = repeatedWords(prev.text, sub.text)
+    if (repeated) {
+      issues.push({
+        level: 'warn',
+        msg: `Opens with ${repeated} words already in cue #${prev.index}`,
+      })
     }
   }
 
