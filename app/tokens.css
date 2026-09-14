@@ -30,6 +30,10 @@
   --hover:  color-mix(in srgb, var(--ink) 4%, transparent);
   --select: color-mix(in srgb, var(--ink) 8%, transparent);
   --ring:   color-mix(in srgb, var(--ink) 40%, transparent);
+  /* Los mismos lavados, ya mezclados sobre s0, para controles con fondo
+     opaco: un botón no puede volverse translúcido al pasar el ratón. */
+  --s0-hover:  color-mix(in srgb, var(--ink) 4%, var(--s0));
+  --s0-active: color-mix(in srgb, var(--ink) 8%, var(--s0));
 
   /* El acento cede dentro del editor: selección y foco son neutros (arriba).
      Como texto necesita un valor más oscuro que como relleno para leerse
@@ -85,6 +89,12 @@
   /* La fila de cue: altura fija, decidida en B. Una lista que se recorre con
      el ojo no puede tener filas de altura impredecible. */
   --row: 56px;
+
+  /* Altura de control: botón, campo, desplegable, pestaña, fila de menú.
+     Una sola, y otra para lo que debe pesar más (el botón primario de un
+     diálogo, la caja de la paleta). */
+  --ctl: 28px;
+  --ctl-lg: 32px;
 }
 
 @media (prefers-color-scheme: dark) {

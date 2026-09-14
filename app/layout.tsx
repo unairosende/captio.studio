@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, IBM_Plex_Sans, JetBrains_Mono } from 'next/font/goog
 
 import './globals.css'
 import './tokens.css'
+import './ui.css'
 
 /**
  * Fonts are fetched at build time and served from our own origin.

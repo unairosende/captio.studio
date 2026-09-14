@@ -1,0 +1,547 @@
+/* ── Piezas del rediseño ────────────────────────────────────────────────────
+   Todo bajo .v2, como los tokens. Las clases repiten los nombres buenos del
+   CSS antiguo (.btn, .field, .panel, .row, .caps, .meter): una pantalla que
+   lleva .v2 las ve nuevas, una sin migrar las sigue viendo viejas. Cuando la
+   última migre, el prefijo se cae y el bloque antiguo se borra.
+
+   Los estados no son clases: son lo que el navegador ya sabe. :hover,
+   :focus-visible, :active, :disabled, aria-selected, aria-busy, aria-invalid.
+   data-state="hover|focus|active" existe solo para que la guía enseñe un
+   estado quieto; el producto no lo escribe nunca. */
+
+.v2 button, .v2 input, .v2 select, .v2 textarea { font-family: inherit; }
+
+/* Foco: un anillo neutro. Se ve desde el teclado y nunca desde el ratón; el
+   acento no lo pinta porque dentro del editor el acento cede. */
+.v2 :is(.btn, .field, .tab, .row, .cue, .menu-item, .badge, .palette-item):focus-visible,
+.v2 [data-state="focus"] {
+  outline: 2px solid var(--ring);
+  outline-offset: 1px;
+}
+
+@keyframes v2-spin { to { transform: rotate(360deg); } }
+@keyframes v2-shimmer { to { background-position: -200% 0; } }
+@keyframes v2-slide { to { background-position: 40px 0; } }
+
+/* ── Etiquetas y atajos ──────────────────────────────────────────────────── */
+
+/* La etiqueta pequeña en mayúsculas que separa un grupo del siguiente. */
+.v2 .caps {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* El atajo escrito junto a la acción, siempre. Quien subtitula no suelta el
+   teclado, y un atajo que no se ve es un atajo que no existe. */
+.v2 .kbd {
+  display: inline-block;
+  padding: 1px 4px;
+  border-radius: var(--r-sm);
+  background: var(--select);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 1.3;
+}
+
+.v2 .spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--line-2);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: v2-spin .6s linear infinite;
+}
+
+/* ── Botón ───────────────────────────────────────────────────────────────── */
+
+.v2 .btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  height: var(--ctl);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--s0);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
+}
+.v2 .btn:hover,  .v2 .btn[data-state="hover"]  { background: var(--s0-hover); }
+.v2 .btn:active, .v2 .btn[data-state="active"], .v2 .btn[aria-pressed="true"] { background: var(--s0-active); }
+.v2 .btn-lg { height: var(--ctl-lg); padding: 0 var(--sp-4); }
+
+/* El único que lleva el acento como relleno: hay uno por superficie, o ninguno. */
+.v2 .btn-primary { background: var(--accent-fill); border-color: transparent; color: var(--on-accent); }
+.v2 .btn-primary:hover,  .v2 .btn-primary[data-state="hover"]  { background: color-mix(in srgb, var(--ink) 8%, var(--accent-fill)); }
+.v2 .btn-primary:active, .v2 .btn-primary[data-state="active"] { background: color-mix(in srgb, var(--ink) 16%, var(--accent-fill)); }
+.v2 .btn-primary .kbd { background: rgb(27 27 29 / .12); color: var(--on-accent); }
+
+.v2 .btn-danger { color: var(--danger); }
+.v2 .btn-danger:hover,  .v2 .btn-danger[data-state="hover"]  { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+.v2 .btn-danger:active, .v2 .btn-danger[data-state="active"] { background: color-mix(in srgb, var(--danger) 20%, transparent); }
+
+.v2 .btn-quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
+.v2 .btn-quiet:hover,  .v2 .btn-quiet[data-state="hover"]  { background: var(--hover); color: var(--ink); }
+.v2 .btn-quiet:active, .v2 .btn-quiet[data-state="active"] { background: var(--select); color: var(--ink); }
+
+.v2 .btn:disabled, .v2 .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+
+/* Cargando: el texto se vuelve transparente en lugar de desaparecer, así el
+   botón no cambia de anchura y nada salta a su alrededor. */
+.v2 .btn[aria-busy="true"] { color: transparent; pointer-events: none; }
+.v2 .btn[aria-busy="true"] .kbd { visibility: hidden; }
+.v2 .btn[aria-busy="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid var(--line-2);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: v2-spin .6s linear infinite;
+}
+.v2 .btn-primary[aria-busy="true"]::after { border-color: rgb(27 27 29 / .25); border-top-color: var(--on-accent); }
+
+/* ── Campo y desplegable ─────────────────────────────────────────────────── */
+
+.v2 .field {
+  display: block;
+  width: 100%;
+  height: var(--ctl);
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--s0);
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-md);
+  transition: border-color var(--t-fast), background var(--t-fast);
+}
+.v2 textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--sp-2); line-height: var(--lh); resize: vertical; }
+.v2 .field::placeholder { color: var(--ink-3); }
+.v2 .field:hover, .v2 .field[data-state="hover"] { border-color: color-mix(in srgb, var(--ink) 32%, transparent); }
+.v2 .field:focus-visible, .v2 .field[data-state="focus"] { border-color: transparent; outline-offset: 0; }
+.v2 .field:disabled, .v2 .field[aria-disabled="true"] { opacity: .45; background: var(--s2); }
+.v2 .field[aria-invalid="true"] { border-color: var(--danger); }
+
+/* Lo que se dice bajo un campo: la ayuda y, cuando toca, el error. */
+.v2 .field-msg { margin-top: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-3); }
+.v2 .field-msg.err { color: var(--danger); }
+
+/* El desplegable es un campo con una punta de flecha dibujada por el
+   envoltorio, porque una imagen de fondo no puede leer el tema. */
+.v2 .select-wrap { position: relative; }
+.v2 .select-wrap .field { padding-right: var(--sp-6); appearance: none; cursor: pointer; }
+.v2 .select-wrap::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: calc(50% - 5px);
+  width: 6px;
+  height: 6px;
+  border-right: 1.5px solid var(--ink-3);
+  border-bottom: 1.5px solid var(--ink-3);
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+
+/* ── Pestañas de idioma ──────────────────────────────────────────────────── */
+
+.v2 .tabs { display: flex; gap: var(--sp-1); border-bottom: 1px solid var(--line); }
+
+.v2 .tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: var(--ctl);
+  padding: 0 var(--sp-2);
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: none;
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color var(--t-fast), border-color var(--t-fast);
+}
+.v2 .tab:hover, .v2 .tab[data-state="hover"] { color: var(--ink); }
+.v2 .tab[aria-selected="true"], .v2 .tab[data-state="active"] { color: var(--ink); border-bottom-color: var(--ink); }
+.v2 .tab:disabled, .v2 .tab[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+/* Un idioma que se está traduciendo lo dice con un punto que gira; uno con
+   fallos, con la cifra en rojo. Ninguno de los dos empuja la pestaña. */
+.v2 .tab[aria-busy="true"]::after {
+  content: "";
+  width: 8px; height: 8px;
+  border: 1.5px solid var(--line-2);
+  border-top-color: var(--ink);
+  border-radius: 50%;
+  animation: v2-spin .6s linear infinite;
+}
+.v2 .tab[data-issues]::after {
+  content: attr(data-issues);
+  padding: 0 4px;
+  border-radius: var(--r-sm);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--fs-xs);
+  letter-spacing: 0;
+}
+
+/* ── Fila de lista ───────────────────────────────────────────────────────── */
+
+/* Un miembro, un comentario, una invitación, un proyecto en el panel. */
+.v2 .row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 36px;
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  font-size: var(--fs-md);
+  transition: background var(--t-fast);
+}
+.v2 .row:hover, .v2 .row[data-state="hover"] { background: var(--hover); }
+.v2 .row[aria-selected="true"], .v2 .row[data-state="active"] { background: var(--select); }
+.v2 .row[aria-disabled="true"] { opacity: .45; }
+.v2 .row .muted { color: var(--ink-3); font-size: var(--fs-sm); }
+.v2 .row .err { color: var(--danger); font-size: var(--fs-sm); }
+.v2 .row > .kbd, .v2 .row > .badge, .v2 .row > .btn { margin-left: auto; }
+.v2 .row > .btn + .btn, .v2 .row > .badge + .btn { margin-left: 0; }
+
+/* ── La fila de cue ──────────────────────────────────────────────────────── */
+
+.v2 .cues {
+  background: var(--s0);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  font-size: var(--fs-md);
+}
+
+.v2 .cue-head, .v2 .cue {
+  display: grid;
+  grid-template-columns: 36px 116px minmax(0, 1fr) minmax(0, 1fr) 52px 56px;
+  align-items: center;
+  column-gap: var(--sp-3);
+  padding-right: var(--sp-3);
+}
+
+.v2 .cue-head {
+  height: 28px;
+  border-bottom: 1px solid var(--line-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.v2 .cue-head .cue-stat { color: var(--ink-3); }
+
+.v2 .cue {
+  height: var(--row);
+  border-bottom: 1px solid var(--line);
+  transition: background var(--t-fast);
+}
+.v2 .cue:last-child { border-bottom: 0; }
+.v2 .cue:hover, .v2 .cue[data-state="hover"] { background: var(--hover); }
+.v2 .cue[aria-selected="true"], .v2 .cue[data-state="active"] { background: var(--select); }
+.v2 .cue:focus-visible, .v2 .cue[data-state="focus"] { outline-offset: -2px; }
+.v2 .cue[aria-disabled="true"] { opacity: .45; }
+
+/* El margen izquierdo es la única columna con color: un tick de 3 px que dice
+   «mira aquí» en lugar de una insignia que empuja la altura de la fila. */
+.v2 .cue-n {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 3px solid transparent;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.v2 .cue[data-qc="warn"]   .cue-n { border-left-color: var(--warn); }
+.v2 .cue[data-qc="danger"] .cue-n { border-left-color: var(--danger); }
+.v2 .cue[data-qc="warn"]   .cue-stat:first-of-type { color: var(--warn); }
+.v2 .cue[data-qc="danger"] .cue-stat:first-of-type { color: var(--danger); }
+
+.v2 .cue-tc {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Una línea de subtítulo por línea de pantalla: si no cabe, se corta y el
+   contador lo dice. El texto entero vive en el inspector. */
+.v2 .cue-text { line-height: 1.35; min-width: 0; }
+.v2 .cue-text > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.v2 .cue-text > .skeleton { margin: 3px 0; }
+
+.v2 .cue-stat {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+
+/* ── Panel de diálogo ────────────────────────────────────────────────────── */
+
+/* Alto en la pantalla, no centrado: cada diálogo trata de algo que hay detrás
+   — un cue, un colega, una búsqueda — y tapar el centro del editor esconde
+   justo lo que se está discutiendo. */
+.v2 .overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--overlay-z, 60);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: var(--overlay-top, 12vh);
+  background: var(--scrim);
+}
+
+.v2 .panel {
+  display: flex;
+  flex-direction: column;
+  width: var(--panel-w, 460px);
+  max-height: var(--panel-h, 66vh);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--raised);
+  box-shadow: var(--lift);
+  color: var(--ink);
+}
+.v2 .panel-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.v2 .panel-title { font-size: var(--fs-md); font-weight: 600; }
+.v2 .panel-close { margin-left: auto; }
+.v2 .panel-body { flex: 1; overflow-y: auto; padding: var(--sp-3) var(--sp-4); font-size: var(--fs-md); }
+.v2 .panel-foot { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line); }
+.v2 .panel-foot .err { margin-right: auto; font-size: var(--fs-sm); color: var(--danger); }
+.v2 .panel-foot > .btn:first-child:not(.btn-primary) { margin-right: auto; }
+
+/* ── Paleta de comandos ──────────────────────────────────────────────────── */
+
+/* La superficie principal de acción, y lo dice el propio campo. Es el índice
+   completo de lo que Captio sabe hacer: por eso la pantalla puede estar
+   callada sin que nadie dude de lo que hay dentro. */
+.v2 .palette {
+  width: var(--panel-w, 560px);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--raised);
+  box-shadow: var(--lift);
+  overflow: hidden;
+}
+.v2 .palette-input {
+  width: 100%;
+  height: 44px;
+  padding: 0 var(--sp-4);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-lg);
+  outline: none;
+}
+.v2 .palette-input::placeholder { color: var(--ink-3); }
+.v2 .palette-list { padding: var(--sp-1); max-height: 320px; overflow-y: auto; }
+.v2 .palette-group { padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+.v2 .palette-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--ctl-lg);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-md);
+  color: var(--ink);
+  font-size: var(--fs-md);
+  cursor: pointer;
+}
+.v2 .palette-item .muted { color: var(--ink-3); font-size: var(--fs-sm); }
+.v2 .palette-item > .kbd { margin-left: auto; }
+.v2 .palette-item:hover, .v2 .palette-item[data-state="hover"] { background: var(--hover); }
+.v2 .palette-item[aria-selected="true"], .v2 .palette-item[data-state="active"] { background: var(--select); }
+.v2 .palette-empty { padding: var(--sp-6) var(--sp-4); text-align: center; color: var(--ink-3); font-size: var(--fs-sm); }
+.v2 .palette-foot {
+  display: flex;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-top: 1px solid var(--line);
+  color: var(--ink-3);
+  font-size: var(--fs-xs);
+}
+
+/* ── Distintivo de comentario ────────────────────────────────────────────── */
+
+/* Una línea con un hilo lo dice en reposo. Sin leer, en tinta; leído, en
+   gris; resuelto, en verde. Nunca en ámbar: el ámbar es del control de
+   calidad. */
+.v2 .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--select);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.v2 .badge:hover, .v2 .badge[data-state="hover"] { background: var(--line-2); color: var(--ink); }
+.v2 .badge[data-unread="true"] { background: var(--ink); color: var(--s0); }
+.v2 .badge[data-unread="true"]:hover, .v2 .badge[data-unread="true"][data-state="hover"] { background: var(--ink-2); }
+.v2 .badge[data-resolved="true"] { background: var(--ok-bg); color: var(--ok); }
+.v2 .badge[data-state="active"], .v2 .badge[aria-pressed="true"] { outline: 2px solid var(--ring); outline-offset: 1px; }
+.v2 .badge:disabled, .v2 .badge[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+
+/* ── Medidor de cuota ────────────────────────────────────────────────────── */
+
+/* Una barra, no un porcentaje: «has usado el 68 %» es una cuenta que hacer;
+   una barra a dos tercios es un vistazo. */
+.v2 .meter { height: 4px; border-radius: 2px; background: var(--s3); overflow: hidden; }
+.v2 .meter-fill { height: 100%; border-radius: 2px; background: var(--ink-2); transition: width var(--t-base); }
+.v2 .meter-fill.low  { background: var(--warn); }
+.v2 .meter-fill.none { background: var(--danger); }
+.v2 .meter[aria-busy="true"] .meter-fill {
+  width: 100% !important;
+  background: repeating-linear-gradient(90deg, var(--s3) 0 10px, var(--line-2) 10px 20px);
+  background-size: 40px 4px;
+  animation: v2-slide .8s linear infinite;
+}
+
+/* ── Aviso emergente ─────────────────────────────────────────────────────── */
+
+.v2 .toast {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  max-width: 440px;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--raised);
+  box-shadow: var(--lift);
+  color: var(--ink);
+  font-size: var(--fs-md);
+}
+.v2 .toast::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+.v2 .toast[data-kind="ok"]::before     { background: var(--ok); }
+.v2 .toast[data-kind="warn"]::before   { background: var(--warn); }
+.v2 .toast[data-kind="danger"]::before { background: var(--danger); }
+.v2 .toast[aria-busy="true"]::before {
+  width: 10px; height: 10px;
+  background: none;
+  border: 1.5px solid var(--line-2);
+  border-top-color: var(--ink);
+  animation: v2-spin .6s linear infinite;
+}
+.v2 .toast .muted { color: var(--ink-3); font-size: var(--fs-sm); }
+.v2 .toast > .btn { margin-left: auto; }
+
+/* ── Menú ────────────────────────────────────────────────────────────────── */
+
+.v2 .menu {
+  min-width: 220px;
+  padding: var(--sp-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--raised);
+  box-shadow: var(--lift);
+}
+.v2 .menu-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  height: var(--ctl);
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-align: left;
+  cursor: pointer;
+}
+.v2 .menu-item > .kbd { margin-left: auto; }
+.v2 .menu-item:hover, .v2 .menu-item[data-state="hover"] { background: var(--hover); }
+.v2 .menu-item[data-state="active"], .v2 .menu-item:active { background: var(--select); }
+.v2 .menu-item[aria-checked="true"]::before { content: "✓"; width: 12px; font-size: var(--fs-sm); color: var(--ink-2); }
+.v2 .menu-item[aria-checked="false"]::before { content: ""; width: 12px; }
+.v2 .menu-item:disabled, .v2 .menu-item[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.v2 .menu-item.danger { color: var(--danger); }
+.v2 .menu-item.danger:hover, .v2 .menu-item.danger[data-state="hover"] { background: var(--danger-bg); }
+.v2 .menu-sep { height: 1px; margin: var(--sp-1) 0; background: var(--line); }
+.v2 .menu .caps { display: block; padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+
+/* ── Estado vacío ────────────────────────────────────────────────────────── */
+
+/* Un vacío dice tres cosas: qué falta, por qué, y el único botón que lo
+   arregla. Sin ilustración: la ilustración es lo que se pone cuando no se
+   sabe qué decir. */
+.v2 .empty {
+  display: grid;
+  justify-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-8) var(--sp-6);
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-lg);
+  text-align: center;
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+}
+.v2 .empty-title { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink); font-size: var(--fs-md); font-weight: 500; }
+.v2 .empty[data-kind="error"] .empty-title::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+.v2 .empty p { margin: 0; max-width: 40ch; }
+.v2 .empty .btn { margin-top: var(--sp-2); }
+
+/* ── Esqueleto ───────────────────────────────────────────────────────────── */
+
+/* Ocupa el sitio de lo que llega, con la forma de lo que llega. Una fila de
+   cue en carga sigue midiendo 56 px: nada salta cuando aparece el texto. */
+.v2 .skeleton {
+  display: block;
+  height: 1em;
+  border-radius: var(--r-sm);
+  background: linear-gradient(90deg, var(--s2) 0%, var(--s3) 50%, var(--s2) 100%);
+  background-size: 200% 100%;
+  animation: v2-shimmer 1.2s linear infinite;
+}
+.v2 .skeleton-circle { width: 24px; height: 24px; border-radius: 50%; }
+
+@media (prefers-reduced-motion: reduce) {
+  .v2 * { transition: none !important; }
+  .v2 .skeleton, .v2 .meter[aria-busy="true"] .meter-fill { animation: none; }
+}

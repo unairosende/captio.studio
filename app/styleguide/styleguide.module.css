@@ -206,83 +206,6 @@
 .warn   { color: var(--warn);   background: var(--warn-bg); }
 .danger { color: var(--danger); background: var(--danger-bg); }
 
-/* ── La tabla de cues ───────────────────────────────────────────────────── */
-
-.table {
-  background: var(--s0);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  overflow: hidden;
-  font-size: var(--fs-md);
-}
-
-.thead, .row {
-  display: grid;
-  grid-template-columns: 36px 116px minmax(0, 1fr) minmax(0, 1fr) 52px 56px;
-  align-items: center;
-  column-gap: var(--sp-3);
-  padding: 0 var(--sp-3) 0 0;
-}
-
-.thead {
-  height: 28px;
-  border-bottom: 1px solid var(--line-2);
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-
-.row {
-  height: var(--row);
-  border-bottom: 1px solid var(--line);
-  transition: background var(--t-fast);
-}
-.row:last-child { border-bottom: 0; }
-.row:hover { background: var(--hover); }
-.row[aria-selected="true"] { background: var(--select); }
-
-/* El margen izquierdo es la única columna con color: un tick de 3 px que dice
-   «mira aquí», en lugar de una insignia que empuja la altura de la fila. */
-.num {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-left: 3px solid transparent;
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-.numWarn   { border-left-color: var(--warn); }
-.numDanger { border-left-color: var(--danger); }
-
-.tc {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  color: var(--ink-2);
-  font-variant-numeric: tabular-nums;
-  line-height: 1.4;
-  white-space: nowrap;
-}
-
-/* Una línea de subtítulo por línea de pantalla: si no cabe, se corta y el
-   contador de caracteres lo dice. El texto entero vive en el inspector. */
-.text { line-height: 1.35; min-width: 0; }
-.text div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
-.stat {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  color: var(--ink-2);
-}
-.statWarn   { color: var(--warn); }
-.statDanger { color: var(--danger); }
-
 /* ── Tipografía ─────────────────────────────────────────────────────────── */
 
 .cand {
@@ -312,6 +235,70 @@
 .scale small { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
 
 .candTable { margin-top: var(--sp-3); }
+
+/* ── La galería de piezas ─────────────────────────────────────────────── */
+
+.divider {
+  padding-top: var(--sp-8);
+  border-top: 2px solid var(--ink);
+}
+.divider p { margin: var(--sp-2) 0 0; font-size: var(--fs-sm); color: var(--ink-2); max-width: 60ch; }
+
+.grid7, .wide {
+  display: grid;
+  background: var(--s1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+}
+.grid7 { grid-template-columns: repeat(auto-fill, minmax(224px, 1fr)); }
+.wide  { grid-template-columns: 1fr; }
+
+/* La línea entre casillas la dibuja cada casilla por su derecha y su pie; el
+   recorte del contenedor se come la última. Así un hueco sobrante al final
+   de la rejilla queda en blanco, no gris. */
+.cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  min-height: 96px;
+  padding: var(--sp-3);
+  background: var(--s1);
+  box-shadow: 1px 1px 0 0 var(--line);
+}
+.wide .cell { flex-direction: row; align-items: flex-start; gap: var(--sp-4); min-height: 0; }
+.wide .cellHead { flex: none; width: 96px; padding-top: 2px; }
+.wide .cell > :last-child { flex: 1; min-width: 0; }
+
+.cellHead {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.na { font-size: var(--fs-xs); color: var(--ink-3); font-style: italic; }
+
+.stack { display: flex; flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+.stackWide { display: flex; flex-direction: column; gap: var(--sp-2); width: 100%; }
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--s3);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+
+.meterRow { display: flex; justify-content: space-between; align-items: baseline; }
+.meterVal { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 
 /* ── Espacio y forma ────────────────────────────────────────────────────── */
 

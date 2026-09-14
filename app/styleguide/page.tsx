@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
+import { CueTable, Pieces } from './pieces'
 import s from './styleguide.module.css'
 
 /**
@@ -22,72 +23,6 @@ const THEMES: { id: Theme; label: string }[] = [
   { id: 'system', label: 'Sistema' },
   { id: 'dark', label: 'Oscuro' },
 ]
-
-/* Cues de la entrevista de la bodega — los mismos del boceto B. Contenido
-   real: la fila que hay que juzgar es la que trae dos líneas de cuarenta y
-   tantos caracteres, no «Lorem ipsum». */
-type State = 'ok' | 'warn' | 'danger'
-
-const CUES: {
-  n: number; tin: string; tout: string
-  es: [string, string]; en: [string, string]
-  cps: string; chars: string; state: State
-}[] = [
-  {
-    n: 1, tin: '00:00:03,360', tout: '00:00:08,960',
-    es: ['Tienes un sentimiento que las cosas cuestan', 'más a veces de conservar que de enamorarse.'],
-    en: ['You get the feeling that sometimes', 'things cost more to hold on to than to fall in love.'],
-    cps: '15,5', chars: '43/46', state: 'ok',
-  },
-  {
-    n: 2, tin: '00:00:16,800', tout: '00:00:19,280',
-    es: ['Cuando empecé a trabajar aquí,', 'hace veinticuatro años'],
-    en: ['When I started working here,', 'about twenty-four years ago now,'],
-    cps: '21,4', chars: '32/46', state: 'warn',
-  },
-  {
-    n: 3, tin: '00:00:19,480', tout: '00:00:22,600',
-    es: ['y vi una filosofía de trabajo, no solo', 'en la viña, sino en lo que es la finca.'],
-    en: ['and I saw a whole philosophy of work,', 'not just in the vineyard but the whole estate.'],
-    cps: '25,0', chars: '45/46', state: 'danger',
-  },
-  {
-    n: 4, tin: '00:00:22,880', tout: '00:00:25,440',
-    es: ['Aquí se cuida cada cepa', 'como si fuera la única.'],
-    en: ['Here every vine is tended', 'as if it were the only one.'],
-    cps: '13,2', chars: '27/46', state: 'ok',
-  },
-]
-
-const NUM: Record<State, string>  = { ok: '', warn: s.numWarn,  danger: s.numDanger }
-const STAT: Record<State, string> = { ok: '', warn: s.statWarn, danger: s.statDanger }
-
-/** La fila 1 va seleccionada a propósito, pegada a la fila 2 con aviso: si las
- *  dos se parecen, el acento no ha cedido. */
-function CueTable({ className = '' }: { className?: string }) {
-  return (
-    <div className={`${s.table} ${className}`}>
-      <div className={s.thead}>
-        <span className={s.num}>#</span>
-        <span>in · out</span>
-        <span>es · original</span>
-        <span>en · inglés</span>
-        <span className={s.stat}>cps</span>
-        <span className={s.stat}>car</span>
-      </div>
-      {CUES.map(c => (
-        <div key={c.n} className={s.row} aria-selected={c.n === 1}>
-          <span className={`${s.num} ${NUM[c.state]}`}>{c.n}</span>
-          <span className={s.tc}>{c.tin}<br />{c.tout}</span>
-          <div className={s.text}><div>{c.es[0]}</div><div>{c.es[1]}</div></div>
-          <div className={s.text}><div>{c.en[0]}</div><div>{c.en[1]}</div></div>
-          <span className={`${s.stat} ${STAT[c.state]}`}>{c.cps}</span>
-          <span className={s.stat}>{c.chars}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
 
 const SCALE = [
   ['xs', '11'], ['sm', '12'], ['md', '13'], ['lg', '15'], ['xl', '18'], ['2xl', '24'],
@@ -122,7 +57,7 @@ export default function StyleguidePage() {
     <div className={`v2 ${s.page}`}>
       <header className={s.bar}>
         <span className={s.brand}>CAPTIO</span>
-        <span className={s.crumb}>Fundaciones · fase 03</span>
+        <span className={s.crumb}>Fundaciones y piezas · fases 03 y 04</span>
         <div className={s.seg} role="group" aria-label="Tema">
           {THEMES.map(t => (
             <button key={t.id} className={s.segBtn} aria-pressed={theme === t.id} onClick={() => setTheme(t.id)}>
@@ -240,6 +175,14 @@ export default function StyleguidePage() {
             </div>
           </div>
         </section>
+
+        <div className={s.divider}>
+          <span className="caps">Las piezas</span>
+          <p>Cada una en sus siete estados. La casilla que no aplica lo dice por escrito;
+          la casilla vacía es la que nadie diseñó.</p>
+        </div>
+
+        <Pieces />
 
       </main>
     </div>
