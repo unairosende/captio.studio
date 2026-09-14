@@ -84,14 +84,20 @@ export function formatDuration(seconds: number): string {
   return rest ? `${hours} h ${rest} min` : `${hours} h`
 }
 
-/** `2026-08` as `August 2026`. */
+/**
+ * `2026-08` as `agosto de 2026`.
+ *
+ * The one caller is the dashboard, which is Spanish — see the editor's own
+ * note on language. A second, English-reading caller would need its own
+ * formatter rather than a locale argument here.
+ */
 export function formatMonth(month: string): string {
   const [year, m] = month.split('-').map(Number)
   if (!year || !m) return month
 
   // Day one at noon UTC. Midnight can land in the previous month once a negative
   // timezone offset is applied, which renames every row on the page.
-  return new Date(Date.UTC(year, m - 1, 1, 12)).toLocaleDateString('en-GB', {
+  return new Date(Date.UTC(year, m - 1, 1, 12)).toLocaleDateString('es-ES', {
     month: 'long',
     year: 'numeric',
   })

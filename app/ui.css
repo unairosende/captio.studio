@@ -58,6 +58,11 @@
   animation: v2-spin .6s linear infinite;
 }
 
+/* El enlace de texto: el acento, subrayado, y nada más. */
+.v2 .link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.v2 .link:hover { text-decoration-thickness: 2px; }
+.v2 .link:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--r-sm); }
+
 /* Lo que se dice en pequeño al lado de algo: una aclaración, un fallo. */
 .v2 .muted { color: var(--ink-3); font-size: var(--fs-sm); }
 .v2 .err   { color: var(--danger); font-size: var(--fs-sm); }
@@ -253,6 +258,24 @@
 .v2 .row .err { color: var(--danger); font-size: var(--fs-sm); }
 .v2 .row > .kbd, .v2 .row > .badge, .v2 .row > .btn { margin-left: auto; }
 .v2 .row > .btn + .btn, .v2 .row > .badge + .btn { margin-left: 0; }
+
+/* ── Tarjeta ─────────────────────────────────────────────────────────────── */
+
+/* Un bloque de contenido que se lee, no que se opera — el panel es la primera
+   pantalla así, y no será la última. */
+.v2 .card {
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--s0);
+  padding: var(--sp-4);
+}
+.v2 .card-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.v2 .card-head h2, .v2 .card-head h3 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
 
 /* ── La fila de cue ──────────────────────────────────────────────────────── */
 

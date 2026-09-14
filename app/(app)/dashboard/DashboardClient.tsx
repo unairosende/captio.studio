@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
@@ -11,6 +12,8 @@ import type { Entitlement } from '@/lib/entitlement'
 import { TRIAL } from '@/lib/plans'
 import { LANG_CODES } from '@/lib/providers'
 import { formatDuration, formatMonth, type MonthUsage } from '@/lib/usage'
+
+import s from './dashboard.module.css'
 
 interface Props {
   user: { id: string; email: string; role: string }
@@ -32,13 +35,13 @@ interface Props {
 /**
  * Elapsed time, said the way a person would say it.
  *
- * A column of `17/08/2026` tells you less at a glance than "2 hours ago", and it
- * sidesteps the trap absolute dates set for a component that renders twice: the
- * same instant formatted on a server running in UTC and again in the reader's
- * timezone is two different strings, which React reports as a hydration
- * mismatch. A difference between two clocks is the same everywhere.
+ * A column of `17/08/2026` tells you less at a glance than "hace 2 horas",
+ * and it sidesteps the trap absolute dates set for a component that renders
+ * twice: the same instant formatted on a server running in UTC and again in
+ * the reader's timezone is two different strings, which React reports as a
+ * hydration mismatch. A difference between two clocks is the same everywhere.
  */
-const RELATIVE = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' })
+const RELATIVE = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
   ['year', 365 * 86_400_000],
   ['month', 30 * 86_400_000],
@@ -53,19 +56,28 @@ function ago(value: string | Date): string {
   for (const [unit, ms] of UNITS) {
     if (Math.abs(delta) >= ms) return RELATIVE.format(Math.round(delta / ms), unit)
   }
-  return 'just now'
+  return 'ahora mismo'
 }
 
 /** `Spanish` as `ES`, and anything unrecognised as itself. */
 const short = (lang: string | null): string => (lang ? (LANG_CODES[lang] ?? lang) : '—')
 
+/** The role as the reader says it. The database keeps the English key. */
+const ROLE: Record<string, string> = { owner: 'propietario', admin: 'administrador', member: 'miembro' }
+const roleLabel = (role: string): string => ROLE[role] ?? role
+
 /**
  * The first thing a customer sees after signing in.
  *
- * Three questions, in the order people ask them: what am I working on, who else
- * is here, and what have I used. The editor answers none of them — it is a room
- * with one document open in it — and every figure below was already in the
- * database waiting for a page to read it.
+ * Three questions, in the order people ask them: what am I working on, who
+ * else is here, and what have I used. The editor answers none of them, and
+ * every figure below was already in the database waiting for a page to read
+ * it.
+ *
+ * Read, not operated: direction B's own rule for a surface like this one.
+ * Bigger type, more room between things, and the accent allowed back in —
+ * inside the editor it cedes to the quality checks, but there is nothing
+ * here for it to collide with.
  */
 export default function DashboardClient({
   user,
@@ -100,7 +112,7 @@ export default function DashboardClient({
    * This month by name, not by position.
    *
    * `usage[0]` is the most recent month with anything in it, which in the first
-   * week of September is still August — and labelling that "this month" turns a
+   * week of September is still August — and labelling that "este mes" turns a
    * quiet start into a report that somebody has been busy.
    */
   const currentMonth = new Date().toISOString().slice(0, 7)
@@ -123,7 +135,7 @@ export default function DashboardClient({
     setCreating(false)
 
     if (!res.ok) {
-      setError(json.error ?? `Could not create that project (HTTP ${res.status})`)
+      setError(json.error ?? `No se pudo crear el proyecto (HTTP ${res.status})`)
       return
     }
     setNaming(false)
@@ -153,19 +165,18 @@ export default function DashboardClient({
     }
 
     setPortalBusy(false)
-    setPortalError(json.error ?? `Could not open the billing portal (HTTP ${res.status})`)
+    setPortalError(json.error ?? `No se pudo abrir el portal de facturación (HTTP ${res.status})`)
   }
 
   /** The field, wherever it is shown — under the heading, or in the empty state. */
   const nameField = (
-    <div className="card" style={{ display: 'flex', gap: 7, alignItems: 'center' }}>
+    <div className={`card ${s.namingCard}`}>
       <input
-        className="field"
-        style={{ flex: 1 }}
+        className={`field ${s.namingField}`}
         autoFocus
         value={newName}
-        placeholder="The film, the series, the campaign…"
-        aria-label="Name of the new project"
+        placeholder="La película, la serie, la campaña…"
+        aria-label="Nombre del proyecto nuevo"
         onChange={e => setNewName(e.target.value)}
         onKeyDown={e => {
           if (e.key === 'Enter') { e.preventDefault(); void create() }
@@ -174,10 +185,10 @@ export default function DashboardClient({
       />
       <button className="btn btn-primary btn-lg" disabled={creating || !newName.trim()}
         onClick={() => void create()}>
-        {creating ? 'Creating…' : 'Create'}
+        {creating ? 'Creando…' : 'Crear'}
       </button>
-      <button className="btn" onClick={() => { setNaming(false); setNewName('') }}>
-        Cancel
+      <button className="btn btn-quiet" onClick={() => { setNaming(false); setNewName('') }}>
+        Cancelar
       </button>
     </div>
   )
@@ -188,9 +199,9 @@ export default function DashboardClient({
     // and their history.
     const inside =
       project.sequence_count === 0
-        ? 'It has nothing in it.'
-        : `Its ${project.sequence_count} sequence${project.sequence_count === 1 ? '' : 's'} go with it, and their comments.`
-    if (!confirm(`Delete “${project.name}”? ${inside}`)) return
+        ? 'No tiene nada dentro.'
+        : `Sus ${project.sequence_count} secuencia${project.sequence_count === 1 ? '' : 's'} se van con él, y sus comentarios.`
+    if (!confirm(`¿Eliminar «${project.name}»? ${inside}`)) return
 
     setBusyId(project.id)
     setError(null)
@@ -199,7 +210,7 @@ export default function DashboardClient({
 
     if (!res.ok) {
       const json = await res.json().catch(() => ({}))
-      setError(json.error ?? `Could not delete that project (HTTP ${res.status})`)
+      setError(json.error ?? `No se pudo eliminar el proyecto (HTTP ${res.status})`)
       return
     }
     // The list was drawn on the server, so the server has to draw it again.
@@ -215,11 +226,9 @@ export default function DashboardClient({
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)' }}>
-      {/* The dialog already speaks the redesign's tokens; this page does not
-          yet. The scope class gives it the palette until the page migrates. */}
+    <div className={`v2 ${s.page}`}>
       {team && (
-        <div className="v2"><TeamPanel
+        <TeamPanel
           currentUserId={user.id}
           role={user.role}
           onClose={() => {
@@ -228,32 +237,24 @@ export default function DashboardClient({
             // the counts on this page were rendered before that happened.
             router.refresh()
           }}
-        /></div>
+        />
       )}
 
-      {/* Deliberately the editor's topbar, so the two read as one product. */}
-      <div style={{ background: 'var(--bg1)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em' }}>
-          Captio
+      <header className={s.head}>
+        <Link href="/dashboard" className={s.brand}>CAPTIO</Link>
+        <span className={s.org}>{organizationName}</span>
+        <span className={s.plan}>{entitlement.plan}</span>
+        <div className={s.headEnd}>
+          <span className={s.email}>{user.email}</span>
+          <button className="btn btn-quiet" onClick={() => void signOut()}>Cerrar sesión</button>
         </div>
-        <span style={{ fontSize: 'var(--fs-md)', color: 'var(--text2)' }}>{organizationName}</span>
-        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 'var(--fs-xs)', fontFamily: 'var(--mono)', background: 'var(--accent-dim)', color: '#8ba8ff' }}>
-          {entitlement.plan}
-        </span>
+      </header>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          <span style={{ fontSize: 'var(--fs-md)', color: 'var(--text3)' }}>{user.email}</span>
-          <button className="btn btn-quiet" onClick={signOut}>Sign out</button>
-        </div>
-      </div>
-
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '22px 16px 60px' }}>
-        {/* A row that reflows on its own. Media queries would mean a stylesheet
-            for a layout auto-fit already describes. */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 14 }}>
+      <main className={s.main}>
+        <div className={s.grid3}>
           <div className="card">
             <div className="card-head">
-              <span className="caps">{trial ? 'Free trial' : 'This month'}</span>
+              <span className="caps">{trial ? 'Prueba gratuita' : 'Este mes'}</span>
             </div>
 
             {trial ? (
@@ -261,14 +262,15 @@ export default function DashboardClient({
                 {/* One meter, because there is one pool now. Two bars for two
                     limits was how a customer discovered, mid-job, that the one
                     they were not watching had run out. */}
-                <Meter
-                  label="Material processed"
-                  used={TRIAL.mediaMinutes * 60 - trial.mediaSeconds}
-                  total={TRIAL.mediaMinutes * 60}
-                  left={`${formatDuration(trial.mediaSeconds)} left`}
-                />
-                <a href="/pricing" style={{ display: 'inline-block', marginTop: 12, fontSize: 'var(--fs-sm)', color: 'var(--accent)', textDecoration: 'none' }}>
-                  See plans →
+                <div className={s.meterRow}>
+                  <span className="muted">Material procesado</span>
+                  <span className="muted" style={{ fontFamily: 'var(--mono)' }}>
+                    quedan {formatDuration(trial.mediaSeconds)}
+                  </span>
+                </div>
+                <Meter used={TRIAL.mediaMinutes * 60 - trial.mediaSeconds} total={TRIAL.mediaMinutes * 60} />
+                <a href="/pricing" className="link" style={{ display: 'inline-block', marginTop: 12 }}>
+                  Ver planes →
                 </a>
               </>
             ) : (
@@ -276,8 +278,8 @@ export default function DashboardClient({
                 {/* The plan's ceiling, now that there is one to draw. This card
                     used to show plain figures because nothing enforced the
                     monthly allowance; lib/entitlement.ts does, so a subscriber
-                    gets the same warning here as in the editor's sidebar rather
-                    than meeting the wall on a deadline.
+                    gets the same warning here as in the editor's pipeline
+                    rather than meeting the wall on a deadline.
 
                     Still absent for a plan this build cannot price — that case
                     is deliberately left uncapped, and a meter would draw a
@@ -286,31 +288,34 @@ export default function DashboardClient({
                   <>
                     {/* Minutes of material, which is what the plans are sold
                         in and what monthlyFrom() counts — not subtitles. This
-                        read "Subtitles translated" over a Studio ceiling of
+                        read "Subtítulos traducidos" over a Studio ceiling of
                         3 000, which is fifty hours of footage and not three
                         thousand lines; the customer had no way to tell which. */}
-                    <Meter
-                      label="Material processed"
-                      used={entitlement.monthly.used}
-                      total={entitlement.monthly.limit}
-                      left={`${formatDuration(entitlement.monthly.remaining * 60)} left`}
-                    />
-                    <div style={{ height: 12 }} />
+                    <div className={s.meterRow}>
+                      <span className="muted">Material procesado</span>
+                      <span className="muted" style={{ fontFamily: 'var(--mono)' }}>
+                        quedan {formatDuration(entitlement.monthly.remaining * 60)}
+                      </span>
+                    </div>
+                    <Meter used={entitlement.monthly.used} total={entitlement.monthly.limit} />
                   </>
                 ) : (
-                  <Figure
-                    value={(thisMonth?.translatedCues ?? 0).toLocaleString('en-GB')}
-                    label="subtitles translated"
-                  />
+                  <div className={s.figureRow}>
+                    <span className={s.figure}>{(thisMonth?.translatedCues ?? 0).toLocaleString('es-ES')}</span>
+                    <span className={s.figureLabel}>subtítulos traducidos</span>
+                  </div>
                 )}
 
                 {/* Audio is not capped: the plans are sold in subtitles and
                     promise nothing about hours, so this is a figure and not a
                     meter. */}
-                <Figure value={formatDuration(thisMonth?.transcribeSeconds ?? 0)} label="audio transcribed" />
+                <div className={s.figureRow}>
+                  <span className={s.figure}>{formatDuration(thisMonth?.transcribeSeconds ?? 0)}</span>
+                  <span className={s.figureLabel}>audio transcrito</span>
+                </div>
 
-                <div className="muted" style={{ marginTop: 8 }}>
-                  {(thisMonth?.calls ?? 0).toLocaleString('en-GB')} AI jobs run
+                <div className={`muted ${s.calls}`}>
+                  {(thisMonth?.calls ?? 0).toLocaleString('es-ES')} tareas de IA ejecutadas
                 </div>
               </>
             )}
@@ -318,9 +323,9 @@ export default function DashboardClient({
 
           <div className="card">
             <div className="card-head">
-              <span className="caps">Team</span>
+              <span className="caps">Equipo</span>
               <span className="muted" style={{ marginLeft: 'auto' }}>
-                {members.length} {members.length === 1 ? 'person' : 'people'}
+                {members.length} {members.length === 1 ? 'persona' : 'personas'}
               </span>
             </div>
 
@@ -328,26 +333,26 @@ export default function DashboardClient({
                 organisation stops being a card — the panel is where the whole
                 list lives, and it is one click away. */}
             {members.slice(0, 4).map(m => (
-              <div key={m.id} style={{ display: 'flex', gap: 8, alignItems: 'baseline', padding: '3px 0' }}>
-                <span style={{ fontSize: 'var(--fs-md)', color: 'var(--text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <div key={m.id} className={s.memberRow}>
+                <span className={s.memberName}>
                   {m.name || m.email}
-                  {m.user_id === user.id && <span className="muted"> · you</span>}
+                  {m.user_id === user.id && <span className="muted"> · tú</span>}
                 </span>
-                <span className="muted" style={{ marginLeft: 'auto', flexShrink: 0 }}>{m.role}</span>
+                <span className={`muted ${s.memberRole}`}>{roleLabel(m.role)}</span>
               </div>
             ))}
             {members.length > 4 && (
-              <div className="muted" style={{ paddingTop: 3 }}>and {members.length - 4} more</div>
+              <div className={`muted ${s.moreMembers}`}>y {members.length - 4} más</div>
             )}
 
             {pendingInvitations > 0 && (
-              <div style={{ marginTop: 8, fontSize: 'var(--fs-sm)', color: 'var(--amber)' }}>
-                {pendingInvitations} invitation{pendingInvitations === 1 ? '' : 's'} not yet accepted
+              <div className={s.pending}>
+                {pendingInvitations} invitación{pendingInvitations === 1 ? '' : 'es'} sin aceptar
               </div>
             )}
 
-            <button className="btn" style={{ marginTop: 12 }} onClick={() => setTeam(true)}>
-              {user.role === 'member' ? 'View team' : 'Manage team'}
+            <button className={`btn ${s.action}`} onClick={() => setTeam(true)}>
+              {user.role === 'member' ? 'Ver equipo' : 'Gestionar equipo'}
             </button>
           </div>
 
@@ -356,23 +361,23 @@ export default function DashboardClient({
               <span className="caps">Plan</span>
             </div>
 
-            <div style={{ fontSize: 18, fontFamily: 'var(--mono)', color: 'var(--text)' }}>
-              {subscription ? subscription.plan : 'Free trial'}
+            <div className={s.planName}>
+              {subscription ? subscription.plan : 'Prueba gratuita'}
             </div>
 
             {subscription ? (
               <>
-                <div className="muted" style={{ marginTop: 4 }}>
-                  {members.length} of {subscription.seats} seat{subscription.seats === 1 ? '' : 's'} used
+                <div className={`muted ${s.planLine}`}>
+                  {members.length} de {subscription.seats} plaza{subscription.seats === 1 ? '' : 's'} usadas
                 </div>
                 {subscription.currentPeriodEnd && (
-                  <div className="muted">
+                  <div className={`muted ${s.planLine}`}>
                     {/* Formatted in UTC on purpose: the same instant rendered in
                         the server's timezone and again in the reader's is two
                         different strings, and React calls that a hydration
                         mismatch on a date nobody was reading that closely. */}
-                    Renews{' '}
-                    {new Date(subscription.currentPeriodEnd).toLocaleDateString('en-GB', {
+                    Renueva el{' '}
+                    {new Date(subscription.currentPeriodEnd).toLocaleDateString('es-ES', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
@@ -381,101 +386,83 @@ export default function DashboardClient({
                   </div>
                 )}
                 {subscription.status !== 'active' && (
-                  <div className="err" style={{ marginTop: 6 }}>Status: {subscription.status}</div>
+                  <div className={`err ${s.status}`}>Estado: {subscription.status}</div>
                 )}
               </>
             ) : (
-              <div className="muted" style={{ marginTop: 4 }}>
-                No card on file, and nothing expiring — the trial is an amount
-                rather than a fortnight.
+              <div className={`muted ${s.planLine}`}>
+                Sin tarjeta registrada, y nada caduca — la prueba es una
+                cantidad, no una quincena.
               </div>
             )}
 
             {subscription && user.role !== 'member' ? (
               <>
-                <button className="btn" style={{ marginTop: 12 }} disabled={portalBusy} onClick={manageBilling}>
-                  {portalBusy ? 'Opening…' : 'Manage billing'}
+                <button className={`btn ${s.action}`} disabled={portalBusy} onClick={() => void manageBilling()}>
+                  {portalBusy ? 'Abriendo…' : 'Gestionar facturación'}
                 </button>
-                {portalError && <div className="err" style={{ marginTop: 6 }}>{portalError}</div>}
+                {portalError && <div className={`err ${s.actionErr}`}>{portalError}</div>}
               </>
             ) : !subscription ? (
-              <a href="/pricing" className="btn" style={{ display: 'inline-block', marginTop: 12, textDecoration: 'none' }}>
-                Subscribe
+              <a href="/pricing" className={`btn ${s.action}`} style={{ display: 'inline-block' }}>
+                Suscribirse
               </a>
             ) : null}
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '28px 0 12px' }}>
-          <h1 style={{ fontSize: 15, fontWeight: 500, color: 'var(--text)' }}>Projects</h1>
+        <div className={s.projectsHead}>
+          <h2>Proyectos</h2>
           <span className="muted">{projects.length}</span>
-          <button
-            className="btn btn-primary btn-lg"
-            style={{ marginLeft: 'auto' }}
-            disabled={naming}
-            onClick={() => setNaming(true)}
-          >
-            New project
+          <div className={s.spacer} />
+          <button className="btn btn-primary btn-lg" disabled={naming} onClick={() => setNaming(true)}>
+            Nuevo proyecto
           </button>
         </div>
 
-        {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && <div className={`err ${s.actionErr}`}>{error}</div>}
 
-        {naming && <div style={{ marginBottom: 12 }}>{nameField}</div>}
+        {naming && nameField}
 
         {projects.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '38px 16px' }}>
-            <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text2)' }}>No projects yet</div>
-            <div className="muted" style={{ marginTop: 5 }}>
-              A project is one job — a film, an episode, a campaign — and holds
-              the sequences it breaks into, along with the terminology they all
-              share. Everybody in {organizationName} sees it.
-            </div>
+          <div className="empty">
+            <span className="empty-title">Ningún proyecto todavía</span>
+            <p>
+              Un proyecto es un encargo — una película, un episodio, una
+              campaña — y agrupa las secuencias en las que se divide, junto
+              con la terminología que todas comparten. Todo el mundo en{' '}
+              {organizationName} lo ve.
+            </p>
             {!naming && (
-              <button className="btn btn-primary btn-lg" style={{ marginTop: 14 }}
-                onClick={() => setNaming(true)}>
-                Start a project
+              <button className="btn btn-primary btn-lg" onClick={() => setNaming(true)}>
+                Empezar un proyecto
               </button>
             )}
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12 }}>
+          <div className={s.projectsGrid}>
             {projects.map(p => (
-              <div key={p.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+              <div key={p.id} className={`card ${s.projectCard}`}>
                 {/* A button rather than a clickable div: this is the way into the
                     project, and the way in should answer the keyboard. */}
-                <button
-                  onClick={() => router.push(`/projects/${p.id}`)}
-                  style={{
-                    flex: 1, textAlign: 'left', padding: '13px 15px 9px',
-                    background: 'none', border: 'none', cursor: 'pointer', font: 'inherit',
-                  }}
-                >
-                  <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {p.name}
-                  </div>
-                  <div className="muted" style={{ fontFamily: 'var(--mono)', marginTop: 5 }}>
-                    {p.sequence_count} sequence{p.sequence_count === 1 ? '' : 's'}
-                    {p.cue_count > 0 && ` · ${p.cue_count.toLocaleString('en-GB')} cues`}
+                <button className={s.projectOpen} onClick={() => router.push(`/projects/${p.id}`)}>
+                  <div className={s.projectName}>{p.name}</div>
+                  <div className={s.projectMeta}>
+                    {p.sequence_count} secuencia{p.sequence_count === 1 ? '' : 's'}
+                    {p.cue_count > 0 && ` · ${p.cue_count.toLocaleString('es-ES')} cues`}
                   </div>
                   {p.target_langs.length > 0 && (
-                    <div className="muted" style={{ fontFamily: 'var(--mono)', marginTop: 2 }}>
-                      {p.target_langs.map(short).join(' ')}
-                    </div>
+                    <div className={s.projectLangs}>{p.target_langs.map(short).join(' ')}</div>
                   )}
                 </button>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 15px 11px' }}>
+                <div className={s.projectFoot}>
                   {/* Last activity anywhere inside, not the project row's own
                       timestamp — that only moves on a rename. */}
                   <span className="muted" suppressHydrationWarning>{ago(p.last_activity)}</span>
-                  <button
-                    className="btn btn-quiet btn-danger"
-                    style={{ marginLeft: 'auto' }}
-                    disabled={busyId === p.id}
-                    onClick={() => void remove(p)}
-                  >
-                    {busyId === p.id ? 'Deleting…' : 'Delete'}
+                  <div className={s.spacer} />
+                  <button className="btn btn-danger" disabled={busyId === p.id} onClick={() => void remove(p)}>
+                    {busyId === p.id ? 'Eliminando…' : 'Eliminar'}
                   </button>
                 </div>
               </div>
@@ -486,66 +473,37 @@ export default function DashboardClient({
         {/* Only once there is a past to look at: a table with one row in it is
             the card above, said twice. */}
         {usage.length > 1 && (
-          <div className="card" style={{ marginTop: 28 }}>
+          <div className={`card ${s.history}`}>
             <div className="card-head">
-              <span className="caps">Usage history</span>
+              <span className="caps">Historial de uso</span>
             </div>
             {usage.map(m => (
-              <div key={m.month} className="row" style={{ padding: '6px 0' }}>
-                <span style={{ fontSize: 'var(--fs-md)', color: 'var(--text2)', minWidth: 130 }}>
-                  {formatMonth(m.month)}
-                </span>
+              <div key={m.month} className="row">
+                <span className={s.historyMonth}>{formatMonth(m.month)}</span>
                 <span className="muted" style={{ fontFamily: 'var(--mono)' }}>
-                  {formatDuration(m.transcribeSeconds)} audio
+                  {formatDuration(m.transcribeSeconds)} de audio
                 </span>
                 <span className="muted" style={{ fontFamily: 'var(--mono)', marginLeft: 'auto' }}>
-                  {m.translatedCues.toLocaleString('en-GB')} subtitles
+                  {m.translatedCues.toLocaleString('es-ES')} subtítulos
                 </span>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }
 
-/** One trial allowance, spent and remaining. */
-function Meter({
-  label,
-  used,
-  total,
-  left,
-}: {
-  label: string
-  used: number
-  total: number
-  left: string
-}) {
+/** One allowance, spent and remaining. The same thresholds the editor's
+ *  pipeline warns on, so the two can never disagree about whether an
+ *  allowance is nearly gone. */
+function Meter({ used, total }: { used: number; total: number }) {
   const spent = Math.min(100, Math.round((used / total) * 100))
-  // The same thresholds the editor's sidebar warns on, so the two can never
-  // disagree about whether a trial is nearly gone.
   const state = spent >= 100 ? 'none' : spent >= 80 ? 'low' : ''
-
   return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 5 }}>
-        <span className="muted">{label}</span>
-        <span className="muted" style={{ fontFamily: 'var(--mono)' }}>{left}</span>
-      </div>
-      <div className="meter">
-        <div className={`meter-fill ${state}`} style={{ width: `${spent}%` }} />
-      </div>
-    </div>
-  )
-}
-
-/** A number worth reading from across the desk, and what it counts. */
-function Figure({ value, label }: { value: string; label: string }) {
-  return (
-    <div style={{ marginBottom: 6 }}>
-      <span style={{ fontSize: 18, fontFamily: 'var(--mono)', color: 'var(--text)' }}>{value}</span>
-      <span className="muted" style={{ marginLeft: 6 }}>{label}</span>
+    <div className="meter">
+      <div className={`meter-fill ${state}`} style={{ width: `${spent}%` }} />
     </div>
   )
 }
