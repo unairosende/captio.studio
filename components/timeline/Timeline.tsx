@@ -39,7 +39,11 @@ import type { Subtitle } from '@/types/subtitle'
 
 const RULER_H = 18
 const BLOCK_H = 38
-const HEIGHT = 132
+// The waveform is the instrument timing depends on — direction B's own words
+// for it — so it gets the room to read as one, not a thin strip under the
+// ruler and the cue blocks. Everything below (amplitude, hit-testing bands)
+// derives from this one number.
+const HEIGHT = 196
 
 /** Roughly one label per this many pixels, before rounding to a tidy interval. */
 const PX_PER_TICK = 78
