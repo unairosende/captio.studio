@@ -5,7 +5,7 @@ import { listComments } from '@/lib/db/comments'
 import { getProject } from '@/lib/db/projects'
 import { getSequence } from '@/lib/db/sequences'
 import { getEntitlement } from '@/lib/entitlement'
-import type { Subtitle, TranslationStore } from '@/types/subtitle'
+import { readCues } from '@/lib/subtitles/data'
 
 import TranslateClient from './TranslateClient'
 
@@ -25,18 +25,6 @@ import TranslateClient from './TranslateClient'
 
 interface Props {
   searchParams: Promise<{ project?: string; sequence?: string }>
-}
-
-/** `data` is free-form jsonb, so what comes back is checked rather than trusted. */
-function readCues(data: unknown): { subtitles: Subtitle[]; translations: TranslationStore } {
-  const blob = (data ?? {}) as { subtitles?: unknown; translations?: unknown }
-  return {
-    subtitles: Array.isArray(blob.subtitles) ? (blob.subtitles as Subtitle[]) : [],
-    translations:
-      blob.translations && typeof blob.translations === 'object'
-        ? (blob.translations as TranslationStore)
-        : {},
-  }
 }
 
 export default async function TranslatePage({ searchParams }: Props) {

@@ -1,3 +1,4 @@
+import { applyTextEdits, readCues, type TextEdit } from '../subtitles/data.ts'
 import { isUuid, query, queryOne, requireOrg, transaction } from './client.ts'
 import { applyAnchorOps, type AnchorOp } from './comments.ts'
 
@@ -260,6 +261,48 @@ export async function updateSequence(
     }
     return sequence
   })
+}
+
+/**
+ * Rewrite the text of some cues, and only the text.
+ *
+ * The one write a client makes. Read-modify-write, guarded by `version`: the
+ * expected version is the one the caller saw, or failing that the one just
+ * read, so two people rewriting different lines of the same track cannot
+ * silently lose each other's — the second gets a conflict and reloads. Every
+ * other key in `data` travels through untouched; this function knows about
+ * cues and nothing else in the blob.
+ */
+export async function saveTextEdits(
+  orgId: string,
+  id: string,
+  edits: TextEdit[],
+  opts: {
+    expectedVersion?: number
+    createdBy?: string | null
+    guestId?: string | null
+    note?: string | null
+  } = {},
+): Promise<SequenceRow | null> {
+  const current = await getSequence(orgId, id)
+  if (!current) return null
+
+  const { subtitles, translations } = readCues(current.data)
+  // Throws UnknownCueError for a cue or language that is not there; the route
+  // turns that into a 400 and nothing has been written.
+  const next = applyTextEdits(subtitles, translations, edits)
+
+  return updateSequence(
+    orgId,
+    id,
+    { data: { ...(current.data as Record<string, unknown>), ...next } },
+    {
+      expectedVersion: opts.expectedVersion ?? current.version,
+      createdBy: opts.createdBy,
+      guestId: opts.guestId,
+      note: opts.note,
+    },
+  )
 }
 
 export async function deleteSequence(orgId: string, id: string): Promise<boolean> {
