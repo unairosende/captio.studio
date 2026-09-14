@@ -131,22 +131,22 @@ export default function CommentsPanel({
           )}
           {thread.map(c => (
             <div key={c.id} style={{
-              padding: '7px 0', borderBottom: '1px solid var(--border)',
+              padding: '7px 0', borderBottom: '1px solid var(--line)',
               opacity: c.resolved ? .55 : 1,
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text2)' }}>
+                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--ink-2)' }}>
                   {c.author_name ?? 'Someone'}
                 </span>
                 {c.guest_id && (
                   <span className="muted" style={{ fontSize: 9 }}>client</span>
                 )}
                 {c.lang && (
-                  <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 3, background: 'var(--accent-dim)', color: '#8ba8ff' }}>
+                  <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 3, background: 'var(--select)', color: 'var(--accent)' }}>
                     {c.lang}
                   </span>
                 )}
-                <span style={{ fontSize: 10, color: 'var(--text3)' }}>
+                <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>
                   {new Date(c.created_at).toLocaleString()}
                 </span>
                 <button className="btn" style={{ marginLeft: 'auto' }}
@@ -166,7 +166,7 @@ export default function CommentsPanel({
                 )}
               </div>
               <div style={{
-                fontSize: 12, color: 'var(--text)', lineHeight: 1.5,
+                fontSize: 12, color: 'var(--ink)', lineHeight: 1.5,
                 whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                 textDecoration: c.resolved ? 'line-through' : 'none',
               }}>

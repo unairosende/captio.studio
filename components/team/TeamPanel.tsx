@@ -197,7 +197,7 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
         </div>
 
         {canManage && (
-          <div style={{ padding: '10px 13px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ padding: '10px 13px', borderBottom: '1px solid var(--line)' }}>
             <div style={{ display: 'flex', gap: 7 }}>
               <input
                 value={email}
@@ -244,8 +244,8 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
             </div>
             <div style={{
               userSelect: 'all', wordBreak: 'break-all',
-              fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--text2)',
-              background: 'var(--bg2)', border: '1px solid var(--border)',
+              fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--ink-2)',
+              background: 'var(--s2)', border: '1px solid var(--line)',
               borderRadius: 'var(--r-sm)', padding: '5px 7px',
             }}>
               {linkToCopy}
@@ -257,7 +257,7 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
           {members.map(m => (
             <div key={m.id} className="row">
               <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--fs-md)', color: 'var(--text)' }}>
+                <div style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)' }}>
                   {m.user.name || m.user.email}
                   {m.userId === currentUserId && (
                     <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}> · you</span>
@@ -300,7 +300,7 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
               </div>
               {invites.map(inv => (
                 <div key={inv.id} className="row" style={{ padding: '6px 0' }}>
-                  <div style={{ fontSize: 'var(--fs-md)', color: 'var(--text2)', wordBreak: 'break-all' }}>
+                  <div style={{ fontSize: 'var(--fs-md)', color: 'var(--ink-2)', wordBreak: 'break-all' }}>
                     {inv.email}
                   </div>
                   <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}>

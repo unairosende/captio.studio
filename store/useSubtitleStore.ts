@@ -265,6 +265,12 @@ interface AppState {
   clearReviewNotes: (lang: string) => void
   closeTab: (lang: string) => void
   switchToTab: (tab: string) => void
+  /**
+   * The cue the inspector is showing, by index. Not part of the undo
+   * snapshots: taking back an edit should not also move the selection.
+   */
+  selected: number | null
+  select: (index: number | null) => void
   setOutputMode: (mode: OutputMode) => void
   setViewMode: (mode: ViewMode) => void
   setSrcLang: (l: string) => void
@@ -550,6 +556,8 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   }),
 
   switchToTab: tab => set({ activeTab: tab }),
+  selected: null,
+  select: index => set({ selected: index }),
   setOutputMode:    mode => set({ outputMode: mode }),
   setViewMode:      mode => set({ viewMode: mode }),
   setSrcLang:       l    => set({ srcLang: l }),

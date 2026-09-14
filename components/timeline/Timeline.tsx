@@ -63,27 +63,39 @@ interface Palette {
 /**
  * Colours from the stylesheet rather than a second copy here.
  *
- * A canvas cannot use CSS variables directly, so they are read from the DOM.
- * Hard-coded values would be a palette that silently stops matching the first
- * time the theme changes.
+ * A canvas cannot use CSS variables directly, and reading them with
+ * getPropertyValue hands back the token unresolved — with the redesign's
+ * light-dark() pairs, literally the text "light-dark(…)". So each token is
+ * assigned to a probe element's colour and read back computed, which is the
+ * one place the browser resolves it for the theme in force.
  */
 function readPalette(el: HTMLElement): Palette {
-  const css = getComputedStyle(el)
-  const v = (name: string, fallback: string) => css.getPropertyValue(name).trim() || fallback
-
-  return {
-    bg: v('--bg2', '#1e2026'),
-    ruler: v('--bg3', '#262830'),
-    rulerText: v('--text3', '#555a6e'),
-    wave: v('--border2', '#3a3d48'),
-    waveActive: v('--accent', '#5b7cf6'),
-    block: 'rgba(91,124,246,0.16)',
-    blockActive: 'rgba(91,124,246,0.34)',
-    warn: 'rgba(240,164,48,0.28)',
-    error: 'rgba(240,80,80,0.28)',
-    text: v('--text2', '#8b8fa8'),
-    playhead: v('--red', '#f05050'),
+  const probe = document.createElement('span')
+  probe.style.display = 'none'
+  el.appendChild(probe)
+  const v = (name: string, fallback: string) => {
+    probe.style.color = `var(${name}, ${fallback})`
+    return getComputedStyle(probe).color || fallback
   }
+  const mix = (name: string, pct: number, fallback: string) => {
+    probe.style.color = `color-mix(in srgb, var(${name}, ${fallback}) ${pct}%, transparent)`
+    return getComputedStyle(probe).color || fallback
+  }
+  const palette: Palette = {
+    bg: v('--s1', '#1c1c1f'),
+    ruler: v('--s2', '#232327'),
+    rulerText: v('--ink-3', '#83827c'),
+    wave: v('--ink-3', '#83827c'),
+    waveActive: v('--ink', '#ecebe6'),
+    block: mix('--ink', 12, '#ecebe6'),
+    blockActive: mix('--ink', 28, '#ecebe6'),
+    warn: mix('--warn', 30, '#e6c15a'),
+    error: mix('--danger', 30, '#ff6f5e'),
+    text: v('--ink-2', '#a3a19a'),
+    playhead: v('--ink', '#ecebe6'),
+  }
+  probe.remove()
+  return palette
 }
 
 function roundRect(
@@ -527,16 +539,12 @@ export default function Timeline() {
   }, [seek])
 
   const ready = duration > 0
-  const btn = {
-    padding: '3px 8px', borderRadius: 5, fontSize: 11, lineHeight: 1.4,
-    border: '1px solid var(--border2)', background: 'var(--bg2)',
-    color: 'var(--text2)', cursor: 'pointer',
-  } as const
 
   return (
-    <div style={{ borderTop: '1px solid var(--border)', background: 'var(--bg1)', flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 12px' }}>
+    <div className="transport">
+      <div className="transport-bar">
         <button
+          className="btn"
           onClick={() => {
             transportRef.current = null
             setTransport(null)
@@ -544,74 +552,36 @@ export default function Timeline() {
             else play(1)
           }}
           disabled={!ready}
-          aria-label={playing ? 'Pause' : 'Play'}
-          style={{
-            width: 26, height: 26, borderRadius: '50%', border: 'none', flexShrink: 0,
-            background: ready ? 'var(--accent)' : 'var(--bg3)', color: '#fff',
-            cursor: ready ? 'pointer' : 'not-allowed', fontSize: 11, lineHeight: 1,
-          }}
+          aria-label={playing ? 'Pausa' : 'Reproducir'}
+          data-cmd={playing ? 'Pausar' : 'Reproducir'}
+          data-cmd-hint="K"
         >
           {playing ? '❚❚' : '▶'}
         </button>
 
-        <span style={{ fontFamily: 'var(--mono)', fontSize: 11, color: 'var(--text2)' }}>
+        <span className="transport-clock">
           {clock}
-          {ready && <span style={{ color: 'var(--text3)' }}> / {clockLabel(duration)}</span>}
+          {ready && <span className="muted"> / {clockLabel(duration)}</span>}
         </span>
 
         {playing && transport && transport.speed !== 1 && (
-          <span
-            style={{
-              fontFamily: 'var(--mono)', fontSize: 10, padding: '1px 6px', borderRadius: 4,
-              background: 'var(--accent-dim)', color: '#8ba8ff',
-            }}
-          >
-            {speedLabel(transport)}
-          </span>
+          <span className="kbd">{speedLabel(transport)}</span>
         )}
 
-        <span
-          style={{
-            fontSize: 11, marginLeft: 4, overflow: 'hidden', textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap', maxWidth: 220,
-            color: failed ? 'var(--red)' : 'var(--text3)',
-          }}
-        >
+        <span className={failed ? 'err' : 'muted'} title={name ?? undefined}>
           {loading
-            ? 'Decoding…'
+            ? 'Descodificando…'
             : failed
-              ? 'That file could not be decoded'
-              : (name ?? 'No audio loaded')}
+              ? 'Ese archivo no se pudo descodificar'
+              : (name ?? 'Sin audio — carga el de la secuencia para cuadrar tiempos')}
         </span>
 
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 5 }}>
-          <button
-            onClick={() => changeZoom(zoom / ZOOM_STEP)}
-            disabled={!ready}
-            style={btn}
-            aria-label="Zoom out"
-          >
-            −
-          </button>
-          <span
-            style={{
-              fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)',
-              minWidth: 40, textAlign: 'center',
-            }}
-          >
-            {zoom.toFixed(1)}×
-          </span>
-          <button
-            onClick={() => changeZoom(zoom * ZOOM_STEP)}
-            disabled={!ready}
-            style={btn}
-            aria-label="Zoom in"
-          >
-            +
-          </button>
-
-          <button onClick={() => fileRef.current?.click()} style={{ ...btn, marginLeft: 6 }}>
-            Load audio
+        <div className="transport-tools">
+          <button className="btn btn-quiet" onClick={() => changeZoom(zoom / ZOOM_STEP)} disabled={!ready} aria-label="Alejar">−</button>
+          <span className="transport-zoom">{zoom.toFixed(1)}×</span>
+          <button className="btn btn-quiet" onClick={() => changeZoom(zoom * ZOOM_STEP)} disabled={!ready} aria-label="Acercar">+</button>
+          <button className={ready ? 'btn' : 'btn btn-primary'} data-cmd="Cargar el audio de la secuencia" onClick={() => fileRef.current?.click()}>
+            {ready ? 'Cambiar audio' : 'Cargar audio'}
           </button>
         </div>
 

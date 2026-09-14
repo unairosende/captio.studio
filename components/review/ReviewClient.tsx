@@ -290,8 +290,9 @@ export default function ReviewClient(props: ReviewProps) {
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg0)', display: 'flex', flexDirection: 'column' }}>
+      {/* Same as the dashboard: the dialog is already on the new tokens. */}
       {openCue && (
-        <CommentsPanel
+        <div className="v2"><CommentsPanel
           sequenceId={sequence.id}
           cueIndex={openCue.index}
           lang={openCue.lang}
@@ -300,7 +301,7 @@ export default function ReviewClient(props: ReviewProps) {
           isMine={c => (self.userId ? c.author_id === self.userId : c.guest_id === self.guestId)}
           authHeaders={authHeaders}
           onClose={() => setOpenCue(null)}
-        />
+        /></div>
       )}
 
       {/* Top bar */}

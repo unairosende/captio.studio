@@ -58,6 +58,31 @@
   animation: v2-spin .6s linear infinite;
 }
 
+/* Lo que se dice en pequeño al lado de algo: una aclaración, un fallo. */
+.v2 .muted { color: var(--ink-3); font-size: var(--fs-sm); }
+.v2 .err   { color: var(--danger); font-size: var(--fs-sm); }
+.v2 .ok    { color: var(--ok); font-size: var(--fs-sm); }
+
+/* Una ficha que se marca: un idioma rápido, un filtro. En tinta cuando está
+   puesta, para que no compita con el ámbar del control de calidad. */
+.v2 .chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--s0);
+  color: var(--ink-2);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.v2 .chip:hover, .v2 .chip[data-state="hover"] { background: var(--s0-hover); color: var(--ink); }
+.v2 .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--s0); }
+
 /* ── Botón ───────────────────────────────────────────────────────────────── */
 
 .v2 .btn {
@@ -526,6 +551,16 @@
 .v2 .empty[data-kind="error"] .empty-title::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
 .v2 .empty p { margin: 0; max-width: 40ch; }
 .v2 .empty .btn { margin-top: var(--sp-2); }
+
+/* ── Transporte de la onda ───────────────────────────────────────────────── */
+
+/* La barra sobre la forma de onda: reproducir, el reloj, el zoom, el audio.
+   La onda es el instrumento; esto son sus mandos, y pesan poco a propósito. */
+.v2 .transport { background: var(--s1); }
+.v2 .transport-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); }
+.v2 .transport-clock { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
+.v2 .transport-tools { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); }
+.v2 .transport-zoom { min-width: 40px; text-align: center; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
 
 /* ── Esqueleto ───────────────────────────────────────────────────────────── */
 

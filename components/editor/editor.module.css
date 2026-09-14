@@ -1,0 +1,421 @@
+/* La composición del editor: cabecera, pipeline, tabla, inspector y onda.
+   Solo maquetación de esta pantalla; las piezas viven en app/ui.css y los
+   tokens en app/tokens.css. */
+
+.editor {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 240px minmax(0, 1fr) 300px;
+  grid-template-areas:
+    "head head head"
+    "pipe main side"
+    "wave wave wave";
+  height: 100vh;
+  background: var(--s1);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Cabecera ───────────────────────────────────────────────────────────── */
+
+.head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
+}
+
+.brand {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: .14em;
+  color: var(--accent);
+  text-decoration: none;
+  flex: none;
+}
+
+.sep { width: 1px; height: 16px; background: var(--line-2); flex: none; }
+
+.crumbs {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.crumbs a { color: var(--ink-3); text-decoration: none; }
+.crumbs a:hover { color: var(--ink); text-decoration: underline; }
+.project { overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
+
+/* El nombre de la secuencia se edita en su sitio: un campo sin borde que
+   solo lo enseña al pasar el ratón o al entrar. */
+.seqName {
+  font: inherit;
+  font-family: var(--mono);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
+  padding: 2px var(--sp-2);
+  width: 200px;
+}
+.seqName:hover { border-color: var(--line-2); }
+.seqName:focus-visible { border-color: transparent; outline: 2px solid var(--ring); outline-offset: 0; }
+
+.pair {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  flex: none;
+}
+.pair span { padding: 2px 6px; border-radius: var(--r-sm); background: var(--s2); color: var(--ink-2); }
+
+/* El campo de la paleta en la cabecera: parece un campo, es un botón. Es la
+   superficie principal de acción y lo dice el propio texto. */
+.palTrigger {
+  flex: 1;
+  max-width: 420px;
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--ctl);
+  padding: 0 var(--sp-2) 0 var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--s0);
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-align: left;
+  cursor: text;
+  margin-left: auto;
+}
+.palTrigger:hover { border-color: color-mix(in srgb, var(--ink) 32%, transparent); }
+.palTrigger:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.palTrigger span:first-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.saved {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  white-space: nowrap;
+  flex: none;
+}
+.saved::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+.saved[data-dirty="true"]::before { background: var(--warn); }
+
+.avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--line-2);
+  border-radius: 50%;
+  background: var(--s2);
+  color: var(--ink-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  cursor: pointer;
+  flex: none;
+}
+.avatar:hover { background: var(--s3); color: var(--ink); }
+.avatar:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+
+/* Un menú colgado de lo que lo abrió. */
+.anchor { position: relative; }
+.pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; }
+.popLeft { right: auto; left: 0; }
+
+/* ── Pipeline ───────────────────────────────────────────────────────────── */
+
+.pipe {
+  grid-area: pipe;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--line);
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.pipeTitle { padding: var(--sp-3) var(--sp-4) var(--sp-1); }
+
+.step { border-bottom: 1px solid var(--line); }
+
+/* La cabecera de un paso: número, nombre, y una línea que dice cómo va.
+   Es un botón: un paso se abre para trabajar en él y se cierra solo. */
+.stepHead {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  column-gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-2) var(--sp-4);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.stepHead:hover { background: var(--hover); }
+.stepHead:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+
+.stepNum {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  padding-top: 3px;
+}
+.step[data-done="true"] .stepNum { color: var(--ok); }
+.stepName { display: block; font-weight: 500; }
+.stepStatus {
+  display: block;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stepStatus[data-tone="warn"]   { color: var(--warn); }
+.stepStatus[data-tone="danger"] { color: var(--danger); }
+
+.stepBody {
+  display: grid;
+  gap: var(--sp-3);
+  padding: var(--sp-1) var(--sp-4) var(--sp-4) calc(var(--sp-4) + 24px + var(--sp-2));
+}
+.stepBody :global(.caps) { display: block; margin-bottom: var(--sp-1); }
+
+.chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+
+/* La pequeña zona de soltar: un archivo que aún no está. */
+.drop {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  padding: var(--sp-3);
+  border: 1px dashed var(--line-2);
+  border-radius: var(--r-md);
+  color: var(--ink-2);
+  font-size: var(--fs-sm);
+  text-align: center;
+  cursor: pointer;
+}
+.drop:hover { border-color: var(--ink-3); color: var(--ink); }
+.drop small { color: var(--ink-3); font-family: var(--mono); font-size: var(--fs-xs); }
+
+.file {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+}
+.file span:first-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.radios { display: grid; gap: var(--sp-1); }
+.radios label { display: flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-md); cursor: pointer; }
+.radios input { accent-color: var(--ink); margin: 0; }
+
+.jobMsg { font-size: var(--fs-sm); color: var(--ink-2); line-height: 1.4; }
+.jobMsg[data-tone="danger"] { color: var(--danger); }
+.jobMsg[data-tone="ok"] { color: var(--ok); }
+
+.notes { display: grid; gap: var(--sp-1); max-height: 220px; overflow-y: auto; font-size: var(--fs-sm); }
+.note { display: flex; gap: var(--sp-2); line-height: 1.4; }
+.note b { font-family: var(--mono); font-weight: 500; color: var(--warn); flex: none; }
+.note b[data-level="error"] { color: var(--danger); }
+
+/* Lo que no es un paso: comentarios, glosario, uso del plan. */
+.pipeFoot { margin-top: auto; padding: var(--sp-3) var(--sp-4) var(--sp-4); display: grid; gap: var(--sp-2); border-top: 1px solid var(--line); }
+.pipeRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-md);
+  text-align: left;
+  cursor: pointer;
+}
+.pipeRow:hover { color: var(--ink); }
+.pipeRow :global(.kbd), .pipeRow :global(.badge) { margin-left: auto; }
+.meterRow { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--sp-1); }
+.meterVal { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.meterVal[data-tone="warn"] { color: var(--warn); }
+.meterVal[data-tone="danger"] { color: var(--danger); }
+
+/* ── Tabla ──────────────────────────────────────────────────────────────── */
+
+.main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: var(--s0);
+  transition: background var(--t-base);
+}
+
+.tabsBar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.tabsBar > :global(.tabs) { border-bottom: 0; flex: 1; min-width: 0; overflow-x: auto; }
+.tabClose {
+  margin-left: 2px;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink-3);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1;
+  cursor: pointer;
+}
+.tabClose:hover { background: var(--danger-bg); color: var(--danger); }
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 36px;
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-3);
+  flex: none;
+}
+.summary b { color: var(--ink); font-weight: 500; }
+
+/* Los contadores de avisos son filtros: pulsar uno deja solo esos cues. */
+.count {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 7px;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+.count::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.count[data-tone="warn"]   { color: var(--warn); }
+.count[data-tone="danger"] { color: var(--danger); }
+.count[data-tone="note"]   { color: var(--ink-2); }
+.count:hover { background: var(--hover); }
+.count[aria-pressed="true"] { border-color: currentColor; }
+
+/* Un cue con un hilo abierto lo dice con un punto tras el número. */
+.dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); margin-left: 4px; vertical-align: middle; }
+.keys { margin-left: auto; display: flex; align-items: center; gap: 4px; }
+
+.tableWrap { flex: 1; min-height: 0; overflow-y: auto; }
+.tableWrap > :global(.cues) { border: 0; border-radius: 0; }
+.tableWrap :global(.cue-head) { position: sticky; top: 0; background: var(--s0); z-index: 1; }
+
+.emptyWrap { padding: var(--sp-8) var(--sp-6); }
+
+/* ── Inspector ──────────────────────────────────────────────────────────── */
+
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--line);
+  transition: background var(--t-base);
+}
+
+/* Foco = extremo de la escala. Al empezar a corregir en el inspector, el
+   inspector pasa a blanco y la tabla se retira al gris: solo hay una
+   superficie blanca a la vez. */
+.editor[data-focus="side"] .main { background: var(--s1); }
+.editor[data-focus="side"] .side { background: var(--s0); }
+.editor[data-focus="side"] .tableWrap :global(.cue-head) { background: var(--s1); }
+.editor[data-focus="side"] .tableWrap :global(.cue[aria-selected="true"]) { background: var(--s3); }
+
+.sideHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 44px;
+  padding: 0 var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.sideHead h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
+.sideHead :global(.muted) { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+.sideHead :global(.muted)[data-tone="warn"]   { color: var(--warn); }
+.sideHead :global(.muted)[data-tone="danger"] { color: var(--danger); }
+.sideTools { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
+
+.section { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); display: grid; gap: var(--sp-2); }
+.section :global(.caps) { display: flex; justify-content: space-between; align-items: baseline; }
+
+.times { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
+.times small { display: block; color: var(--ink-3); font-size: var(--fs-xs); }
+
+.original { white-space: pre-wrap; word-break: break-word; line-height: 1.5; color: var(--ink-2); }
+.original[data-ink] { color: var(--ink); }
+
+.counter { display: flex; align-items: center; gap: var(--sp-2); font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.counter b { font-weight: 500; color: var(--ink-2); }
+.counter b[data-tone="warn"]   { color: var(--warn); }
+.counter b[data-tone="danger"] { color: var(--danger); }
+
+.issues { display: grid; gap: 4px; font-size: var(--fs-sm); color: var(--ink-2); }
+.issue { display: flex; gap: var(--sp-2); align-items: baseline; line-height: 1.4; }
+.issue::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; margin-top: 1px; background: var(--warn); }
+.issue[data-level="error"]::before { background: var(--danger); }
+
+.diff { font-size: var(--fs-sm); line-height: 1.5; word-break: break-word; color: var(--ink-2); }
+.ins { color: var(--ok); }
+.del { color: var(--warn); text-decoration: line-through; opacity: .75; }
+
+.glossary { display: grid; gap: var(--sp-1); }
+.term { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-1); }
+
+.hint { font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.45; }
+
+/* ── Onda ───────────────────────────────────────────────────────────────── */
+
+.wave { grid-area: wave; border-top: 1px solid var(--line); background: var(--s1); }
+
+@media (max-width: 1100px) {
+  .editor { grid-template-columns: 200px minmax(0, 1fr) 260px; }
+}

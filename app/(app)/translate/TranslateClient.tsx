@@ -1,21 +1,20 @@
 'use client'
 
-import Sidebar from '@/components/sidebar/Sidebar'
-import LangTabsBar from '@/components/editor/LangTabsBar'
-import EditorArea from '@/components/editor/EditorArea'
-import SequenceBar from '@/components/sequences/SequenceBar'
-import Timeline from '@/components/timeline/Timeline'
-import TeamPanel from '@/components/team/TeamPanel'
-import CommandPalette from '@/components/palette/CommandPalette'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { signOut as endSession } from '@/lib/auth/client'
-import { useSubtitleStore } from '@/store/useSubtitleStore'
+import CueTable, { type Filter } from '@/components/editor/CueTable'
+import Header from '@/components/editor/Header'
+import Inspector from '@/components/editor/Inspector'
+import Pipeline, { type Step } from '@/components/editor/Pipeline'
+import s from '@/components/editor/editor.module.css'
+import CommandPalette from '@/components/palette/CommandPalette'
+import TeamPanel from '@/components/team/TeamPanel'
+import Timeline from '@/components/timeline/Timeline'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { Entitlement } from '@/lib/entitlement'
+import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
 import type { Subtitle, TranslationStore } from '@/types/subtitle'
-import { useRouter } from 'next/navigation'
 
 interface Props {
   /**
@@ -45,12 +44,28 @@ interface Props {
   } | null
 }
 
+/**
+ * The editor: the pipeline down the left, the cues in the middle with both
+ * languages on one row, the selected cue in full on the right, and the
+ * waveform along the bottom — the instrument timing depends on.
+ *
+ * Structure B from the redesign. The logic underneath is the one that was
+ * already here; what changed is where each control appears, which is only
+ * where it applies.
+ */
 export default function TranslateClient({ user, entitlement, project, sequence }: Props) {
-  const router = useRouter()
   const { undo, redo, openSequence, newSequence, setComments } = useSubtitleStore()
-  const sequenceId = useSubtitleStore(s => s.sequenceId)
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
+  const [filter, setFilter] = useState<Filter>(null)
+  const [sideFocus, setSideFocus] = useState(false)
+  // Which pipeline step is open: the first one with work still in it, read
+  // from what the server sent rather than from the store, which is seeded a
+  // moment later.
+  const [step, setStep] = useState<Step | null>(() =>
+    !sequence?.subtitles.length ? 'import' : !Object.keys(sequence.translations).length ? 'translate' : 'review',
+  )
+  const editRef = useRef<HTMLTextAreaElement>(null)
 
   /**
    * Seed the store from what the server already resolved.
@@ -80,32 +95,31 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   }, [sequence?.id, project.id])
 
   /**
-   * Two shortcuts, one listener.
+   * The shortcuts, one listener.
    *
-   * ⌘K opens the palette from anywhere, including out of a half-typed subtitle:
-   * it is how you leave where you are, so refusing it while a field has focus
-   * would defeat it.
-   *
-   * ⌘Z is the opposite. While a textarea has focus the browser's own undo is
-   * the right one — it works per character and knows where the caret is.
-   * Hijacking it there would throw away a half-written line in order to take
-   * back an unrelated drag.
+   * ⌘K opens the palette from anywhere, including out of a half-typed
+   * subtitle: it is how you leave where you are. ⌘S saves and ⌘E exports by
+   * pressing the button that would — so a shortcut can never do something the
+   * page does not offer. ⌘Z is the opposite: while a field has focus the
+   * browser's own undo is the right one, per character and caret-aware, and
+   * hijacking it would throw away a half-written line to take back a drag.
    */
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (!(e.metaKey || e.ctrlKey)) return
       const key = e.key.toLowerCase()
-
-      if (key === 'k') {
-        e.preventDefault()
-        setPalette(p => !p)
-        return
+      const press = (cmd: string) => {
+        const el = document.querySelector<HTMLButtonElement>(`[data-cmd="${cmd}"]`)
+        if (el && !el.disabled) { e.preventDefault(); el.click() }
       }
+
+      if (key === 'k') { e.preventDefault(); setPalette(p => !p); return }
+      if (key === 's') { press('Guardar la secuencia'); return }
+      if (key === 'e') { press('Exportar la pestaña en pantalla'); return }
       if (key !== 'z') return
 
       const el = e.target as HTMLElement | null
-      const typing =
-        el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
+      const typing = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
       if (typing) return
 
       e.preventDefault()
@@ -117,83 +131,16 @@ export default function TranslateClient({ user, entitlement, project, sequence }
     return () => window.removeEventListener('keydown', onKey)
   }, [redo, undo])
 
-  async function signOut() {
-    await endSession()
-    router.push('/login')
-    // Server components cache the session; without this the next render could
-    // still be the signed-in one.
-    router.refresh()
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      {team && (
-        <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />
-      )}
-
+    <div className={`v2 ${s.editor}`} data-focus={sideFocus ? 'side' : undefined}>
+      {team && <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />}
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
 
-      {/* Topbar */}
-      <div style={{ background: 'var(--bg1)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em' }}>
-          Captio
-        </div>
-        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: 'var(--mono)', background: 'var(--accent-dim)', color: '#8ba8ff', marginLeft: 4 }}>
-          {entitlement.plan}
-        </span>
-
-        {/* The way out, and where you are. An editor with no route back to the
-            work it belongs to is a room with the door painted over: until now
-            the only exits were the back button and re-typing the URL. */}
-        <button
-          data-cmd="Go back to the project"
-          onClick={() => router.push(`/projects/${project.id}`)}
-          title={`Back to ${project.name}`}
-          /* flexShrink: 0 is not decoration. This bar is a flex row of eight
-             things, so without it the browser is free to squash a 220px button
-             down to the 16px of its arrow — which is exactly what it did,
-             leaving a breadcrumb whose text was present, correct, and invisible.
-             The ⌘K button next door carries the same note for the same reason. */
-          style={{ marginLeft: 6, flexShrink: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
-        >
-          ← {project.name}
-        </button>
-
-        <div style={{ marginLeft: 4 }}>
-          <SequenceBar />
-        </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
-          {/* inline-flex and nowrap: as two inline children in a bar that
-              shrinks, this wrapped — the magnifier on one line, ⌘K on the next. */}
-          <button onClick={() => setPalette(true)} title="Search and commands ⌘K" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flexShrink: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
-            ⌕ <span style={{ fontFamily: 'var(--mono)', fontSize: 10 }}>⌘K</span>
-          </button>
-          {/* Only once saved: the review view reads from the database, and an
-              unsaved sequence has nothing there to compare or comment on. */}
-          {sequenceId && (
-            <button data-cmd="Open the review view" onClick={() => router.push(`/review/${sequenceId}`)} title="Every language side by side, with the comments" style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
-              Review
-            </button>
-          )}
-          <button data-cmd="Manage the team" onClick={() => setTeam(true)} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
-            Team
-          </button>
-          <span style={{ fontSize: 12, color: 'var(--text3)' }}>{user.email}</span>
-          <button onClick={signOut} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, transition: 'color .15s' }}>
-            Sign out
-          </button>
-        </div>
-      </div>
-
-      {/* Main */}
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <Sidebar entitlement={entitlement} />
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
-          <LangTabsBar />
-          <EditorArea userId={user.id} />
-          <Timeline />
-        </div>
-      </div>
+      <Header user={user} project={project} onPalette={() => setPalette(true)} onTeam={() => setTeam(true)} />
+      <Pipeline entitlement={entitlement} step={step} onStep={setStep} filter={filter} onFilter={setFilter} onProject={() => useSubtitleStore.getState().select(null)} />
+      <CueTable filter={filter} onFilter={setFilter} onOpen={() => editRef.current?.focus()} onImport={() => setStep('import')} />
+      <Inspector userId={user.id} editRef={editRef} onFocus={setSideFocus} />
+      <div className={s.wave}><Timeline /></div>
     </div>
   )
 }

@@ -67,7 +67,7 @@ export default function CommandPalette({ onClose }: Props) {
         key: `cmd-${i}`,
         label: el.dataset.cmd ?? '',
         hint: el.dataset.cmdHint,
-        section: 'Actions',
+        section: 'Acciones',
         run: () => el.click(),
       }))
       .filter(a => a.label)
@@ -99,21 +99,21 @@ export default function CommandPalette({ onClose }: Props) {
       const exists = subtitles.some(s => s.index === destination.index)
       out.push({
         key: 'goto-cue',
-        label: `Go to subtitle #${destination.index}`,
-        hint: exists ? undefined : 'no such subtitle',
-        section: 'Go to',
+        label: `Ir al cue ${destination.index}`,
+        hint: exists ? undefined : 'no existe',
+        section: 'Ir a',
         run: () => { if (exists) jumpToCue(destination.index); onClose() },
       })
     }
     if (destination?.kind === 'time') {
       out.push({
         key: 'goto-time',
-        label: `Seek to ${q.trim()}`,
-        section: 'Go to',
+        label: `Ir a ${q.trim()}`,
+        section: 'Ir a',
         run: () => {
           // Says so rather than doing nothing: with no audio loaded there is no
           // timeline listening, and a silent no-op reads as a broken palette.
-          if (!seekTo(destination.seconds)) alert('Load audio or video first')
+          if (!seekTo(destination.seconds)) alert('Carga antes el audio de la secuencia')
           onClose()
         },
       })
@@ -129,12 +129,12 @@ export default function CommandPalette({ onClose }: Props) {
     // to switch to, so it is built here rather than hung off a button.
     for (const tab of ['source', ...Object.keys(translations)]) {
       if (tab === activeTab) continue
-      const label = `Show ${tab === 'source' ? 'the original' : tab}`
+      const label = `Ver ${tab === 'source' ? 'el original' : tab}`
       if (needle && !fold(label).includes(needle)) continue
       out.push({
         key: `tab-${tab}`,
         label,
-        section: 'Actions',
+        section: 'Acciones',
         run: () => { switchToTab(tab); onClose() },
       })
     }
@@ -146,7 +146,7 @@ export default function CommandPalette({ onClose }: Props) {
           key: `cue-${s.index}`,
           label: s.text.replace(/\n/g, ' '),
           hint: `#${s.index} · ${s.start}`,
-          section: 'Subtitles',
+          section: 'Cues',
           run: () => { jumpToCue(s.index); onClose() },
         })
       }
@@ -186,11 +186,11 @@ export default function CommandPalette({ onClose }: Props) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       role="dialog"
       aria-modal="true"
-      aria-label="Command palette"
+      aria-label="Paleta de comandos"
     >
       <div className="panel" style={{ '--panel-w': '540px', '--panel-h': '60vh' } as CSSProperties}>
         <div className="panel-head">
-          <span style={{ color: 'var(--text3)', fontSize: 'var(--fs-base)' }}>⌕</span>
+          <span style={{ color: 'var(--ink-3)', fontSize: 'var(--fs-md)' }}>⌕</span>
           <input
             ref={inputRef}
             value={q}
@@ -200,18 +200,18 @@ export default function CommandPalette({ onClose }: Props) {
             // happens to be sitting there.
             onChange={e => { setQ(e.target.value); setCursor(0) }}
             onKeyDown={onKeyDown}
-            placeholder="Type a command, search a subtitle, or paste a timecode…"
-            aria-label="Command or search"
+            placeholder="Cue, timecode o acción…"
+            aria-label="Acción o búsqueda"
             autoComplete="off"
             spellCheck={false}
             style={{
               flex: 1, background: 'none', border: 'none', outline: 'none',
-              color: 'var(--text)', fontSize: 13,
+              color: 'var(--ink)', fontSize: 13,
             }}
           />
           <span style={{
-            fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--text3)',
-            border: '1px solid var(--border2)', borderRadius: 'var(--r-sm)', padding: '1px 5px',
+            fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--ink-3)',
+            border: '1px solid var(--line-2)', borderRadius: 'var(--r-sm)', padding: '1px 5px',
           }}>
             esc
           </span>
@@ -220,7 +220,7 @@ export default function CommandPalette({ onClose }: Props) {
         <div ref={listRef} className="panel-body" style={{ padding: '5px 0 8px' }}>
           {items.length === 0 && (
             <div className="muted" style={{ padding: '14px 15px', fontSize: 'var(--fs-md)' }}>
-              Nothing matches “{q}”.
+              Nada para «{q}».
             </div>
           )}
           {items.map((item, i) => {
@@ -238,18 +238,18 @@ export default function CommandPalette({ onClose }: Props) {
                   style={{
                     display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
                     padding: '6px 15px',
-                    background: i === cursor ? 'var(--bg3)' : 'transparent',
+                    background: i === cursor ? 'var(--s3)' : 'transparent',
                   }}
                 >
                   <span style={{
-                    fontSize: 'var(--fs-md)', color: 'var(--text)', whiteSpace: 'nowrap',
+                    fontSize: 'var(--fs-md)', color: 'var(--ink)', whiteSpace: 'nowrap',
                     overflow: 'hidden', textOverflow: 'ellipsis',
                   }}>
                     {item.label}
                   </span>
                   {item.hint && (
                     <span style={{
-                      fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--text3)',
+                      fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--ink-3)',
                       marginLeft: 'auto', flexShrink: 0,
                     }}>
                       {item.hint}

@@ -216,8 +216,10 @@ export default function DashboardClient({
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg0)' }}>
+      {/* The dialog already speaks the redesign's tokens; this page does not
+          yet. The scope class gives it the palette until the page migrates. */}
       {team && (
-        <TeamPanel
+        <div className="v2"><TeamPanel
           currentUserId={user.id}
           role={user.role}
           onClose={() => {
@@ -226,7 +228,7 @@ export default function DashboardClient({
             // the counts on this page were rendered before that happened.
             router.refresh()
           }}
-        />
+        /></div>
       )}
 
       {/* Deliberately the editor's topbar, so the two read as one product. */}
