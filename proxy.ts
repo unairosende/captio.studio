@@ -42,6 +42,10 @@ const PUBLIC_PATHS = [
 
 function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true
+  // The style guide shows tokens and sample rows, never data. Open in
+  // development so the redesign can be looked at without a session; in
+  // production it stays behind the login like everything else.
+  if (pathname === '/styleguide' && process.env.NODE_ENV !== 'production') return true
   // Auth endpoints must stay open or signing in becomes impossible.
   if (pathname.startsWith('/api/auth/')) return true
   // A client reviewing subtitles arrives through a link, not a login. The

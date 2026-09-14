@@ -1,0 +1,336 @@
+/* Maquetación de la guía de estilo. Es una página de un solo uso: lo que aquí
+   se repite son muestras, no componentes del producto — esos llegan en la
+   fase 04 y vivirán en globals.css con los tokens de tokens.css. */
+
+.page {
+  min-height: 100vh;
+  background: var(--s1);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-md);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+.bar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  height: 44px;
+  padding: 0 var(--sp-6);
+  background: var(--s1);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: .14em;
+  color: var(--accent);
+}
+
+.crumb { color: var(--ink-3); }
+
+.seg {
+  display: flex;
+  margin-left: auto;
+  padding: 2px;
+  gap: 2px;
+  background: var(--s2);
+  border-radius: var(--r-md);
+}
+
+.segBtn {
+  font: inherit;
+  font-size: var(--fs-sm);
+  padding: 3px 10px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background var(--t-fast), color var(--t-fast);
+}
+.segBtn:hover { color: var(--ink); }
+.segBtn:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.segBtn[aria-pressed="true"] { background: var(--s0); color: var(--ink); }
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: var(--sp-8) var(--sp-6) 120px;
+  display: grid;
+  gap: 56px;
+}
+
+.section {
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
+  gap: var(--sp-8);
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--line);
+}
+
+.section h2 {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  line-height: var(--lh-tight);
+  letter-spacing: -.01em;
+}
+
+.section p {
+  margin: 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+}
+
+.label {
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+/* ── Superficies ─────────────────────────────────────────────────────────── */
+
+.surfaces {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--sp-3);
+}
+
+.surface {
+  height: 96px;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 2px;
+}
+.surface .label { color: var(--ink-2); }
+.surface small { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+
+/* ── Tinta y líneas ─────────────────────────────────────────────────────── */
+
+.inks {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+
+.inkCard {
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.inkLine { display: flex; justify-content: space-between; align-items: baseline; }
+.inkLine span { font-size: var(--fs-md); }
+
+.rule { height: 0; border-top: 1px solid var(--line); }
+.rule2 { height: 0; border-top: 1px solid var(--line-2); }
+
+.washes { display: grid; gap: 1px; margin-top: var(--sp-3); }
+.wash {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  font-size: var(--fs-sm);
+}
+.wash .label { color: var(--ink-3); }
+.washHover { background: var(--hover); }
+.washSelect { background: var(--select); }
+
+/* ── Acento y semánticos ────────────────────────────────────────────────── */
+
+.accentRow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  flex-wrap: wrap;
+}
+
+.btnPrimary {
+  font: inherit;
+  font-size: var(--fs-md);
+  font-weight: 500;
+  padding: 5px 12px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: var(--accent-fill);
+  color: var(--on-accent);
+  cursor: pointer;
+}
+.btnPrimary:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+.btnQuiet {
+  font: inherit;
+  font-size: var(--fs-md);
+  padding: 5px 12px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--s0);
+  color: var(--ink);
+  cursor: pointer;
+}
+.btnQuiet:hover { background: var(--hover); }
+.btnQuiet:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
+
+.link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+
+.semantics { display: flex; gap: var(--sp-3); flex-wrap: wrap; margin-bottom: var(--sp-4); }
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+}
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.ok     { color: var(--ok);     background: var(--ok-bg); }
+.warn   { color: var(--warn);   background: var(--warn-bg); }
+.danger { color: var(--danger); background: var(--danger-bg); }
+
+/* ── La tabla de cues ───────────────────────────────────────────────────── */
+
+.table {
+  background: var(--s0);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  font-size: var(--fs-md);
+}
+
+.thead, .row {
+  display: grid;
+  grid-template-columns: 36px 116px minmax(0, 1fr) minmax(0, 1fr) 52px 56px;
+  align-items: center;
+  column-gap: var(--sp-3);
+  padding: 0 var(--sp-3) 0 0;
+}
+
+.thead {
+  height: 28px;
+  border-bottom: 1px solid var(--line-2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+.row {
+  height: var(--row);
+  border-bottom: 1px solid var(--line);
+  transition: background var(--t-fast);
+}
+.row:last-child { border-bottom: 0; }
+.row:hover { background: var(--hover); }
+.row[aria-selected="true"] { background: var(--select); }
+
+/* El margen izquierdo es la única columna con color: un tick de 3 px que dice
+   «mira aquí», en lugar de una insignia que empuja la altura de la fila. */
+.num {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-left: 3px solid transparent;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.numWarn   { border-left-color: var(--warn); }
+.numDanger { border-left-color: var(--danger); }
+
+.tc {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+/* Una línea de subtítulo por línea de pantalla: si no cabe, se corta y el
+   contador de caracteres lo dice. El texto entero vive en el inspector. */
+.text { line-height: 1.35; min-width: 0; }
+.text div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.stat {
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+}
+.statWarn   { color: var(--warn); }
+.statDanger { color: var(--danger); }
+
+/* ── Tipografía ─────────────────────────────────────────────────────────── */
+
+.cand {
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--s1);
+}
+
+.candHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.candHead h3 { margin: 0; font-size: var(--fs-lg); font-weight: 600; }
+.candHead .label { margin-left: auto; }
+
+.scale {
+  display: grid;
+  grid-template-columns: repeat(6, auto);
+  align-items: baseline;
+  gap: var(--sp-4);
+  margin-bottom: var(--sp-3);
+}
+.scale > div { display: flex; flex-direction: column; gap: 2px; }
+.scale small { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+
+.candTable { margin-top: var(--sp-3); }
+
+/* ── Espacio y forma ────────────────────────────────────────────────────── */
+
+.spaces { display: flex; align-items: flex-end; gap: var(--sp-4); margin-bottom: var(--sp-6); }
+.space { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); }
+.space div { background: var(--ink-3); width: 24px; border-radius: 1px; }
+.space small { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+
+.shapes { display: flex; gap: var(--sp-4); align-items: flex-end; }
+.shape { display: flex; flex-direction: column; align-items: center; gap: var(--sp-1); }
+.shape div { width: 56px; height: 40px; background: var(--s0); border: 1px solid var(--line-2); }
+.shape small { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+.rSm { border-radius: var(--r-sm); }
+.rMd { border-radius: var(--r-md); }
+.rLg { border-radius: var(--r-lg); }
+.lifted { background: var(--raised) !important; border-color: transparent !important; box-shadow: var(--lift); }
+
+@media (max-width: 800px) {
+  .section { grid-template-columns: 1fr; }
+  .surfaces { grid-template-columns: repeat(2, 1fr); }
+  .inks { grid-template-columns: 1fr; }
+}
