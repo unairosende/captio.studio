@@ -219,9 +219,17 @@ export default function ProjectClient({ project, sequences }: Props) {
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 15px 11px' }}>
                   <span className="muted" suppressHydrationWarning>{ago(s.updated_at)}</span>
+                  {/* Every language side by side, with the client's notes: the
+                      view the client gets through a link, opened from inside. */}
+                  <button
+                    className="btn btn-quiet"
+                    style={{ marginLeft: 'auto' }}
+                    onClick={() => router.push(`/review/${s.id}`)}
+                  >
+                    Review
+                  </button>
                   <button
                     className="btn btn-quiet btn-danger"
-                    style={{ marginLeft: 'auto' }}
                     disabled={busyId === s.id}
                     onClick={() => void removeSequence(s)}
                   >

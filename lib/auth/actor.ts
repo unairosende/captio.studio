@@ -8,6 +8,7 @@ import {
   type ReviewLinkRow,
 } from '../db/review-links.ts'
 import { sequenceExists } from '../db/sequences.ts'
+import { REVIEW_TOKEN_HEADER } from '../review/protocol.ts'
 import { NotFoundError, UnauthorizedError, requireOrgContext } from './session.ts'
 
 /**
@@ -37,8 +38,7 @@ export type Actor =
       canEdit: boolean
     }
 
-/** The header the review view sends with every request made through a link. */
-export const REVIEW_TOKEN_HEADER = 'x-review-token'
+export { REVIEW_TOKEN_HEADER }
 
 /**
  * One cookie per link, so a reviewer holding two of the same productora's links

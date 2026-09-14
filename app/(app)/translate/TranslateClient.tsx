@@ -48,6 +48,7 @@ interface Props {
 export default function TranslateClient({ user, entitlement, project, sequence }: Props) {
   const router = useRouter()
   const { undo, redo, openSequence, newSequence, setComments } = useSubtitleStore()
+  const sequenceId = useSubtitleStore(s => s.sequenceId)
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
 
@@ -167,6 +168,13 @@ export default function TranslateClient({ user, entitlement, project, sequence }
           <button onClick={() => setPalette(true)} title="Search and commands ⌘K" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap', flexShrink: 0, fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
             ⌕ <span style={{ fontFamily: 'var(--mono)', fontSize: 10 }}>⌘K</span>
           </button>
+          {/* Only once saved: the review view reads from the database, and an
+              unsaved sequence has nothing there to compare or comment on. */}
+          {sequenceId && (
+            <button data-cmd="Open the review view" onClick={() => router.push(`/review/${sequenceId}`)} title="Every language side by side, with the comments" style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4, whiteSpace: 'nowrap' }}>
+              Review
+            </button>
+          )}
           <button data-cmd="Manage the team" onClick={() => setTeam(true)} style={{ fontSize: 12, color: 'var(--text3)', cursor: 'pointer', background: 'none', border: 'none', padding: '4px 8px', borderRadius: 4 }}>
             Team
           </button>

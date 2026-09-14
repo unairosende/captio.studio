@@ -25,7 +25,7 @@ export default function EditorArea({ userId }: Props) {
     setBackTranslateJob,
     reviewNotes, setReviewNotes, clearReviewNotes, reviewJob, setReviewJob,
     splitSubtitle, deleteSubtitle,
-    comments, sequenceId,
+    comments, setComments, sequenceId,
   } = useSubtitleStore()
 
   /** The cue whose thread is open, if any. */
@@ -410,7 +410,10 @@ export default function EditorArea({ userId }: Props) {
         <CommentsPanel
           sequenceId={sequenceId}
           cueIndex={commentCue}
-          userId={userId}
+          lang={isSource ? null : activeTab}
+          comments={comments}
+          onChange={setComments}
+          isMine={c => c.author_id === userId}
           onClose={() => setCommentCue(null)}
         />
       )}

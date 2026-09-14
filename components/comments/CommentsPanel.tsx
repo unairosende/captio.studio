@@ -2,7 +2,6 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 
-import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
 
 /**
@@ -15,23 +14,37 @@ import type { ProjectComment } from '@/types/comment'
  * Resolving is deliberately not deleting: a settled note is the record of why a
  * line reads the way it does, and the next person to query it deserves to find
  * the answer rather than ask again.
+ *
+ * Takes the thread and hands back the updated one, rather than reading the
+ * editor's store: the same panel opens inside the editor and inside the review
+ * view a client sees, and the client has no store, no session and a token in a
+ * header instead.
  */
 
 interface Props {
   sequenceId: string
   cueIndex: number
-  userId: string
+  /** The language a new note is about, or null for the cue in general. */
+  lang: string | null
+  comments: ProjectComment[]
+  onChange: (comments: ProjectComment[]) => void
+  /** Whose notes carry a delete button — the server would refuse the rest anyway. */
+  isMine: (c: ProjectComment) => boolean
+  /** Sent with every request: the review token, when this is a client's view. */
+  authHeaders?: Record<string, string>
   onClose: () => void
 }
 
-export default function CommentsPanel({ sequenceId, cueIndex, userId, onClose }: Props) {
-  const { comments, setComments, activeTab } = useSubtitleStore()
+export default function CommentsPanel({
+  sequenceId, cueIndex, lang, comments, onChange, isMine, authHeaders, onClose,
+}: Props) {
   const [draft, setDraft] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const thread = comments.filter(c => c.cue_index === cueIndex)
+  const headers = { 'Content-Type': 'application/json', ...authHeaders }
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -51,14 +64,10 @@ export default function CommentsPanel({ sequenceId, cueIndex, userId, onClose }:
 
     const res = await fetch(`/api/sequences/${sequenceId}/comments`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        cueIndex,
-        // Which tab it was written on, so "this reads oddly" is anchored to a
-        // language rather than to the cue in general.
-        lang: activeTab === 'source' ? null : activeTab,
-        body,
-      }),
+      headers,
+      // Which language it was written on, so "this reads oddly" is anchored to
+      // a language rather than to the cue in general.
+      body: JSON.stringify({ cueIndex, lang, body }),
     })
     const json = await res.json().catch(() => ({}))
     setBusy(false)
@@ -67,30 +76,37 @@ export default function CommentsPanel({ sequenceId, cueIndex, userId, onClose }:
       setError(json.error ?? 'Could not post that')
       return
     }
-    setComments(json.comments as ProjectComment[])
+    onChange(json.comments as ProjectComment[])
     setDraft('')
   }
 
   async function toggleResolved(c: ProjectComment) {
     const res = await fetch(`/api/sequences/${sequenceId}/comments/${c.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       body: JSON.stringify({ resolved: !c.resolved }),
     })
+    const json = await res.json().catch(() => ({}))
     if (!res.ok) {
       setError('Could not update that comment')
       return
     }
-    setComments(comments.map(x => (x.id === c.id ? { ...x, resolved: !c.resolved } : x)))
+    const updated = json.comment as ProjectComment | undefined
+    onChange(comments.map(x => (x.id === c.id
+      ? { ...x, resolved: !c.resolved, resolved_at: updated?.resolved_at ?? null }
+      : x)))
   }
 
   async function remove(c: ProjectComment) {
-    const res = await fetch(`/api/sequences/${sequenceId}/comments/${c.id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/sequences/${sequenceId}/comments/${c.id}`, {
+      method: 'DELETE',
+      headers: authHeaders,
+    })
     if (!res.ok) {
       setError('Could not delete that comment')
       return
     }
-    setComments(comments.filter(x => x.id !== c.id))
+    onChange(comments.filter(x => x.id !== c.id))
   }
 
   return (
@@ -122,6 +138,9 @@ export default function CommentsPanel({ sequenceId, cueIndex, userId, onClose }:
                 <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--text2)' }}>
                   {c.author_name ?? 'Someone'}
                 </span>
+                {c.guest_id && (
+                  <span className="muted" style={{ fontSize: 9 }}>client</span>
+                )}
                 {c.lang && (
                   <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 3, background: 'var(--accent-dim)', color: '#8ba8ff' }}>
                     {c.lang}
@@ -132,12 +151,14 @@ export default function CommentsPanel({ sequenceId, cueIndex, userId, onClose }:
                 </span>
                 <button className="btn" style={{ marginLeft: 'auto' }}
                   onClick={() => void toggleResolved(c)}
-                  title={c.resolved ? 'Reopen this comment' : 'Mark as resolved'}>
+                  title={c.resolved
+                    ? `Resolved ${c.resolved_at ? new Date(c.resolved_at).toLocaleString() : ''} — reopen`
+                    : 'Mark as resolved'}>
                   {c.resolved ? 'Reopen' : 'Resolve'}
                 </button>
                 {/* Only on your own, because only your own would be accepted —
                     offering the button to everyone is offering a 404. */}
-                {c.author_id === userId && (
+                {isMine(c) && (
                   <button className="btn btn-danger" onClick={() => void remove(c)}
                     title="Delete this comment">
                     ✕
@@ -165,7 +186,7 @@ export default function CommentsPanel({ sequenceId, cueIndex, userId, onClose }:
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void post() } }}
-            placeholder="Write a comment…"
+            placeholder={lang ? `Comment on the ${lang}…` : 'Write a comment…'}
           />
           <button className="btn btn-primary btn-lg" onClick={() => void post()}
             disabled={busy || !draft.trim()}>
