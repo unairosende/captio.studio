@@ -41,6 +41,8 @@ interface Props {
     subtitles: Subtitle[]
     translations: TranslationStore
     comments: ProjectComment[]
+    /** The upload attached to this sequence, if any — what the waveform auto-loads. */
+    mediaId: string | null
   } | null
 }
 
@@ -86,6 +88,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
         projectId: project.id,
         projectName: project.name,
         glossary: project.glossary,
+        mediaId: sequence.mediaId,
       })
       setComments(sequence.comments)
     } else {

@@ -121,6 +121,7 @@ export function useSave() {
       subtitles: s.data?.subtitles ?? [],
       translations: s.data?.translations ?? {},
       glossary,
+      mediaId: typeof json.mediaId === 'string' ? json.mediaId : null,
     })
     setConflict(false)
     const notes = await fetch(`/api/sequences/${id}/comments`)

@@ -136,7 +136,7 @@ interface Drag {
 }
 
 export default function Timeline() {
-  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo } = useSubtitleStore()
+  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, mediaId, sequenceId } = useSubtitleStore()
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
@@ -153,6 +153,10 @@ export default function Timeline() {
   const playheadRef = useRef(0)
   const dragRef = useRef<Drag | null>(null)
   const transportRef = useRef<Transport | null>(null)
+  /** Set once somebody picks a file by hand, so a later mediaId does not override their choice. */
+  const overrideRef = useRef(false)
+  /** The mediaId already fetched, so re-rendering does not fetch it again. */
+  const loadedMediaRef = useRef<string | null>(null)
 
   /**
    * Where playback started, so the playhead can be derived rather than
@@ -483,28 +487,63 @@ export default function Timeline() {
     [draw, duration],
   )
 
+  /** Decode audio bytes into what the waveform draws and plays from, whatever they came from. */
+  async function decodeInto(data: ArrayBuffer, label: string | null) {
+    const audio = audioRef.current ?? new AudioContext()
+    audioRef.current = audio
+    const buffer = await audio.decodeAudioData(data)
+
+    bufferRef.current = buffer
+    peaksRef.current = peaksFrom(buffer.getChannelData(0))
+    playheadRef.current = 0
+    anchorRef.current = null
+    transportRef.current = null
+    setTransport(null)
+    setDuration(buffer.duration)
+    setZoom(1)
+    setClock(clockLabel(0))
+    setName(label)
+  }
+
   async function load(file: File) {
     setLoading(true)
     setFailed(false)
     try {
-      const audio = audioRef.current ?? new AudioContext()
-      audioRef.current = audio
-      const buffer = await audio.decodeAudioData(await file.arrayBuffer())
-
-      bufferRef.current = buffer
-      peaksRef.current = peaksFrom(buffer.getChannelData(0))
-      playheadRef.current = 0
-      anchorRef.current = null
-      transportRef.current = null
-      setTransport(null)
-      setDuration(buffer.duration)
-      setZoom(1)
-      setClock(clockLabel(0))
-      setName(file.name)
+      await decodeInto(await file.arrayBuffer(), file.name)
     } catch {
       // A file the browser cannot decode is an ordinary thing to be handed, not
       // an exceptional one. Say so next to the button rather than in a console
       // nobody has open.
+      bufferRef.current = null
+      peaksRef.current = new Float32Array(0)
+      setDuration(0)
+      setName(null)
+      setFailed(true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  /**
+   * Load the recording already attached to this sequence — two fetches,
+   * because the object lives in R2 and never passes through this function:
+   * the id turns into a presigned URL scoped to this organisation, and that
+   * URL is what actually reads the bytes, straight from the bucket the same
+   * way the upload wrote them.
+   */
+  async function loadFromMedia(id: string) {
+    setLoading(true)
+    setFailed(false)
+    try {
+      const grant = await fetch(`/api/media/${id}`)
+      const body = await grant.json().catch(() => ({}))
+      if (!grant.ok) throw new Error(body?.error ?? `HTTP ${grant.status}`)
+
+      const res = await fetch(body.url)
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+
+      await decodeInto(await res.arrayBuffer(), body.filename ?? null)
+    } catch {
       bufferRef.current = null
       peaksRef.current = new Float32Array(0)
       setDuration(0)
@@ -537,6 +576,22 @@ export default function Timeline() {
     publishSeek(seek)
     return () => publishSeek(null)
   }, [seek])
+
+  // A different sequence deserves a fresh chance to auto-load its own audio,
+  // even one that was overridden by hand under a previous sequence.
+  useEffect(() => {
+    overrideRef.current = false
+  }, [sequenceId])
+
+  // Ready the instrument without a second upload: load the recording already
+  // attached to this sequence as soon as its id is known, unless somebody has
+  // since picked a file of their own.
+  useEffect(() => {
+    if (!mediaId || overrideRef.current || loadedMediaRef.current === mediaId) return
+    loadedMediaRef.current = mediaId
+    loadFromMedia(mediaId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaId])
 
   const ready = duration > 0
 
@@ -592,7 +647,10 @@ export default function Timeline() {
           hidden
           onChange={e => {
             const f = e.target.files?.[0]
-            if (f) load(f)
+            if (f) {
+              overrideRef.current = true
+              load(f)
+            }
           }}
         />
       </div>
