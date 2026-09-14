@@ -4,14 +4,17 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import ReviewLinksPanel from '@/components/review/ReviewLinksPanel'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { ProjectSummary } from '@/lib/db/projects'
+import type { ReviewLinkSummary } from '@/lib/db/review-links'
 import type { SequenceSummary } from '@/lib/db/sequences'
 import { LANG_CODES } from '@/lib/providers'
 
 interface Props {
   project: ProjectSummary
   sequences: SequenceSummary[]
+  links: ReviewLinkSummary[]
 }
 
 /** `Spanish` as `ES`, and anything unrecognised as itself. */
@@ -50,7 +53,7 @@ function ago(value: string | Date): string {
  * the thing the project exists to hold. Somebody setting up a job spells the
  * character names once, here, before anybody starts on reel one.
  */
-export default function ProjectClient({ project, sequences }: Props) {
+export default function ProjectClient({ project, sequences, links }: Props) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -240,6 +243,10 @@ export default function ProjectClient({ project, sequences }: Props) {
             ))}
           </div>
         )}
+
+        {/* The client's way in. Below the sequences because it opens all of
+            them, and above the glossary because it is used far more often. */}
+        <ReviewLinksPanel projectId={project.id} initial={links} />
 
         {/* ── Glossary ─────────────────────────────────────────────────────
             Here rather than only in the editor because it is what makes this a

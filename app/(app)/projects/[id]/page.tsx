@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 
 import { requireOrgContext } from '@/lib/auth/session'
 import { getProject } from '@/lib/db/projects'
+import { listLinks } from '@/lib/db/review-links'
 import { listSequences } from '@/lib/db/sequences'
 
 import ProjectClient from './ProjectClient'
@@ -20,12 +21,13 @@ interface Props {
 export default async function ProjectPage({ params }: Props) {
   const [{ orgId }, { id }] = await Promise.all([requireOrgContext(), params])
 
-  const [project, sequences] = await Promise.all([
+  const [project, sequences, links] = await Promise.all([
     getProject(orgId, id),
     listSequences(orgId, id),
+    listLinks(orgId, id),
   ])
 
   if (!project) notFound()
 
-  return <ProjectClient project={project} sequences={sequences} />
+  return <ProjectClient project={project} sequences={sequences} links={links} />
 }
