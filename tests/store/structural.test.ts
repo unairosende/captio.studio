@@ -111,8 +111,10 @@ describe('comment anchors', () => {
     lang: null,
     body: 'check this',
     author_id: 'user_a',
+    guest_id: null,
     author_name: 'A',
     resolved: false,
+    resolved_at: null,
     created_at: '2026-01-01T00:00:00.000Z',
   })
 

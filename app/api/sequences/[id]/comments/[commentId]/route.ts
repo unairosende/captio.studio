@@ -24,13 +24,13 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     return authErrorResponse(err)
   }
 
-  const { commentId } = await params
+  const { id, commentId } = await params
   const payload = await req.json().catch(() => null)
   if (typeof payload?.resolved !== 'boolean') {
     return NextResponse.json({ error: 'Resolved or not?' }, { status: 400 })
   }
 
-  const comment = await setCommentResolved(ctx.orgId, commentId, payload.resolved)
+  const comment = await setCommentResolved(ctx.orgId, id, commentId, payload.resolved)
   if (!comment) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
 
   return NextResponse.json({ comment })
@@ -44,10 +44,10 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return authErrorResponse(err)
   }
 
-  const { commentId } = await params
+  const { id, commentId } = await params
   // 404 rather than 403 when it belongs to somebody else: the two cases differ
   // only by who wrote it, and saying which would confirm the comment exists.
-  const gone = await deleteComment(ctx.orgId, commentId, ctx.userId)
+  const gone = await deleteComment(ctx.orgId, id, commentId, { userId: ctx.userId })
   if (!gone) return NextResponse.json({ error: 'Comment not found' }, { status: 404 })
 
   return NextResponse.json({ ok: true })

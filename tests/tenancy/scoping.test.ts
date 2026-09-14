@@ -35,6 +35,22 @@ const TENANT_TABLES = [
   'comments',
   'usage_events',
   'subscriptions',
+  'review_links',
+  'review_guests',
+]
+
+/**
+ * The statements allowed to run without an org_id filter, one by one.
+ *
+ * A review token is a credential a client holds instead of a session. The
+ * lookup that turns it into a link is the point where the organisation is
+ * *learned*, so it cannot be filtered by it — exactly like `listOrganizationIds`
+ * in lib/db/organizations.ts, except that table is not tenant data and this one
+ * is. Every query after this one is scoped by the org_id the row returned.
+ * Anything else added here needs the same kind of argument written next to it.
+ */
+const UNSCOPED_ALLOWED = [
+  /^select \* from review_links where token = \$1 and revoked_at is null and expires_at > now\(\)$/i,
 ]
 
 interface Statement {
@@ -71,6 +87,7 @@ describe('tenant isolation', () => {
       .filter(s => /^(select|update|delete)\b/i.test(s.sql))
       .filter(s => touchesTenantTable(s.sql))
       .filter(s => !/org_id\s*=\s*\$\d/.test(s.sql))
+      .filter(s => !UNSCOPED_ALLOWED.some(re => re.test(s.sql)))
       .map(s => `${s.file}: ${s.sql.slice(0, 90)}`)
 
     assert.deepEqual(offenders, [], 'statements missing an org_id filter')

@@ -10,8 +10,12 @@ export interface CommentRow {
   cue_index: number
   lang: string | null
   body: string
-  author_id: string
+  /** The user who wrote it — or null when a guest did (see `guest_id`). */
+  author_id: string | null
+  /** The client who wrote it through a review link, if a client did. */
+  guest_id: string | null
   resolved: boolean
+  resolved_at: string | null
   created_at: string
 }
 
@@ -19,6 +23,14 @@ export interface CommentRow {
 export interface CommentWithAuthor extends CommentRow {
   author_name: string | null
 }
+
+/**
+ * Who is acting: a signed-in user or a guest holding a review link.
+ *
+ * Passed to the mutations that care who you are, so "only the author may delete"
+ * means the same thing whichever kind of author wrote the note.
+ */
+export type CommentActor = { userId: string } | { guestId: string }
 
 /**
  * Every comment on a sequence, oldest first within each cue.
@@ -32,9 +44,10 @@ export async function listComments(
   sequenceId: string,
 ): Promise<CommentWithAuthor[]> {
   return query<CommentWithAuthor>(
-    `select c.*, u."name" as author_name
+    `select c.*, coalesce(u."name", g.name) as author_name
        from comments c
        left join "user" u on u."id" = c.author_id
+       left join review_guests g on g.id = c.guest_id and g.org_id = c.org_id
       where c.org_id = $1 and c.sequence_id = $2
       order by c.cue_index, c.created_at`,
     [requireOrg(orgId), sequenceId],
@@ -48,12 +61,14 @@ export async function createComment(
     cueIndex: number
     lang?: string | null
     body: string
-    authorId: string
+    /** One of the two. The check constraint refuses a note nobody wrote. */
+    authorId?: string | null
+    guestId?: string | null
   },
 ): Promise<CommentRow> {
   const rows = await query<CommentRow>(
-    `insert into comments (org_id, sequence_id, cue_index, lang, body, author_id)
-     values ($1, $2, $3, $4, $5, $6)
+    `insert into comments (org_id, sequence_id, cue_index, lang, body, author_id, guest_id)
+     values ($1, $2, $3, $4, $5, $6, $7)
      returning *`,
     [
       requireOrg(orgId),
@@ -61,33 +76,57 @@ export async function createComment(
       input.cueIndex,
       input.lang ?? null,
       input.body,
-      input.authorId,
+      input.authorId ?? null,
+      input.guestId ?? null,
     ],
   )
   return rows[0]
 }
 
+/**
+ * Settle a note, or reopen it.
+ *
+ * Scoped by sequence as well as by organisation. The organisation is no longer
+ * the narrowest door into these rows: a guest holds one project, and matching
+ * on the sequence in the URL is what keeps them from reaching a note on
+ * another of the same productora's projects by guessing its id.
+ */
 export async function setCommentResolved(
   orgId: string,
+  sequenceId: string,
   id: string,
   resolved: boolean,
 ): Promise<CommentRow | null> {
   return queryOne<CommentRow>(
-    `update comments set resolved = $3 where org_id = $1 and id = $2 returning *`,
-    [requireOrg(orgId), id, resolved],
+    `update comments
+        set resolved = $4, resolved_at = case when $4 then now() else null end
+      where org_id = $1 and sequence_id = $2 and id = $3
+      returning *`,
+    [requireOrg(orgId), sequenceId, id, resolved],
   )
 }
 
 /** Only the author may delete their own comment; org scope alone is not enough. */
 export async function deleteComment(
   orgId: string,
+  sequenceId: string,
   id: string,
-  authorId: string,
+  by: CommentActor,
 ): Promise<boolean> {
-  const rows = await query<{ id: string }>(
-    `delete from comments where org_id = $1 and id = $2 and author_id = $3 returning id`,
-    [requireOrg(orgId), id, authorId],
-  )
+  const rows =
+    'userId' in by
+      ? await query<{ id: string }>(
+          `delete from comments
+            where org_id = $1 and sequence_id = $2 and id = $3 and author_id = $4
+            returning id`,
+          [requireOrg(orgId), sequenceId, id, by.userId],
+        )
+      : await query<{ id: string }>(
+          `delete from comments
+            where org_id = $1 and sequence_id = $2 and id = $3 and guest_id = $4
+            returning id`,
+          [requireOrg(orgId), sequenceId, id, by.guestId],
+        )
   return rows.length > 0
 }
 

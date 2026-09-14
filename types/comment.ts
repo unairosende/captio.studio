@@ -12,10 +12,14 @@ export interface ProjectComment {
   cue_index: number
   lang: string | null
   body: string
-  author_id: string
+  /** The user who wrote it, or null when a client did through a review link. */
+  author_id: string | null
+  /** The client who wrote it, or null when a user did. */
+  guest_id: string | null
   author_name: string | null
   resolved: boolean
   /** ISO-8601, straight from `timestamptz`. */
+  resolved_at: string | null
   created_at: string
 }
 

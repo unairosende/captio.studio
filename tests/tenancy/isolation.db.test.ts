@@ -171,8 +171,8 @@ describe(
       })
 
       // Same org, different person: org scope alone must not be enough.
-      assert.equal(await deleteComment(orgA, c.id, 'user_b'), false)
-      assert.equal(await deleteComment(orgA, c.id, 'user_a'), true)
+      assert.equal(await deleteComment(orgA, a.id, c.id, { userId: 'user_b' }), false)
+      assert.equal(await deleteComment(orgA, a.id, c.id, { userId: 'user_a' }), true)
     })
 
     it('meters usage per organisation', async () => {
