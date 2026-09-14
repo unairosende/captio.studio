@@ -1,4 +1,4 @@
-import { query, queryOne, requireOrg, transaction } from './client.ts'
+import { isUuid, query, queryOne, requireOrg, transaction } from './client.ts'
 import { applyAnchorOps, type AnchorOp } from './comments.ts'
 
 /**
@@ -179,6 +179,11 @@ export async function updateSequence(
      * them describing a renumbering that the editor might still abandon.
      */
     anchorOps?: AnchorOp[]
+    /** Who is saving — a user, or a client through a review link. Signs the version. */
+    createdBy?: string | null
+    guestId?: string | null
+    /** What this save was, in the saver's words: "round 2 corrections". */
+    note?: string | null
   } = {},
 ): Promise<SequenceRow | null> {
   const write = async (run: typeof query): Promise<SequenceRow | null> => {
@@ -239,14 +244,20 @@ export async function updateSequence(
     return null
   }
 
-  if (!opts.anchorOps?.length) return write(query)
+  if (!opts.anchorOps?.length && patch.data === undefined) return write(query)
 
   // Cues and comment anchors are two tables describing the same renumbering.
   // Committing one without the other is the failure this transaction exists for:
   // it leaves every note below the edit quoting a line nobody wrote.
+  //
+  // The version is recorded in the same transaction for the same reason: a
+  // history that can miss the save it describes is not a history.
   return transaction(async run => {
     const sequence = await write(run)
-    if (sequence) await applyAnchorOps(orgId, id, opts.anchorOps!, run)
+    if (sequence && opts.anchorOps?.length) await applyAnchorOps(orgId, id, opts.anchorOps, run)
+    if (sequence && patch.data !== undefined) {
+      await recordVersion(run, orgId, id, { userId: opts.createdBy, guestId: opts.guestId }, opts.note)
+    }
     return sequence
   })
 }
@@ -282,50 +293,130 @@ export interface VersionRow {
   org_id: string
   sequence_id: string
   data: unknown
+  /** The sequence's own counter at the moment of the save — what people call it by. */
+  version: number | null
+  note: string | null
+  /** Who saved: a user, or a client through a review link. */
   created_by: string | null
+  guest_id: string | null
   created_at: string
 }
 
+/** A version as the history lists it: who, when, what — never the data. */
+export type VersionSummary = Omit<VersionRow, 'data'> & { author_name: string | null }
+
 /**
- * Snapshot the sequence as it stands.
+ * Saves by the same person within this many minutes are one version.
  *
- * The snapshot is taken from the stored row rather than from anything the
- * caller passes in, so it can never record a state that never existed.
+ * A client correcting thirty lines saves thirty times, and a history with
+ * thirty entries for one sitting is a log, not a history. The first save of a
+ * burst opens the version and the rest overwrite it; somebody else saving, or
+ * the same person after a pause, starts the next one.
  */
+export const VERSION_BURST_MINUTES = 10
+
+type Run = typeof query
+type Saver = { userId?: string | null; guestId?: string | null }
+
+/**
+ * Record the sequence as it stands, inside the caller's transaction.
+ *
+ * Taken from the stored row rather than from anything the caller passes in, so
+ * it can never record a state that never existed.
+ */
+async function recordVersion(
+  run: Run,
+  orgId: string,
+  sequenceId: string,
+  by: Saver,
+  note?: string | null,
+): Promise<VersionRow | null> {
+  const userId = by.userId ?? null
+  const guestId = by.guestId ?? null
+
+  const recent = await run<Pick<VersionRow, 'id' | 'created_by' | 'guest_id'>>(
+    `select id, created_by, guest_id from sequence_versions
+      where org_id = $1 and sequence_id = $2
+        and created_at > now() - make_interval(mins => $3)
+      order by created_at desc
+      limit 1`,
+    [requireOrg(orgId), sequenceId, VERSION_BURST_MINUTES],
+  )
+
+  // An anonymous save (no user, no guest) never continues a burst: with nobody
+  // to compare, "the same person" cannot be asserted.
+  const latest = recent[0]
+  const sameSaver =
+    latest !== undefined &&
+    (userId !== null
+      ? latest.created_by === userId && latest.guest_id === null
+      : guestId !== null && latest.guest_id === guestId)
+
+  if (sameSaver) {
+    const rows = await run<VersionRow>(
+      `update sequence_versions v
+          set data = s.data, version = s.version, note = coalesce($4, v.note)
+         from sequences s
+        where v.org_id = $1 and v.id = $3
+          and s.org_id = $1 and s.id = $2
+        returning v.*`,
+      [requireOrg(orgId), sequenceId, latest.id, note ?? null],
+    )
+    return rows[0] ?? null
+  }
+
+  const rows = await run<VersionRow>(
+    `insert into sequence_versions (org_id, sequence_id, data, version, created_by, guest_id, note)
+     select org_id, id, data, version, $3, $4, $5 from sequences where org_id = $1 and id = $2
+     returning *`,
+    [requireOrg(orgId), sequenceId, userId, guestId, note ?? null],
+  )
+  return rows[0] ?? null
+}
+
+/** Snapshot the sequence as it stands, outside any save. */
 export async function snapshotSequence(
   orgId: string,
   sequenceId: string,
   createdBy?: string | null,
+  note?: string | null,
 ): Promise<VersionRow | null> {
-  return transaction(async run => {
-    const rows = await run<VersionRow>(
-      `insert into sequence_versions (org_id, sequence_id, data, created_by)
-       select org_id, id, data, $3 from sequences where org_id = $1 and id = $2
-       returning *`,
-      [requireOrg(orgId), sequenceId, createdBy ?? null],
-    )
-    return rows[0] ?? null
-  })
+  return transaction(run => recordVersion(run, orgId, sequenceId, { userId: createdBy }, note))
 }
 
 export async function listVersions(
   orgId: string,
   sequenceId: string,
   limit = 50,
-): Promise<Omit<VersionRow, 'data'>[]> {
-  return query<Omit<VersionRow, 'data'>>(
-    `select id, org_id, sequence_id, created_by, created_at
-       from sequence_versions
-      where org_id = $1 and sequence_id = $2
-      order by created_at desc
+): Promise<VersionSummary[]> {
+  return query<VersionSummary>(
+    `select v.id, v.org_id, v.sequence_id, v.version, v.note, v.created_by, v.guest_id, v.created_at,
+            coalesce(u."name", g.name) as author_name
+       from sequence_versions v
+       left join "user" u on u."id" = v.created_by
+       left join review_guests g on g.id = v.guest_id and g.org_id = v.org_id
+      where v.org_id = $1 and v.sequence_id = $2
+      order by v.created_at desc
       limit $3`,
     [requireOrg(orgId), sequenceId, limit],
   )
 }
 
-export async function getVersion(orgId: string, versionId: string): Promise<VersionRow | null> {
-  return queryOne<VersionRow>(`select * from sequence_versions where org_id = $1 and id = $2`, [
-    requireOrg(orgId),
-    versionId,
-  ])
+/**
+ * One version, with its data.
+ *
+ * Scoped by sequence as well as by organisation: a guest holds one project, and
+ * the sequence in the URL is what keeps a guessed id from opening a version of
+ * another one.
+ */
+export async function getVersion(
+  orgId: string,
+  sequenceId: string,
+  versionId: string,
+): Promise<VersionRow | null> {
+  if (!isUuid(versionId)) return null
+  return queryOne<VersionRow>(
+    `select * from sequence_versions where org_id = $1 and sequence_id = $2 and id = $3`,
+    [requireOrg(orgId), sequenceId, versionId],
+  )
 }

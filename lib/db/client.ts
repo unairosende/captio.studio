@@ -97,3 +97,13 @@ export function requireOrg(orgId: string | null | undefined): string {
   }
   return orgId
 }
+
+/**
+ * Whether a value has the shape of a uuid.
+ *
+ * For ids that arrive from a cookie or a URL held by a stranger. Postgres
+ * answers a malformed uuid with an error rather than an empty result, and an
+ * error there is a 500 anyone can produce at will.
+ */
+export const isUuid = (v: unknown): v is string =>
+  typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)

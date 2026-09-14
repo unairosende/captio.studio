@@ -65,6 +65,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         // The splits and deletions this save carries, so the comments move with
         // the cues they are about instead of staying on the old numbers.
         anchorOps: parseAnchorOps(body?.anchorOps),
+        // Signs the version this save records, so the history says who.
+        createdBy: ctx.userId,
+        note: typeof body?.note === 'string' ? body.note.trim().slice(0, 200) || null : null,
       },
     )
 

@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto'
 
 import { REVIEW_LINK_EXPIRY_SECONDS } from '../auth/expiry.ts'
-import { query, queryOne, requireOrg } from './client.ts'
+import { isUuid, query, queryOne, requireOrg } from './client.ts'
 import { UnknownProjectError } from './sequences.ts'
 
 /**
@@ -44,14 +44,6 @@ export type ReviewLinkSummary = ReviewLinkRow & {
 
 /** URL-safe and unguessable; 192 bits is more than any session cookie carries. */
 const newToken = () => randomBytes(24).toString('base64url')
-
-/**
- * Ids that arrive from a cookie or a URL are checked for shape before they reach
- * a `uuid` column. Postgres answers a malformed one with an error, not with an
- * empty result, and an error here is a 500 a stranger can produce at will.
- */
-const isUuid = (v: unknown): v is string =>
-  typeof v === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v)
 
 export async function createLink(
   orgId: string,
