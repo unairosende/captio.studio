@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
+import { requireActor } from '@/lib/auth/actor'
+import { authErrorResponse } from '@/lib/auth/session'
 import { getVersion } from '@/lib/db/sequences'
 
 /**
@@ -14,16 +15,16 @@ interface Params {
   params: Promise<{ id: string; versionId: string }>
 }
 
-export async function GET(_req: NextRequest, { params }: Params) {
-  let ctx
+export async function GET(req: NextRequest, { params }: Params) {
+  const { id, versionId } = await params
+  let actor
   try {
-    ctx = await requireOrgContext()
+    actor = await requireActor(req, id)
   } catch (err) {
     return authErrorResponse(err)
   }
 
-  const { id, versionId } = await params
-  const version = await getVersion(ctx.orgId, id, versionId)
+  const version = await getVersion(actor.orgId, id, versionId)
   if (!version) return NextResponse.json({ error: 'Version not found' }, { status: 404 })
 
   return NextResponse.json({ version })

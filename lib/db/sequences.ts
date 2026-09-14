@@ -90,6 +90,16 @@ export async function getSequence(orgId: string, id: string): Promise<SequenceRo
   ])
 }
 
+/** Whether it is there and the caller's — without shipping megabytes of `data` to find out. */
+export async function sequenceExists(orgId: string, id: string): Promise<boolean> {
+  if (!isUuid(id)) return false
+  const rows = await query<{ id: string }>(
+    `select id from sequences where org_id = $1 and id = $2`,
+    [requireOrg(orgId), id],
+  )
+  return rows.length > 0
+}
+
 export class UnknownProjectError extends Error {
   readonly status = 404
   constructor() {

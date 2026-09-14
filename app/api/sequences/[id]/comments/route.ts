@@ -1,8 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
+import { requireActor } from '@/lib/auth/actor'
+import { authErrorResponse } from '@/lib/auth/session'
 import { createComment, listComments } from '@/lib/db/comments'
-import { getSequence } from '@/lib/db/sequences'
 
 /**
  * The notes on one sequence.
@@ -11,11 +11,11 @@ import { getSequence } from '@/lib/db/sequences'
  * text is the thing being argued about — "this line is too literal" has to
  * survive the line being rewritten.
  *
- * Both handlers are scoped by organisation, and POST checks the sequence exists
- * within it before writing. Without that check a caller could hang comments off
- * another customer's sequence id: the row would carry their own org_id, so
- * nobody would ever see it, but the write would succeed and the foreign key
- * would point across the tenant boundary.
+ * Open to guests: a client holding a review link reads and writes here with the
+ * token in a header instead of a session. `requireActor` resolves either kind
+ * of caller to an organisation on the server and verifies the sequence is one
+ * they may see — so a comment can never be hung off another customer's
+ * sequence, nor off another project of the same productora.
  */
 
 interface Params {
@@ -25,27 +25,28 @@ interface Params {
 /** Long enough for a paragraph of direction, short enough not to be a document. */
 const MAX_BODY = 2000
 
-export async function GET(_req: NextRequest, { params }: Params) {
-  let ctx
+export async function GET(req: NextRequest, { params }: Params) {
+  const { id } = await params
+  let actor
   try {
-    ctx = await requireOrgContext()
+    actor = await requireActor(req, id)
   } catch (err) {
     return authErrorResponse(err)
   }
 
-  const comments = await listComments(ctx.orgId, (await params).id)
+  const comments = await listComments(actor.orgId, id)
   return NextResponse.json({ comments })
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
-  let ctx
+  const { id } = await params
+  let actor
   try {
-    ctx = await requireOrgContext()
+    actor = await requireActor(req, id)
   } catch (err) {
     return authErrorResponse(err)
   }
 
-  const { id } = await params
   const payload = await req.json().catch(() => null)
 
   const text = typeof payload?.body === 'string' ? payload.body.trim() : ''
@@ -57,19 +58,17 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Which subtitle?' }, { status: 400 })
   }
 
-  if (!(await getSequence(ctx.orgId, id))) {
-    return NextResponse.json({ error: 'Sequence not found' }, { status: 404 })
-  }
-
-  await createComment(ctx.orgId, {
+  await createComment(actor.orgId, {
     sequenceId: id,
     cueIndex: payload.cueIndex,
     lang: typeof payload?.lang === 'string' ? payload.lang : null,
     body: text,
-    authorId: ctx.userId,
+    // Signed by whoever is here: a member by user id, a client by guest id.
+    authorId: actor.kind === 'user' ? actor.userId : null,
+    guestId: actor.kind === 'guest' ? actor.guestId : null,
   })
 
   // The whole thread back, rather than the one row: the insert does not know the
   // author's name, and the caller would have to ask for it anyway.
-  return NextResponse.json({ comments: await listComments(ctx.orgId, id) }, { status: 201 })
+  return NextResponse.json({ comments: await listComments(actor.orgId, id) }, { status: 201 })
 }

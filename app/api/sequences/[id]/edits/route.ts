@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
+import { requireActor } from '@/lib/auth/actor'
+import { ForbiddenError, authErrorResponse } from '@/lib/auth/session'
 import { ConflictError, getSequence, saveTextEdits } from '@/lib/db/sequences'
 import { UnknownCueError, type TextEdit } from '@/lib/subtitles/data'
 
@@ -37,23 +38,29 @@ function parseEdits(value: unknown): TextEdit[] | null {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
-  let ctx
+  const { id } = await params
+  let actor
   try {
-    ctx = await requireOrgContext()
+    actor = await requireActor(req, id)
+    // A link can be read-only. The client still sees and comments; the words
+    // stay the productora's to change.
+    if (actor.kind === 'guest' && !actor.canEdit) {
+      throw new ForbiddenError('This link does not allow editing')
+    }
   } catch (err) {
     return authErrorResponse(err)
   }
 
-  const { id } = await params
   const body = await req.json().catch(() => null)
 
   const edits = parseEdits(body?.edits)
   if (!edits) return NextResponse.json({ error: 'Which subtitles, and what should they say?' }, { status: 400 })
 
   try {
-    const sequence = await saveTextEdits(ctx.orgId, id, edits, {
+    const sequence = await saveTextEdits(actor.orgId, id, edits, {
       expectedVersion: typeof body?.version === 'number' ? body.version : undefined,
-      createdBy: ctx.userId,
+      createdBy: actor.kind === 'user' ? actor.userId : null,
+      guestId: actor.kind === 'guest' ? actor.guestId : null,
       note: typeof body?.note === 'string' ? body.note.trim().slice(0, 200) || null : null,
     })
     if (!sequence) return NextResponse.json({ error: 'Sequence not found' }, { status: 404 })
@@ -67,7 +74,7 @@ export async function POST(req: NextRequest, { params }: Params) {
       // The same answer PATCH gives: the current row, so the caller can reload
       // rather than guess what changed underneath them.
       return NextResponse.json(
-        { error: err.message, sequence: await getSequence(ctx.orgId, id) },
+        { error: err.message, sequence: await getSequence(actor.orgId, id) },
         { status: 409 },
       )
     }

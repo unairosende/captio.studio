@@ -44,6 +44,12 @@ function isPublic(pathname: string): boolean {
   if (PUBLIC_PATHS.includes(pathname)) return true
   // Auth endpoints must stay open or signing in becomes impossible.
   if (pathname.startsWith('/api/auth/')) return true
+  // A client reviewing subtitles arrives through a link, not a login. The
+  // pages under /r/ and the route where they say who they are cannot ask for
+  // a session cookie: the person on the other end has never had one. The token
+  // in the URL is their credential, and the pages verify it themselves.
+  if (pathname.startsWith('/r/')) return true
+  if (pathname.startsWith('/api/review/')) return true
   // Stripe has no session cookie. Redirecting its POST to the login page would
   // mean subscriptions silently never get recorded — the request is
   // authenticated by its signature, which the route itself verifies.
@@ -61,6 +67,14 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl
 
   if (isPublic(pathname)) return NextResponse.next()
+
+  // The review view calls the ordinary comment and edit routes, carrying its
+  // token in a header instead of a session in a cookie. Waved through on the
+  // same terms as the cookie: this is a guess that somebody has a credential,
+  // and the route — lib/auth/actor.ts — is what actually checks it.
+  if (pathname.startsWith('/api/') && request.headers.has('x-review-token')) {
+    return NextResponse.next()
+  }
 
   if (!getSessionCookie(request)) {
     // An API caller gets an answer it can read. Redirecting a fetch to an HTML

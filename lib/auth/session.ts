@@ -20,8 +20,8 @@ export interface OrgContext {
 
 export class UnauthorizedError extends Error {
   readonly status = 401
-  constructor() {
-    super('Not signed in')
+  constructor(message = 'Not signed in') {
+    super(message)
     this.name = 'UnauthorizedError'
   }
 }
@@ -31,6 +31,27 @@ export class NoOrganizationError extends Error {
   constructor() {
     super('No active organization')
     this.name = 'NoOrganizationError'
+  }
+}
+
+/** Known, allowed in, and still not permitted to do this. */
+export class ForbiddenError extends Error {
+  readonly status = 403
+  constructor(message: string) {
+    super(message)
+    this.name = 'ForbiddenError'
+  }
+}
+
+/**
+ * The thing asked for is not there — or belongs to somebody else, which callers
+ * must not distinguish, or the API becomes an oracle for which ids exist.
+ */
+export class NotFoundError extends Error {
+  readonly status = 404
+  constructor(message: string) {
+    super(message)
+    this.name = 'NotFoundError'
   }
 }
 
@@ -92,7 +113,12 @@ export function isAdmin(ctx: OrgContext): boolean {
  * here would turn a genuine bug into a silent 500 with no stack anywhere.
  */
 export function authErrorResponse(err: unknown): Response {
-  if (err instanceof UnauthorizedError || err instanceof NoOrganizationError) {
+  if (
+    err instanceof UnauthorizedError ||
+    err instanceof NoOrganizationError ||
+    err instanceof ForbiddenError ||
+    err instanceof NotFoundError
+  ) {
     return Response.json({ error: err.message }, { status: err.status })
   }
   throw err

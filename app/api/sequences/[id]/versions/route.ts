@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
+import { requireActor } from '@/lib/auth/actor'
+import { authErrorResponse } from '@/lib/auth/session'
 import { listVersions } from '@/lib/db/sequences'
 
 /**
@@ -15,16 +16,17 @@ interface Params {
   params: Promise<{ id: string }>
 }
 
-export async function GET(_req: NextRequest, { params }: Params) {
-  let ctx
+export async function GET(req: NextRequest, { params }: Params) {
+  const { id } = await params
+  let actor
   try {
-    ctx = await requireOrgContext()
+    // Open to guests: the history is part of what a review shows. The sequence
+    // is verified against the caller here, member or client alike.
+    actor = await requireActor(req, id)
   } catch (err) {
     return authErrorResponse(err)
   }
 
-  // Scoped by organisation and sequence, so a sequence that is not the caller's
-  // simply has no history — the same answer as one that never existed.
-  const versions = await listVersions(ctx.orgId, (await params).id)
+  const versions = await listVersions(actor.orgId, id)
   return NextResponse.json({ versions })
 }
