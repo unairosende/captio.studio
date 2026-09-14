@@ -73,6 +73,19 @@ apoyados en eso; el enlace copiable del panel de equipo es la vía que sí funci
 **Los plazos de los enlaces viven en `lib/auth/expiry.ts`.** La configuración y
 el texto que lee el cliente salen de ahí. No escribas "siete días" a mano.
 
+**El cliente entra por un enlace de revisión, no por una cuenta.** El token
+(`review_links.token`) es la credencial y **produce** el `org_id` en el
+servidor — `getLinkByToken` es la única consulta sin `org_id` permitida en
+`lib/db`, y `tests/tenancy/scoping.test.ts` la nombra. Todo lo que un invitado
+puede tocar son las rutas que llaman a `requireActor` (`lib/auth/actor.ts`);
+`tests/tenancy/guest-surface.test.ts` fija esa lista. Añadir `requireActor` a
+`translate` o `transcribe` dejaría a un desconocido gastar los minutos de la org.
+
+**Cada guardado de cues es una versión** (`sequence_versions`, dentro de la
+misma transacción). Los guardados del mismo autor en 10 minutos se aplastan en
+una. El cliente solo escribe texto por cue (`POST /api/sequences/[id]/edits`);
+la forma del track — cues, timings, idiomas — nunca sale de una petición suya.
+
 ## Estilo
 
 Tokens y clases en `app/globals.css` (`.btn`, `.field`, `.panel`, `.row`,
