@@ -131,6 +131,47 @@ export function resetPasswordEmail(url: string): Omit<Mail, 'to'> {
 }
 
 /**
+ * Somebody commented on a subtitle.
+ *
+ * Every field but the URL is written by a person — and the author may be a
+ * client who arrived through a link, which is to say a stranger. Escaped
+ * without exception; the comment body keeps its line breaks and nothing else.
+ */
+export function commentEmail(input: {
+  authorName: string
+  projectName: string
+  sequenceName: string
+  cueIndex: number
+  lang: string | null
+  body: string
+  url: string
+}): Omit<Mail, 'to'> {
+  const where = `#${input.cueIndex}${input.lang ? ` (${input.lang})` : ''}`
+  const who = esc(input.authorName)
+  const seq = esc(input.sequenceName)
+  const project = esc(input.projectName)
+  const said = esc(input.body).replace(/\r?\n/g, '<br>')
+
+  return {
+    subject: `${input.authorName} comentó la ${where} de «${input.sequenceName}»`,
+    text: [
+      `${input.authorName} ha comentado el subtítulo ${where} de «${input.sequenceName}» (${input.projectName}):`,
+      '',
+      input.body,
+      '',
+      `Verlo y responder: ${input.url}`,
+      '',
+      'Si no esperabas este correo, puedes ignorarlo.',
+    ].join('\n'),
+    html: layout(
+      `Nuevo comentario en «${seq}»`,
+      `<strong>${who}</strong> ha comentado el subtítulo ${esc(where)} de <strong>${seq}</strong> (${project}):<br><br><em>${said}</em>`,
+      { url: esc(input.url), label: 'Ver el comentario' },
+    ),
+  }
+}
+
+/**
  * Invitation to join an organisation.
  *
  * Organisation and inviter names are user input, so they are escaped before

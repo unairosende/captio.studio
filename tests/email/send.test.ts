@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { sendMail, verificationEmail } from '../../lib/email/send.ts'
+import { commentEmail, sendMail, verificationEmail } from '../../lib/email/send.ts'
 
 /**
  * What happens when no mail provider is configured.
@@ -85,5 +85,41 @@ describe('sendMail without a provider', () => {
       )
       assert.equal(sent, false)
     }
+  })
+})
+
+/**
+ * The comment email is the first message whose every word may have been typed
+ * by a stranger: a client who arrived through a link chooses their own name and
+ * writes their own note. Both go into HTML.
+ */
+describe('commentEmail', () => {
+  const mail = commentEmail({
+    authorName: '<script>alert(1)</script> Ana',
+    projectName: 'Doc & Co',
+    sequenceName: 'Reel <1>',
+    cueIndex: 12,
+    lang: 'Spanish',
+    body: 'Too literal.\n"Fix" this <b>now</b>',
+    url: 'https://captio.studio/r/tok/seq?cue=12',
+  })
+
+  it('escapes everything a person wrote before it reaches the HTML', () => {
+    assert.ok(!mail.html.includes('<script>'), 'the name is not markup')
+    assert.ok(mail.html.includes('&lt;script&gt;'))
+    assert.ok(!mail.html.includes('<b>now</b>'), 'the body is not markup')
+    assert.ok(mail.html.includes('&lt;b&gt;now&lt;/b&gt;'))
+    assert.ok(mail.html.includes('Doc &amp; Co'))
+    assert.ok(mail.html.includes('Reel &lt;1&gt;'))
+  })
+
+  it('keeps the line breaks of the note and nothing else', () => {
+    assert.ok(mail.html.includes('Too literal.<br>&quot;Fix&quot; this'))
+  })
+
+  it('says where, and carries the way back', () => {
+    assert.ok(mail.subject.includes('#12 (Spanish)'))
+    assert.ok(mail.text.includes('https://captio.studio/r/tok/seq?cue=12'))
+    assert.ok(mail.html.includes('href="https://captio.studio/r/tok/seq?cue=12"'))
   })
 })

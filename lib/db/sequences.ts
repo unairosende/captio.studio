@@ -90,6 +90,15 @@ export async function getSequence(orgId: string, id: string): Promise<SequenceRo
   ])
 }
 
+/** The row without its `data`, for callers that need a name and a project rather than the cues. */
+export async function getSequenceSummary(orgId: string, id: string): Promise<SequenceSummary | null> {
+  if (!isUuid(id)) return null
+  return queryOne<SequenceSummary>(
+    `select ${SUMMARY_COLS} from sequences where org_id = $1 and id = $2`,
+    [requireOrg(orgId), id],
+  )
+}
+
 /** Whether it is there and the caller's — without shipping megabytes of `data` to find out. */
 export async function sequenceExists(orgId: string, id: string): Promise<boolean> {
   if (!isUuid(id)) return false

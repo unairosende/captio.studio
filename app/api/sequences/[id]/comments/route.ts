@@ -3,6 +3,9 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requireActor } from '@/lib/auth/actor'
 import { authErrorResponse } from '@/lib/auth/session'
 import { createComment, listComments } from '@/lib/db/comments'
+import { getProject } from '@/lib/db/projects'
+import { getSequenceSummary } from '@/lib/db/sequences'
+import { notifyComment } from '@/lib/review/notify'
 
 /**
  * The notes on one sequence.
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Which subtitle?' }, { status: 400 })
   }
 
-  await createComment(actor.orgId, {
+  const comment = await createComment(actor.orgId, {
     sequenceId: id,
     cueIndex: payload.cueIndex,
     lang: typeof payload?.lang === 'string' ? payload.lang : null,
@@ -70,5 +73,23 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   // The whole thread back, rather than the one row: the insert does not know the
   // author's name, and the caller would have to ask for it anyway.
-  return NextResponse.json({ comments: await listComments(actor.orgId, id) }, { status: 201 })
+  const comments = await listComments(actor.orgId, id)
+
+  // Tell the rest of the conversation. Awaited, because on this platform work
+  // left running after the response may simply not happen; it never throws.
+  const sequence = await getSequenceSummary(actor.orgId, id)
+  if (sequence) {
+    const project = await getProject(actor.orgId, sequence.project_id)
+    await notifyComment({
+      actor,
+      authorName:
+        comments.find(c => c.id === comment.id)?.author_name ??
+        (actor.kind === 'guest' ? actor.name : 'Someone'),
+      comment,
+      sequence: { id: sequence.id, name: sequence.name },
+      projectName: project?.name ?? '',
+    })
+  }
+
+  return NextResponse.json({ comments }, { status: 201 })
 }
