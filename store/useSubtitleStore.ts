@@ -249,6 +249,8 @@ interface AppState {
   clearAll: () => void
   setTranslation: (lang: string, subs: Subtitle[]) => void
   updateSubtitle: (lang: string, index: number, text: string) => void
+  /** The original's text. Its translations are left alone: whoever changes it knows whether they need redoing. */
+  updateSource: (index: number, text: string) => void
   /** Timings belong to the cue, not to any one language. */
   retimeSubtitle: (index: number, start: string, end: string) => void
   /**
@@ -436,6 +438,11 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     const subs = s.translations[lang]?.map(sub => sub.index === index ? { ...sub, text } : sub) ?? []
     return { translations: { ...s.translations, [lang]: subs }, dirty: true }
   }),
+
+  updateSource: (index, text) => set(s => ({
+    subtitles: s.subtitles.map(sub => (sub.index === index ? { ...sub, text } : sub)),
+    dirty: true,
+  })),
 
   pushUndo: edit => set(s => ({
     past: [...s.past, { ...snapshot(s), edit }].slice(-UNDO_DEPTH),

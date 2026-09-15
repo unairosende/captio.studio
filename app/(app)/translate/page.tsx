@@ -60,7 +60,7 @@ export default async function TranslatePage({ searchParams }: Props) {
 
   return (
     <TranslateClient
-      user={{ id: userId, email: user.email, role }}
+      user={{ id: userId, email: user.email, name: user.name, role }}
       entitlement={entitlement}
       project={{ id: project.id, name: project.name, glossary: project.glossary }}
       sequence={

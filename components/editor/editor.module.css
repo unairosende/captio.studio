@@ -1,15 +1,16 @@
-/* La composición del editor: cabecera, pipeline, tabla, inspector y onda.
+/* La composición del editor: cabecera, barra de pasos, tabla, panel y onda.
    Solo maquetación de esta pantalla; las piezas viven en app/ui.css y los
    tokens en app/tokens.css. */
 
 .editor {
   display: grid;
-  grid-template-rows: 44px minmax(0, 1fr) auto;
-  grid-template-columns: 240px minmax(0, 1fr) 300px;
+  grid-template-rows: 44px 40px minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto;
   grid-template-areas:
-    "head head head"
-    "pipe main side"
-    "wave wave wave";
+    "head head"
+    "steps steps"
+    "main side"
+    "wave wave";
   height: 100vh;
   background: var(--s1);
   color: var(--ink);
@@ -31,12 +32,14 @@
   min-width: 0;
 }
 
+/* La marca en minúscula y negrita, en tinta: dentro del editor el acento
+   cede, y un logotipo que grita al lado de un subtítulo con un error
+   compite con lo que importa. */
 .brand {
-  font-family: var(--mono);
-  font-size: var(--fs-sm);
-  font-weight: 500;
-  letter-spacing: .14em;
-  color: var(--accent);
+  font-size: var(--fs-lg);
+  font-weight: 700;
+  letter-spacing: -.01em;
+  color: var(--ink);
   text-decoration: none;
   flex: none;
 }
@@ -71,41 +74,8 @@
 .seqName:hover { border-color: var(--line-2); }
 .seqName:focus-visible { border-color: transparent; outline: 2px solid var(--ring); outline-offset: 0; }
 
-.pair {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
-  color: var(--ink-3);
-  flex: none;
-}
-.pair span { padding: 2px 6px; border-radius: var(--r-sm); background: var(--s2); color: var(--ink-2); }
-
-/* El campo de la paleta en la cabecera: parece un campo, es un botón. Es la
-   superficie principal de acción y lo dice el propio texto. */
-.palTrigger {
-  flex: 1;
-  max-width: 420px;
-  min-width: 160px;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  height: var(--ctl);
-  padding: 0 var(--sp-2) 0 var(--sp-3);
-  border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
-  background: var(--s0);
-  color: var(--ink-3);
-  font: inherit;
-  font-size: var(--fs-md);
-  text-align: left;
-  cursor: text;
-  margin-left: auto;
-}
-.palTrigger:hover { border-color: color-mix(in srgb, var(--ink) 32%, transparent); }
-.palTrigger:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
-.palTrigger span:first-child { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Guardar va pegado al nombre: se guarda lo que se acaba de nombrar. */
+.saveGroup { display: flex; align-items: center; gap: var(--sp-2); flex: none; }
 
 .saved {
   display: flex;
@@ -120,88 +90,107 @@
 .saved::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
 .saved[data-dirty="true"]::before { background: var(--warn); }
 
+.headEnd { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); }
+
+/* La cuenta, presente: un círculo lleno con las iniciales, no un aro. */
 .avatar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--line-2);
+  width: 32px;
+  height: 32px;
+  border: 0;
   border-radius: 50%;
-  background: var(--s2);
-  color: var(--ink-2);
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
+  background: var(--ink);
+  color: var(--s0);
+  font-family: var(--sans);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  letter-spacing: .02em;
   cursor: pointer;
   flex: none;
 }
-.avatar:hover { background: var(--s3); color: var(--ink); }
-.avatar:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.avatar:hover { background: var(--ink-2); }
+.avatar:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }
 
 /* Un menú colgado de lo que lo abrió. */
 .anchor { position: relative; }
 .pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; }
 .popLeft { right: auto; left: 0; }
 
-/* ── Pipeline ───────────────────────────────────────────────────────────── */
+/* ── Barra de pasos ─────────────────────────────────────────────────────── */
 
-.pipe {
-  grid-area: pipe;
+/* Los pasos, en una línea sobre la tabla: cada uno dice cómo va, y al
+   pulsarlo cuelga de él un cajón con sus mandos. A la derecha, cómo se mira
+   la tabla y si el panel está abierto. */
+.steps {
+  grid-area: steps;
+  position: relative;
+  z-index: 20;
   display: flex;
-  flex-direction: column;
-  border-right: 1px solid var(--line);
-  overflow-y: auto;
-  min-height: 0;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: 0 var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  min-width: 0;
 }
 
-.pipeTitle { padding: var(--sp-3) var(--sp-4) var(--sp-1); }
+.stepWrap { position: relative; }
 
-.step { border-bottom: 1px solid var(--line); }
-
-/* La cabecera de un paso: número, nombre, y una línea que dice cómo va.
-   Es un botón: un paso se abre para trabajar en él y se cierra solo. */
-.stepHead {
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  column-gap: var(--sp-2);
-  width: 100%;
-  padding: var(--sp-2) var(--sp-4);
-  border: 0;
+.stepBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--ctl);
+  padding: 0 var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--r-md);
   background: none;
   color: var(--ink);
   font: inherit;
-  text-align: left;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background var(--t-fast);
 }
-.stepHead:hover { background: var(--hover); }
-.stepHead:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.stepBtn:hover { background: var(--hover); }
+.stepBtn[aria-expanded="true"] { background: var(--s0); border-color: var(--line); }
+.stepBtn:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
 
-.stepNum {
+.stepDot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); flex: none; }
+.stepWrap[data-done="true"] .stepDot { background: var(--ok); }
+.stepName { font-weight: 500; }
+.stepStatus {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--mono);
   font-size: var(--fs-xs);
   color: var(--ink-3);
-  padding-top: 3px;
-}
-.step[data-done="true"] .stepNum { color: var(--ok); }
-.stepName { display: block; font-weight: 500; }
-.stepStatus {
-  display: block;
-  font-size: var(--fs-sm);
-  color: var(--ink-2);
-  line-height: 1.4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .stepStatus[data-tone="warn"]   { color: var(--warn); }
 .stepStatus[data-tone="danger"] { color: var(--danger); }
 
-.stepBody {
+.stepsEnd { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: none; }
+
+/* El cajón: flota bajo su paso, sobre la tabla, y se va solo — al lanzar
+   la acción, con esc o al pulsar fuera. La tabla no salta. */
+.drawer {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 380px;
+  max-height: calc(100vh - 150px);
+  overflow-y: auto;
   display: grid;
   gap: var(--sp-3);
-  padding: var(--sp-1) var(--sp-4) var(--sp-4) calc(var(--sp-4) + 24px + var(--sp-2));
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--raised);
+  box-shadow: var(--lift);
 }
-.stepBody :global(.caps) { display: block; margin-bottom: var(--sp-1); }
+.drawer :global(.caps) { display: block; margin-bottom: var(--sp-1); }
 
 .chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 
@@ -240,29 +229,8 @@
 .jobMsg[data-tone="danger"] { color: var(--danger); }
 .jobMsg[data-tone="ok"] { color: var(--ok); }
 
-.notes { display: grid; gap: var(--sp-1); max-height: 220px; overflow-y: auto; font-size: var(--fs-sm); }
-.note { display: flex; gap: var(--sp-2); line-height: 1.4; }
-.note b { font-family: var(--mono); font-weight: 500; color: var(--warn); flex: none; }
-.note b[data-level="error"] { color: var(--danger); }
-
-/* Lo que no es un paso: comentarios, glosario, uso del plan. */
-.pipeFoot { margin-top: auto; padding: var(--sp-3) var(--sp-4) var(--sp-4); display: grid; gap: var(--sp-2); border-top: 1px solid var(--line); }
-.pipeRow {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink-2);
-  font: inherit;
-  font-size: var(--fs-md);
-  text-align: left;
-  cursor: pointer;
-}
-.pipeRow:hover { color: var(--ink); }
-.pipeRow :global(.kbd), .pipeRow :global(.badge) { margin-left: auto; }
+/* Lo que queda del plan, al pie de los pasos que gastan. */
+.meter { padding-top: var(--sp-2); border-top: 1px solid var(--line); }
 .meterRow { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: var(--sp-1); }
 .meterVal { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .meterVal[data-tone="warn"] { color: var(--warn); }
@@ -277,34 +245,13 @@
   min-width: 0;
   min-height: 0;
   background: var(--s0);
-  transition: background var(--t-base);
 }
 
-.tabsBar {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: 0 var(--sp-4);
-  border-bottom: 1px solid var(--line);
-  flex: none;
-}
-.tabsBar > :global(.tabs) { border-bottom: 0; flex: 1; min-width: 0; overflow-x: auto; }
-.tabClose {
-  margin-left: 2px;
-  width: 14px;
-  height: 14px;
-  border: 0;
-  border-radius: var(--r-sm);
-  background: none;
-  color: var(--ink-3);
-  font: inherit;
-  font-size: var(--fs-sm);
-  line-height: 1;
-  cursor: pointer;
-}
-.tabClose:hover { background: var(--danger-bg); color: var(--danger); }
+.tabsBar { flex: none; overflow-x: auto; scrollbar-width: none; }
 
-.summary {
+/* Sobre la tabla: cuántos cues, los contadores —que son filtros—, la
+   búsqueda y los atajos. */
+.toolbar {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -316,9 +263,9 @@
   color: var(--ink-3);
   flex: none;
 }
-.summary b { color: var(--ink); font-weight: 500; }
+.toolbar > * { flex: none; white-space: nowrap; }
+.toolbar b { color: var(--ink); font-weight: 500; }
 
-/* Los contadores de avisos son filtros: pulsar uno deja solo esos cues. */
 .count {
   display: inline-flex;
   align-items: center;
@@ -339,59 +286,76 @@
 .count:hover { background: var(--hover); }
 .count[aria-pressed="true"] { border-color: currentColor; }
 
+/* La búsqueda no oculta nada: marca lo que encuentra y ⏎ salta. */
+.search { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: 0 1 auto; min-width: 0; }
+.search input { height: 24px; width: 220px; max-width: 100%; font-family: var(--sans); font-size: var(--fs-sm); }
+.search input:focus-visible { outline-offset: 0; }
+.searchN { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+.keys { display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+
 /* Un cue con un hilo abierto lo dice con un punto tras el número. */
 .dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); margin-left: 4px; vertical-align: middle; }
-.keys { margin-left: auto; display: flex; align-items: center; gap: 4px; }
 
-.tableWrap { flex: 1; min-height: 0; overflow-y: auto; }
-.tableWrap > :global(.cues) { border: 0; border-radius: 0; }
+.tableWrap { flex: 1; min-height: 0; overflow: auto; }
+.tableWrap > :global(.cues) { border: 0; border-radius: 0; min-width: 100%; }
 .tableWrap :global(.cue-head) { position: sticky; top: 0; background: var(--s0); z-index: 1; }
 
 .emptyWrap { padding: var(--sp-8) var(--sp-6); }
 
-/* ── Inspector ──────────────────────────────────────────────────────────── */
+/* El menú del cue, donde se ha pulsado. */
+.ctx { position: fixed; z-index: 50; }
 
+/* ── Panel ──────────────────────────────────────────────────────────────── */
+
+/* Lo que no es la tabla ni un paso: revisar, corregir en lote, las
+   propiedades, los comentarios. Cerrado por defecto; la tabla es el editor. */
 .side {
   grid-area: side;
+  width: 320px;
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow-y: auto;
   border-left: 1px solid var(--line);
-  transition: background var(--t-base);
 }
-
-/* Foco = extremo de la escala. Al empezar a corregir en el inspector, el
-   inspector pasa a blanco y la tabla se retira al gris: solo hay una
-   superficie blanca a la vez. */
-.editor[data-focus="side"] .main { background: var(--s1); }
-.editor[data-focus="side"] .side { background: var(--s0); }
-.editor[data-focus="side"] .tableWrap :global(.cue-head) { background: var(--s1); }
-.editor[data-focus="side"] .tableWrap :global(.cue[aria-selected="true"]) { background: var(--s3); }
 
 .sideHead {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  height: 44px;
-  padding: 0 var(--sp-4);
+  height: 40px;
+  padding: 0 var(--sp-2) 0 var(--sp-3);
   border-bottom: 1px solid var(--line);
   flex: none;
 }
-.sideHead h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
-.sideHead :global(.muted) { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
-.sideHead :global(.muted)[data-tone="warn"]   { color: var(--warn); }
-.sideHead :global(.muted)[data-tone="danger"] { color: var(--danger); }
-.sideTools { padding: var(--sp-2) var(--sp-3); border-bottom: 1px solid var(--line); }
+.sideHead > :global(.seg) { flex: 1; }
+.sideHead > :global(.seg) > button { flex: 1; }
+.sideBody { flex: 1; min-height: 0; overflow-y: auto; }
 
 .section { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); display: grid; gap: var(--sp-2); }
 .section :global(.caps) { display: flex; justify-content: space-between; align-items: baseline; }
 
-.times { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-2); font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
-.times small { display: block; color: var(--ink-3); font-size: var(--fs-xs); }
+.notes { display: grid; gap: 2px; max-height: 320px; overflow-y: auto; font-size: var(--fs-sm); }
+.note {
+  display: flex;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: 3px var(--sp-1);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  font-size: var(--fs-sm);
+  line-height: 1.4;
+  text-align: left;
+  cursor: pointer;
+}
+.note:hover { background: var(--hover); color: var(--ink); }
+.note[aria-current="true"] { background: var(--select); color: var(--ink); }
+.note b { font-family: var(--mono); font-weight: 500; color: var(--warn); flex: none; }
+.note b[data-level="error"] { color: var(--danger); }
 
 .original { white-space: pre-wrap; word-break: break-word; line-height: 1.5; color: var(--ink-2); }
-.original[data-ink] { color: var(--ink); }
 
 .counter { display: flex; align-items: center; gap: var(--sp-2); font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); font-variant-numeric: tabular-nums; }
 .counter b { font-weight: 500; color: var(--ink-2); }
@@ -414,8 +378,11 @@
 
 /* ── Onda ───────────────────────────────────────────────────────────────── */
 
-.wave { grid-area: wave; border-top: 1px solid var(--line); background: var(--s1); }
+/* min-width: 0, or the canvas — sized in pixels to whatever width it last
+   measured — would hold the grid at that width when the panel opens. */
+.wave { grid-area: wave; min-width: 0; border-top: 1px solid var(--line); background: var(--s1); }
 
 @media (max-width: 1100px) {
-  .editor { grid-template-columns: 200px minmax(0, 1fr) 260px; }
+  .side { width: 280px; }
+  .stepStatus, .keys { display: none; }
 }
