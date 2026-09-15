@@ -1,16 +1,15 @@
-/* La composición del editor: cabecera, barra de pasos, tabla, panel y onda.
-   Solo maquetación de esta pantalla; las piezas viven en app/ui.css y los
-   tokens en app/tokens.css. */
+/* La composición del editor: cabecera, raíl de pasos, barra lateral, tabla,
+   panel y onda. Solo maquetación de esta pantalla; las piezas viven en
+   app/ui.css y los tokens en app/tokens.css. */
 
 .editor {
   display: grid;
-  grid-template-rows: 44px 40px minmax(0, 1fr) auto;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: 44px minmax(0, 1fr) auto;
+  grid-template-columns: 44px auto minmax(0, 1fr) auto;
   grid-template-areas:
-    "head head"
-    "steps steps"
-    "main side"
-    "wave wave";
+    "head head head head"
+    "rail left main side"
+    "wave wave wave wave";
   height: 100vh;
   background: var(--s1);
   color: var(--ink);
@@ -118,79 +117,111 @@
 .pop { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; }
 .popLeft { right: auto; left: 0; }
 
-/* ── Barra de pasos ─────────────────────────────────────────────────────── */
+/* ── Raíl y barra lateral ───────────────────────────────────────────────── */
 
-/* Los pasos, en una línea sobre la tabla: cada uno dice cómo va, y al
-   pulsarlo cuelga de él un cajón con sus mandos. A la derecha, cómo se mira
-   la tabla y si el panel está abierto. */
-.steps {
-  grid-area: steps;
-  position: relative;
-  z-index: 20;
+/* Los pasos, como iconos en un raíl: importar, transcribir, traducir,
+   entregar. El nombre aparece al pasar por encima; pulsar uno abre la barra
+   lateral con sus mandos, y pulsar el que está abierto la pliega. */
+.rail {
+  grid-area: rail;
   display: flex;
+  flex-direction: column;
   align-items: center;
   gap: var(--sp-1);
-  padding: 0 var(--sp-3);
-  border-bottom: 1px solid var(--line);
-  min-width: 0;
+  padding-top: var(--sp-2);
+  border-right: 1px solid var(--line);
 }
 
-.stepWrap { position: relative; }
-
-.stepBtn {
+.railBtn {
+  position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--sp-2);
-  height: var(--ctl);
-  padding: 0 var(--sp-2);
-  border: 1px solid transparent;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
   border-radius: var(--r-md);
   background: none;
-  color: var(--ink);
-  font: inherit;
-  white-space: nowrap;
+  color: var(--ink-2);
   cursor: pointer;
-  transition: background var(--t-fast);
+  transition: background var(--t-fast), color var(--t-fast);
 }
-.stepBtn:hover { background: var(--hover); }
-.stepBtn[aria-expanded="true"] { background: var(--s0); border-color: var(--line); }
-.stepBtn:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.railBtn:hover { background: var(--hover); color: var(--ink); }
+.railBtn[aria-pressed="true"] { background: var(--select); color: var(--ink); }
+.railBtn:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
 
-.stepDot { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); flex: none; }
-.stepWrap[data-done="true"] .stepDot { background: var(--ok); }
-.stepName { font-weight: 500; }
-.stepStatus {
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
-  color: var(--ink-3);
-}
-.stepStatus[data-tone="warn"]   { color: var(--warn); }
-.stepStatus[data-tone="danger"] { color: var(--danger); }
-
-.stepsEnd { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: none; }
-
-/* El cajón: flota bajo su paso, sobre la tabla, y se va solo — al lanzar
-   la acción, con esc o al pulsar fuera. La tabla no salta. */
-.drawer {
+/* El nombre, al pasar por encima: a la derecha del icono, sin esperar. */
+.railBtn::after {
+  content: attr(data-tip);
   position: absolute;
-  top: calc(100% + 6px);
-  left: 0;
-  z-index: 40;
-  width: 380px;
-  max-height: calc(100vh - 150px);
+  left: calc(100% + 8px);
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 30;
+  padding: 3px 8px;
+  border-radius: var(--r-sm);
+  background: var(--ink);
+  color: var(--s0);
+  font-family: var(--sans);
+  font-size: var(--fs-xs);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--t-fast);
+}
+.railBtn:hover::after, .railBtn:focus-visible::after { opacity: 1; }
+
+/* Un paso que trabaja lleva un punto que gira en la esquina; uno que ha
+   fallado, uno rojo. Nada más: el raíl no cuenta, solo señala. */
+.railBtn[aria-busy="true"]::before, .railBtn[data-tone="danger"]::before {
+  content: "";
+  position: absolute;
+  right: 3px;
+  top: 3px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+}
+.railBtn[data-tone="danger"]::before { background: var(--danger); }
+.railBtn[aria-busy="true"]::before {
+  border: 1.5px solid var(--line-2);
+  border-top-color: var(--ink);
+  background: var(--s1);
+  animation: v2-spin .6s linear infinite;
+}
+
+/* La barra lateral: los mandos del paso abierto. Se queda hasta que se
+   pliega; el trabajo que lanza se ve aquí mientras dura. */
+.left {
+  grid-area: left;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-right: 1px solid var(--line);
+}
+
+.leftHead, .sideHead {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: 36px;
+  padding: 0 var(--sp-2) 0 var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  flex: none;
+}
+.leftHead h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; flex: 1; }
+
+.leftBody {
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   display: grid;
+  align-content: start;
   gap: var(--sp-3);
   padding: var(--sp-4);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--raised);
-  box-shadow: var(--lift);
 }
-.drawer :global(.caps) { display: block; margin-bottom: var(--sp-1); }
+.leftBody :global(.caps) { display: block; margin-bottom: var(--sp-1); }
 
 .chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
 
@@ -247,8 +278,6 @@
   background: var(--s0);
 }
 
-.tabsBar { flex: none; overflow-x: auto; scrollbar-width: none; }
-
 /* Sobre la tabla: cuántos cues, los contadores —que son filtros—, la
    búsqueda y los atajos. */
 .toolbar {
@@ -286,6 +315,9 @@
 .count:hover { background: var(--hover); }
 .count[aria-pressed="true"] { border-color: currentColor; }
 
+/* Qué se ve: un idioma, o varios comparados — y cuáles. */
+.view { display: flex; align-items: center; gap: 2px; margin-left: var(--sp-2); }
+
 /* La búsqueda no oculta nada: marca lo que encuentra y ⏎ salta. */
 .search { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); flex: 0 1 auto; min-width: 0; }
 .search input { height: 24px; width: 220px; max-width: 100%; font-family: var(--sans); font-size: var(--fs-sm); }
@@ -297,8 +329,9 @@
 .dot { display: inline-block; width: 5px; height: 5px; border-radius: 50%; background: var(--ink); margin-left: 4px; vertical-align: middle; }
 
 .tableWrap { flex: 1; min-height: 0; overflow: auto; }
-.tableWrap > :global(.cues) { border: 0; border-radius: 0; min-width: 100%; }
-.tableWrap :global(.cue-head) { position: sticky; top: 0; background: var(--s0); z-index: 1; }
+/* overflow visible, o la cabecera pegajosa se pega a la rejilla y no al scroll. */
+.tableWrap > :global(.cues) { border: 0; border-radius: 0; min-width: 100%; overflow: visible; }
+.tableWrap :global(.cue-tabs) { position: sticky; top: 0; z-index: 1; }
 
 .emptyWrap { padding: var(--sp-8) var(--sp-6); }
 
@@ -318,15 +351,7 @@
   border-left: 1px solid var(--line);
 }
 
-.sideHead {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  height: 40px;
-  padding: 0 var(--sp-2) 0 var(--sp-3);
-  border-bottom: 1px solid var(--line);
-  flex: none;
-}
+.sideHead { padding-left: var(--sp-2); }
 .sideHead > :global(.seg) { flex: 1; }
 .sideHead > :global(.seg) > button { flex: 1; }
 .sideBody { flex: 1; min-height: 0; overflow-y: auto; }
@@ -383,6 +408,7 @@
 .wave { grid-area: wave; min-width: 0; border-top: 1px solid var(--line); background: var(--s1); }
 
 @media (max-width: 1100px) {
+  .left { width: 260px; }
   .side { width: 280px; }
-  .stepStatus, .keys { display: none; }
+  .keys { display: none; }
 }

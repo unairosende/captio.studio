@@ -10,6 +10,7 @@ import { useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
 import type { Filter } from './CueTable'
+import { PanelRightIcon } from './icons'
 import { langCode } from './useJobs'
 import { usePasses } from './usePasses'
 
@@ -33,8 +34,8 @@ const SECTIONS: [Section, string][] = [['review', 'Revisar'], ['batch', 'Lotes']
  *
  * Reviewing with the model and its notes, the corrections that touch every
  * cue at once, the properties of the sequence and the project's glossary,
- * and the comments. Closed by default, because the table is the editor;
- * it opens on its own when a review is asked for from the palette.
+ * and the comments. Open by default and folded from its own icon; a review
+ * asked for from the palette opens it again.
  *
  * Every action here is also a ⌘K command whether the panel is open or not:
  * the palette reads the hidden buttons at the bottom when the visible ones
@@ -98,7 +99,7 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
       {!showing('props') && <button data-cmd="Abrir el glosario" onClick={() => onOpen('props')} />}
       {!showing('props') && <button data-cmd="Añadir un término al glosario" onClick={() => { onOpen('props'); setGlossary([...glossary, { term: '', translation: '' }]) }} />}
       {!showing('comments') && <button data-cmd="Ver los comentarios" onClick={() => onOpen('comments')} />}
-      {open ? <button data-cmd="Cerrar el panel" onClick={onClose} /> : <button data-cmd="Abrir el panel" onClick={() => onOpen(section)} />}
+      {open ? <button data-cmd="Plegar el panel" onClick={onClose} /> : <button data-cmd="Abrir el panel" onClick={() => onOpen(section)} />}
     </span>
   )
 
@@ -124,7 +125,7 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
             <button key={id} role="tab" aria-selected={section === id} onClick={() => onOpen(id)}>{name}</button>
           ))}
         </div>
-        <button className="btn btn-quiet" aria-label="Cerrar el panel" onClick={onClose}>×</button>
+        <button className="btn btn-quiet btn-icon" aria-label="Plegar el panel" onClick={onClose}><PanelRightIcon /></button>
       </div>
 
       <div className={s.sideBody}>

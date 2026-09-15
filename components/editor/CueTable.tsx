@@ -9,6 +9,7 @@ import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Subtitle } from '@/types/subtitle'
 
 import s from './editor.module.css'
+import { ChevronIcon, PanelRightIcon } from './icons'
 import { langCode, sourceLabel } from './useJobs'
 
 export type Filter = 'warn' | 'error' | 'noted' | null
@@ -19,6 +20,9 @@ interface Props {
   onFilter: (f: Filter) => void
   /** The table is empty and somebody has to be sent to the first step. */
   onImport: () => void
+  /** Whether the panel on the right is showing; the toolbar carries its switch. */
+  panel: boolean
+  onPanel: () => void
 }
 
 /** The column a text belongs to: the original, or a language. */
@@ -38,16 +42,39 @@ interface Editing { index: number; col: Col; caret: number }
  * reading speed, red past it — and the selected row is neutral, so the two
  * can never be confused.
  */
-export default function CueTable({ userId, filter, onFilter, onImport }: Props) {
+export default function CueTable({ userId, filter, onFilter, onImport, panel, onPanel }: Props) {
   const {
     subtitles, translations, activeTab, viewMode, outputMode, srcLang, glossary, comments, reviewNotes, translateJob, sequenceId,
-    selected, select, switchToTab, closeTab, updateSubtitle, updateSource, pushUndo, splitSubtitle, deleteSubtitle, setComments,
+    selected, select, switchToTab, closeTab, setViewMode, updateSubtitle, updateSource, pushUndo, splitSubtitle, deleteSubtitle, setComments,
   } = useSubtitleStore()
 
   const qc = useMemo(() => qcForMode(outputMode), [outputMode])
   const langs = Object.keys(translations)
+  const allCols: Col[] = ['source', ...langs]
+  /* Which languages stay out of the comparison. Two, three or all of them:
+     four columns of text is a lot of text, and the choice is the reader's. */
+  const [hidden, setHidden] = useState<Set<Col>>(() => new Set())
+  const [chooser, setChooser] = useState(false)
   const compare = viewMode === 'compare' && langs.length > 0
-  const columns: Col[] = compare ? ['source', ...langs] : [activeTab]
+  const columns: Col[] = compare ? allCols.filter(c => !hidden.has(c)) : [activeTab]
+
+  function toggleCol(col: Col) {
+    const next = new Set(hidden)
+    if (next.has(col)) next.delete(col)
+    else {
+      if (allCols.length - next.size <= 2) return
+      next.add(col)
+      if (col === activeTab) switchToTab(allCols.find(c => !next.has(c))!)
+    }
+    setHidden(next)
+  }
+
+  useEffect(() => {
+    if (!chooser) return
+    const shut = () => setChooser(false)
+    window.addEventListener('pointerdown', shut)
+    return () => window.removeEventListener('pointerdown', shut)
+  }, [chooser])
 
   /* The check on every language at once — reading speed, duration, gaps,
      glossary. Cheap: the whole thing is milliseconds. What is checked is the
@@ -211,6 +238,21 @@ export default function CueTable({ userId, filter, onFilter, onImport }: Props) 
     ? `36px 116px repeat(${columns.length}, minmax(0, 1fr))`
     : '36px 116px minmax(0, 1fr) 52px 56px'
 
+  /** A language's tab: its name, what the check found, and the way to drop it. */
+  const tab = (col: Col) => {
+    const busy = col !== 'source' && translateJob.running && translateJob.message.includes(langCode(col))
+    return (
+      <button key={col} className="tab" role="tab" aria-selected={activeTab === col} aria-busy={busy || undefined} data-qc={worst(col)} onClick={() => switchToTab(col)}>
+        <span>{label(col)}</span>
+        <span className="tab-dot" />
+        {col !== 'source' && (
+          <span className="tab-x" role="button" tabIndex={-1} aria-label={`Quitar ${col}`} title={`Quitar ${col}`}
+            onClick={e => { e.stopPropagation(); if (confirm(`¿Quitar ${col} de esta secuencia?`)) closeTab(col) }}>×</span>
+        )}
+      </button>
+    )
+  }
+
   return (
     <div className={s.main}>
       {thread !== null && sequenceId && (
@@ -225,33 +267,33 @@ export default function CueTable({ userId, filter, onFilter, onImport }: Props) 
         />
       )}
 
-      {!compare && (
-        <div className={s.tabsBar}>
-          <div className="tabs" role="tablist" aria-label="Idiomas">
-            <button className="tab" role="tab" aria-selected={activeTab === 'source'} data-qc={worst('source')} onClick={() => switchToTab('source')}>
-              <span>{srcLabel}</span><span className="tab-dot" />
-            </button>
-            {langs.map(lang => {
-              const busy = translateJob.running && translateJob.message.includes(langCode(lang))
-              return (
-                <button key={lang} className="tab" role="tab" aria-selected={activeTab === lang} aria-busy={busy || undefined}
-                  data-qc={worst(lang)} onClick={() => switchToTab(lang)}>
-                  <span>{langCode(lang)}</span>
-                  <span className="tab-dot" />
-                  <span className="tab-x" role="button" tabIndex={-1} aria-label={`Quitar ${lang}`} title={`Quitar ${lang}`}
-                    onClick={e => { e.stopPropagation(); if (confirm(`¿Quitar ${lang} de esta secuencia?`)) closeTab(lang) }}>×</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
       <div className={s.toolbar}>
         <span><b>{filter ? `${shown.length} de ${subtitles.length}` : subtitles.length}</b> cues</span>
         {warns > 0 && <button className={s.count} data-tone="warn" aria-pressed={filter === 'warn'} onClick={() => onFilter(filter === 'warn' ? null : 'warn')}>{warns} avisos</button>}
         {errs > 0 && <button className={s.count} data-tone="danger" aria-pressed={filter === 'error'} onClick={() => onFilter(filter === 'error' ? null : 'error')}>{errs} errores</button>}
         {!!notes?.length && <button className={s.count} data-tone="note" aria-pressed={filter === 'noted'} onClick={() => onFilter(filter === 'noted' ? null : 'noted')}>{notes.length} notas</button>}
+
+        <div className={s.view}>
+          <div className="seg" role="group" aria-label="Vista">
+            <button aria-pressed={!compare} onClick={() => setViewMode('list')}>Única</button>
+            <button aria-pressed={compare} disabled={!langs.length} onClick={() => setViewMode('compare')}>Comparar</button>
+          </div>
+          {compare && (
+            <div className={s.anchor} onPointerDown={e => e.stopPropagation()}>
+              <button className="btn btn-quiet btn-icon" aria-label="Qué idiomas comparar" aria-expanded={chooser} onClick={() => setChooser(v => !v)}><ChevronIcon /></button>
+              {chooser && (
+                <div className={`menu ${s.pop} ${s.popLeft}`} role="menu">
+                  <span className="caps">Comparar</span>
+                  {allCols.map(col => (
+                    <button key={col} className="menu-item" role="menuitemcheckbox" aria-checked={!hidden.has(col)}
+                      disabled={!hidden.has(col) && columns.length <= 2} onClick={() => toggleCol(col)}>{label(col).replace(/^\w/, ch => ch.toUpperCase())}</button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className={s.search}>
           <input
             ref={searchRef}
@@ -271,16 +313,19 @@ export default function CueTable({ userId, filter, onFilter, onImport }: Props) 
         <span className={s.keys}>
           <span className="kbd">↑↓</span> moverse · <span className="kbd">⏎</span> editar · <span className="kbd">⌘K</span> acciones
         </span>
+        <button className="btn btn-quiet btn-icon" aria-label={panel ? 'Plegar el panel' : 'Abrir el panel'} aria-pressed={panel} onClick={onPanel}><PanelRightIcon /></button>
       </div>
 
       <div className={s.tableWrap} onKeyDown={onKey}>
         <div className="cues" data-view={compare ? 'compare' : undefined} style={{ '--cols': cols } as CSSProperties}>
-          <div className="cue-head">
+          {/* The header is the tab strip: one tab per language, and in the
+              comparison one per column, so the names never scroll away. */}
+          <div className="cue-tabs">
             <span className="cue-n">#</span>
             <span>in · out</span>
-            {columns.map(col => compare
-              ? <button key={col} aria-pressed={activeTab === col} onClick={() => switchToTab(col)}>{label(col)}</button>
-              : <span key={col}>{label(col)}</span>)}
+            {compare
+              ? columns.map(tab)
+              : <div className="tabs" role="tablist" aria-label="Idiomas">{allCols.map(tab)}</div>}
             {!compare && <><span className="cue-stat">cps</span><span className="cue-stat">car</span></>}
           </div>
           {shown.map(c => {
@@ -302,6 +347,7 @@ export default function CueTable({ userId, filter, onFilter, onImport }: Props) 
                     text={cueOf(col, c.index)?.text ?? ''}
                     query={needle}
                     qc={compare ? tone(qcByLang.get(col)?.get(c.index)?.status) : undefined}
+                    active={col === activeTab}
                     editing={editing?.index === c.index && editing.col === col ? editing.caret : null}
                     onEdit={caret => startEdit(c.index, col, caret)}
                     onCommit={t => commit(c.index, col, t)}
@@ -346,6 +392,9 @@ export default function CueTable({ userId, filter, onFilter, onImport }: Props) 
           only there while it is open, so the same three live here unseen. */}
       <span hidden>
         <button data-cmd="Buscar en los cues" data-cmd-hint="⌘F" onClick={() => searchRef.current?.focus()} />
+        {langs.length > 0 && (compare
+          ? <button data-cmd="Ver un solo idioma" onClick={() => setViewMode('list')} />
+          : <button data-cmd="Comparar los idiomas" onClick={() => setViewMode('compare')} />)}
         {selected !== null && sequenceId && <button data-cmd="Comentar este cue" onClick={() => comment(selected)} />}
         {selected !== null && <button data-cmd="Partir el cue por el cabezal" onClick={() => split(selected)} />}
         {selected !== null && <button data-cmd="Borrar el cue" onClick={() => remove(selected)} />}
@@ -361,11 +410,13 @@ export default function CueTable({ userId, filter, onFilter, onImport }: Props) 
  * lands where the pointer was. It is uncontrolled on purpose: the store hears
  * about the edit once, on leaving, and one edit is one step back.
  */
-function Cell({ text, query, qc, editing, onEdit, onCommit, onDone }: {
+function Cell({ text, query, qc, active, editing, onEdit, onCommit, onDone }: {
   text: string
   /** What the search is looking for, lower-cased and trimmed. */
   query: string
   qc?: 'warn' | 'danger'
+  /** Whether this is the language being corrected: the white column. */
+  active: boolean
   /** The caret to start at while this cell is the one being edited, or null. */
   editing: number | null
   onEdit: (caret: number) => void
@@ -386,7 +437,7 @@ function Cell({ text, query, qc, editing, onEdit, onCommit, onDone }: {
 
   if (editing !== null) {
     return (
-      <div className="cue-text" data-qc={qc}>
+      <div className="cue-text" data-qc={qc} data-active={active || undefined}>
         <textarea
           ref={ref}
           className="cue-edit"
@@ -405,7 +456,7 @@ function Cell({ text, query, qc, editing, onEdit, onCommit, onDone }: {
   }
 
   return (
-    <div className="cue-text" data-qc={qc}
+    <div className="cue-text" data-qc={qc} data-active={active || undefined}
       onMouseDown={e => { if (e.button === 0) { e.preventDefault(); onEdit(caretAt(e, e.currentTarget)) } }}>
       {text.split('\n').slice(0, 2).map((l, i) => <div key={i}>{highlight(l, query)}</div>)}
     </div>

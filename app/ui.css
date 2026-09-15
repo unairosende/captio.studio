@@ -124,6 +124,8 @@
 .v2 .btn-danger:hover,  .v2 .btn-danger[data-state="hover"]  { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .v2 .btn-danger:active, .v2 .btn-danger[data-state="active"] { background: color-mix(in srgb, var(--danger) 20%, transparent); }
 
+/* Un botón que es solo un icono: cuadrado, sin texto, con su nombre en aria-label. */
+.v2 .btn-icon { width: var(--ctl); padding: 0; justify-content: center; }
 .v2 .btn-quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
 .v2 .btn-quiet:hover,  .v2 .btn-quiet[data-state="hover"]  { background: var(--hover); color: var(--ink); }
 .v2 .btn-quiet:active, .v2 .btn-quiet[data-state="active"] { background: var(--select); color: var(--ink); }
@@ -402,11 +404,51 @@
 .v2 .cue-text > .skeleton { margin: 3px 0; }
 .v2 .cue-text mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 2px; }
 .v2 .cue-text mark[data-current] { background: var(--warn); color: var(--on-accent); }
- /* Comparando idiomas, cada columna lleva su punto delante de su propio
-   texto — donde está el de la fila, junto al número — y no en el hueco
-   entre columnas, donde se leería como de la siguiente. */
-.v2 .cues[data-view="compare"] .cue-text { padding-left: 12px; }
-.v2 .cue-text[data-qc]::before { content: ""; position: absolute; left: 0; top: 50%; width: 6px; height: 6px; border-radius: 50%; translate: 0 -50%; }
+ /* La fila de pestañas es la cabecera de la tabla: va dentro de la rejilla,
+   con las mismas columnas que las filas, y pegada arriba al hacer scroll.
+   Con un idioma a la vista, las pestañas se alinean en la columna del texto;
+   comparando, cada pestaña ocupa su columna, como la de cada panel de un
+   editor de texto. La activa se funde con la tabla. */
+.v2 .cue-tabs {
+  display: grid;
+  grid-template-columns: var(--cols);
+  align-items: stretch;
+  column-gap: var(--sp-3);
+  padding-right: var(--sp-3);
+  height: 36px;
+  background: var(--s2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.v2 .cue-tabs > span { display: flex; align-items: center; }
+.v2 .cue-tabs > .cue-stat { justify-content: flex-end; }
+.v2 .cue-tabs .tabs { background: none; border: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.v2 .cue-tabs .tab { height: 36px; }
+.v2 .cue-tabs .tab:first-child { border-left: 1px solid var(--line); }
+
+/* Comparando: cada idioma es un panel. Columnas pegadas, separadas por una
+   línea que sube hasta su pestaña; la activa en blanco, las demás con un
+   velo y tinta secundaria, para que la vista diga cuál se está corrigiendo. */
+.v2 .cues[data-view="compare"] .cue,
+.v2 .cues[data-view="compare"] .cue-tabs { column-gap: 0; padding-right: 0; }
+.v2 .cues[data-view="compare"] .cue-tc { padding-left: var(--sp-3); }
+.v2 .cues[data-view="compare"] .cue-tabs > .tab { width: 100%; min-width: 0; border-right: 0; border-left: 1px solid var(--line); }
+.v2 .cues[data-view="compare"] .cue-text {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 var(--sp-3) 0 calc(var(--sp-3) + 10px);
+  border-left: 1px solid var(--line);
+}
+.v2 .cues[data-view="compare"] .cue-text:not([data-active]) { background: color-mix(in srgb, var(--ink) 3%, transparent); color: var(--ink-2); }
+.v2 .cues[data-view="compare"] .cue-text > div { flex: none; }
+.v2 .cue-text[data-qc]::before { content: ""; position: absolute; left: var(--sp-2); top: 50%; width: 6px; height: 6px; border-radius: 50%; translate: 0 -50%; }
+.v2 .cues:not([data-view="compare"]) .cue-text[data-qc]::before { display: none; }
 .v2 .cue-text[data-qc="warn"]::before   { background: var(--warn); }
 .v2 .cue-text[data-qc="danger"]::before { background: var(--danger); }
 .v2 .cue-edit {

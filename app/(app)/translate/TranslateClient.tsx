@@ -45,24 +45,25 @@ interface Props {
 }
 
 /**
- * The editor: the steps in a line across the top, the cues underneath with a
- * tab per language and the text corrected in place, a panel on the right
- * that opens when asked, and the waveform along the bottom — the instrument
- * timing depends on.
+ * The editor: a rail of steps down the left edge with their sidebar, the
+ * cues in the middle with a tab per language and the text corrected in
+ * place, a panel on the right, and the waveform along the bottom — the
+ * instrument timing depends on. Both sides fold.
  *
- * Structure B from the redesign with C's top bar, after the first review.
- * The logic underneath is the one that was already here; what changed is
- * where each control appears, which is only where it applies.
+ * Structure B from the redesign, twice reviewed by Unai. The logic
+ * underneath is the one that was already here; what changed is where each
+ * control appears, which is only where it applies.
  */
 export default function TranslateClient({ user, entitlement, project, sequence }: Props) {
   const { undo, redo, openSequence, newSequence, setComments } = useSubtitleStore()
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
   const [filter, setFilter] = useState<Filter>(null)
-  // The step whose drawer is open. None to begin with: the drawers float
-  // over the table, and the empty table has its own button to the first one.
-  const [step, setStep] = useState<Step | null>(null)
-  const [panel, setPanel] = useState(false)
+  // Both sides open to begin with. The sidebar shows the first step with
+  // work in it, read from what the server sent rather than from the store,
+  // which is seeded a moment later.
+  const [step, setStep] = useState<Step | null>(() => (sequence?.subtitles.length ? 'translate' : 'import'))
+  const [panel, setPanel] = useState(true)
   const [section, setSection] = useState<Section>('review')
   const openPanel = (sec: Section) => { setSection(sec); setPanel(true) }
 
@@ -136,8 +137,8 @@ export default function TranslateClient({ user, entitlement, project, sequence }
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
 
       <Header user={user} project={project} onPalette={() => setPalette(true)} onTeam={() => setTeam(true)} />
-      <Steps entitlement={entitlement} step={step} onStep={setStep} panel={panel} onPanel={() => setPanel(p => !p)} />
-      <CueTable userId={user.id} filter={filter} onFilter={setFilter} onImport={() => setStep('import')} />
+      <Steps entitlement={entitlement} step={step} onStep={setStep} />
+      <CueTable userId={user.id} filter={filter} onFilter={setFilter} onImport={() => setStep('import')} panel={panel} onPanel={() => setPanel(p => !p)} />
       <Panel userId={user.id} open={panel} section={section} onOpen={openPanel} onClose={() => setPanel(false)} filter={filter} onFilter={setFilter} />
       <div className={s.wave}><Timeline /></div>
     </div>
