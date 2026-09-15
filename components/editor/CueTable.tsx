@@ -9,7 +9,7 @@ import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Subtitle } from '@/types/subtitle'
 
 import s from './editor.module.css'
-import { ChevronIcon, PanelRightIcon } from './icons'
+import { PanelRightIcon } from './icons'
 import { langCode, sourceLabel } from './useJobs'
 
 export type Filter = 'warn' | 'error' | 'noted' | null
@@ -51,30 +51,25 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
   const qc = useMemo(() => qcForMode(outputMode), [outputMode])
   const langs = Object.keys(translations)
   const allCols: Col[] = ['source', ...langs]
-  /* Which languages stay out of the comparison. Two, three or all of them:
-     four columns of text is a lot of text, and the choice is the reader's. */
-  const [hidden, setHidden] = useState<Set<Col>>(() => new Set())
-  const [chooser, setChooser] = useState(false)
+  /* Comparing, a language can be folded into a strip with its name down it,
+     and unfolded by pressing the strip. Two, three or all of them: four
+     columns of text is a lot of text, and the choice is the reader's. */
+  const [folded, setFolded] = useState<Set<Col>>(() => new Set())
   const compare = viewMode === 'compare' && langs.length > 0
-  const columns: Col[] = compare ? allCols.filter(c => !hidden.has(c)) : [activeTab]
+  /** The columns with text in them: what is read, searched and edited. */
+  const columns: Col[] = compare ? allCols.filter(c => !folded.has(c)) : [activeTab]
 
-  function toggleCol(col: Col) {
-    const next = new Set(hidden)
-    if (next.has(col)) next.delete(col)
-    else {
-      if (allCols.length - next.size <= 2) return
-      next.add(col)
-      if (col === activeTab) switchToTab(allCols.find(c => !next.has(c))!)
-    }
-    setHidden(next)
+  function fold(col: Col) {
+    if (columns.length <= 1) return
+    const next = new Set(folded).add(col)
+    if (col === activeTab) switchToTab(allCols.find(c => !next.has(c))!)
+    setFolded(next)
   }
-
-  useEffect(() => {
-    if (!chooser) return
-    const shut = () => setChooser(false)
-    window.addEventListener('pointerdown', shut)
-    return () => window.removeEventListener('pointerdown', shut)
-  }, [chooser])
+  function unfold(col: Col) {
+    const next = new Set(folded)
+    next.delete(col)
+    setFolded(next)
+  }
 
   /* The check on every language at once — reading speed, duration, gaps,
      glossary. Cheap: the whole thing is milliseconds. What is checked is the
@@ -235,16 +230,27 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
     return w
   }
   const cols = compare
-    ? `36px 116px repeat(${columns.length}, minmax(0, 1fr))`
+    ? `36px 116px ${allCols.map(c => (folded.has(c) ? '28px' : 'minmax(0, 1fr)')).join(' ')}`
     : '36px 116px minmax(0, 1fr) 52px 56px'
 
   /** A language's tab: its name, what the check found, and the way to drop it. */
   const tab = (col: Col) => {
     const busy = col !== 'source' && translateJob.running && translateJob.message.includes(langCode(col))
+    if (compare && folded.has(col)) {
+      return (
+        <button key={col} className="tab" data-folded="" aria-label={`Desplegar ${label(col)}`} title={`Desplegar ${label(col)}`} onClick={() => unfold(col)}>
+          <span>{label(col)}</span>
+        </button>
+      )
+    }
     return (
       <button key={col} className="tab" role="tab" aria-selected={activeTab === col} aria-busy={busy || undefined} data-qc={worst(col)} onClick={() => switchToTab(col)}>
         <span>{label(col)}</span>
         <span className="tab-dot" />
+        {compare && columns.length > 1 && (
+          <span className="tab-fold" role="button" tabIndex={-1} aria-label={`Plegar ${label(col)}`} title={`Plegar ${label(col)}`}
+            onClick={e => { e.stopPropagation(); fold(col) }}>‹</span>
+        )}
         {col !== 'source' && (
           <span className="tab-x" role="button" tabIndex={-1} aria-label={`Quitar ${col}`} title={`Quitar ${col}`}
             onClick={e => { e.stopPropagation(); if (confirm(`¿Quitar ${col} de esta secuencia?`)) closeTab(col) }}>×</span>
@@ -278,20 +284,6 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
             <button aria-pressed={!compare} onClick={() => setViewMode('list')}>Única</button>
             <button aria-pressed={compare} disabled={!langs.length} onClick={() => setViewMode('compare')}>Comparar</button>
           </div>
-          {compare && (
-            <div className={s.anchor} onPointerDown={e => e.stopPropagation()}>
-              <button className="btn btn-quiet btn-icon" aria-label="Qué idiomas comparar" aria-expanded={chooser} onClick={() => setChooser(v => !v)}><ChevronIcon /></button>
-              {chooser && (
-                <div className={`menu ${s.pop} ${s.popLeft}`} role="menu">
-                  <span className="caps">Comparar</span>
-                  {allCols.map(col => (
-                    <button key={col} className="menu-item" role="menuitemcheckbox" aria-checked={!hidden.has(col)}
-                      disabled={!hidden.has(col) && columns.length <= 2} onClick={() => toggleCol(col)}>{label(col).replace(/^\w/, ch => ch.toUpperCase())}</button>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
         </div>
 
         <div className={s.search}>
@@ -324,7 +316,7 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
             <span className="cue-n">#</span>
             <span>in · out</span>
             {compare
-              ? columns.map(tab)
+              ? allCols.map(tab)
               : <div className="tabs" role="tablist" aria-label="Idiomas">{allCols.map(tab)}</div>}
             {!compare && <><span className="cue-stat">cps</span><span className="cue-stat">car</span></>}
           </div>
@@ -341,7 +333,9 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
                 onContextMenu={e => { e.preventDefault(); choose(c); setCtx({ x: e.clientX, y: Math.min(e.clientY, window.innerHeight - 180), index: c.index }) }}>
                 <span className="cue-n" title={open ? `${open} comentarios abiertos` : undefined}>{c.index}{open ? <b className={s.dot} /> : null}</span>
                 <span className="cue-tc">{c.start}<br />{c.end}</span>
-                {columns.map(col => (
+                {(compare ? allCols : columns).map(col => folded.has(col) ? (
+                  <div key={col} className="cue-text" data-folded="" role="button" tabIndex={-1} aria-label={`Desplegar ${label(col)}`} onClick={() => unfold(col)} />
+                ) : (
                   <Cell
                     key={col}
                     text={cueOf(col, c.index)?.text ?? ''}

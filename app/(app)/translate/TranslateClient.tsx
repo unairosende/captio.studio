@@ -59,10 +59,9 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
   const [filter, setFilter] = useState<Filter>(null)
-  // Both sides open to begin with. The sidebar shows the first step with
-  // work in it, read from what the server sent rather than from the store,
-  // which is seeded a moment later.
-  const [step, setStep] = useState<Step | null>(() => (sequence?.subtitles.length ? 'translate' : 'import'))
+  // The panel starts open and the sidebar folded: the steps are a rail of
+  // icons, and the empty table has its own button to the first one.
+  const [step, setStep] = useState<Step | null>(null)
   const [panel, setPanel] = useState(true)
   const [section, setSection] = useState<Section>('review')
   const openPanel = (sec: Section) => { setSection(sec); setPanel(true) }
