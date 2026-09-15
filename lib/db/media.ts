@@ -61,6 +61,21 @@ export async function listSequenceMedia(orgId: string, sequenceId: string): Prom
   )
 }
 
+/**
+ * The upload the editor should treat as this sequence's audio, if any.
+ *
+ * A sequence can pick up more than one upload — retranscribed from a corrected
+ * file, say — and `listSequenceMedia` already orders them newest first, so the
+ * head of that list is the one call sites mean by "the sequence's audio".
+ * Pulled into its own function so that tie-break lives in one place: the
+ * waveform's auto-load and the sequence GET route both need it, and neither
+ * should decide on its own which upload wins.
+ */
+export async function getSequenceMediaId(orgId: string, sequenceId: string): Promise<string | null> {
+  const media = await listSequenceMedia(orgId, sequenceId)
+  return media[0]?.id ?? null
+}
+
 export async function deleteMedia(orgId: string, id: string): Promise<string | null> {
   const rows = await query<{ storage_key: string }>(
     `delete from media where org_id = $1 and id = $2 returning storage_key`,

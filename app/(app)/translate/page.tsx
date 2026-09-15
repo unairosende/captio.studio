@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 
 import { requireOrgContext, requireUser } from '@/lib/auth/session'
 import { listComments } from '@/lib/db/comments'
+import { getSequenceMediaId } from '@/lib/db/media'
 import { getProject } from '@/lib/db/projects'
 import { getSequence } from '@/lib/db/sequences'
 import { getEntitlement } from '@/lib/entitlement'
@@ -48,10 +49,11 @@ export default async function TranslatePage({ searchParams }: Props) {
   //
   // Not the gate itself. The gate lives in the API routes, because a limit
   // enforced by the page that draws the button is not a limit.
-  const [project, entitlement, comments] = await Promise.all([
+  const [project, entitlement, comments, mediaId] = await Promise.all([
     getProject(orgId, projectId),
     getEntitlement(orgId),
     sequence ? listComments(orgId, sequence.id) : Promise.resolve([]),
+    sequence ? getSequenceMediaId(orgId, sequence.id) : Promise.resolve(null),
   ])
 
   // Scoped by organisation, so an id belonging to somebody else is simply not
@@ -70,6 +72,7 @@ export default async function TranslatePage({ searchParams }: Props) {
           version: sequence.version,
           ...readCues(sequence.data),
           comments,
+          mediaId,
         }
       }
     />

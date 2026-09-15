@@ -224,6 +224,8 @@ interface AppState {
     projectId: string
     projectName: string
     glossary?: GlossaryEntry[]
+    /** The upload already attached to this sequence, if any — lets the waveform auto-load it. */
+    mediaId?: string | null
   }) => void
   markSaved: (id: string, name: string, version: number) => void
   /** A blank sequence in the given project. The glossary is the project's, so it stays. */
@@ -336,9 +338,10 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     projectName: s.projectName,
     sequenceId: s.id,
     sequenceName: s.name,
-    // Not known when opening from storage, and not needed: a saved sequence is
-    // already attached to its upload and already paid for.
-    mediaId: null,
+    // Whatever the caller resolved server-side — a saved sequence is already
+    // attached to its upload and already paid for, so this is only ever used
+    // to let the waveform find the recording, never to attach or bill it again.
+    mediaId: s.mediaId ?? null,
     sequenceVersion: s.version,
     // Freshly loaded is by definition identical to what is stored.
     dirty: false,
