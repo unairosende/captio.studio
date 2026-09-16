@@ -13,6 +13,7 @@ import {
   type GlossaryEntry,
   type ReviewNote,
 } from '@/lib/ai/prompt'
+import { askInHalves } from '@/lib/ai/halves'
 import { billSequence, logUsage } from '@/lib/db/billing'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
@@ -113,6 +114,19 @@ const GROQ_MAX_OUTPUT_TOKENS = 4_000
 const MAX_CUES = 60
 /** Nobody writes a subtitle this long. A larger value is somebody probing. */
 const MAX_CUE_CHARS = 2_000
+
+/**
+ * How many model calls one request may make, retries and halves included.
+ *
+ * A batch the model keeps re-segmenting is split in two and each half asked
+ * again (see `askInHalves`), and splitting has to stop somewhere or one bad
+ * request becomes a bill. Sixteen is what it takes to isolate a single merged
+ * pair at the worst position in a batch of thirty — two tries on the whole,
+ * then one on each half down to a batch of one — with a little left over. A
+ * batch that needs more than that is not unlucky, it is broken, and the caller
+ * hears which cue broke it.
+ */
+const CALL_BUDGET = 16
 
 interface ProviderResult {
   text: string
@@ -272,31 +286,50 @@ export async function POST(req: NextRequest) {
   const maxChars = body.outputMode === 'vertical' ? MAX_CHARS_VERTICAL : MAX_CHARS_HORIZONTAL
   const task: Task = body.task ?? 'translate'
 
-  let prompt: string
+  /**
+   * What the model is shown: the whole batch first, and halves of it when the
+   * count keeps coming back wrong — so the prompt is a function of the slice,
+   * not a string built once.
+   */
+  interface Slice {
+    cues: string[]
+    numbers: number[]
+    sourceTexts: string[]
+  }
+  const slice = (from: number, to: number): Slice => ({
+    cues: cues.slice(from, to),
+    numbers: cueNumbers.slice(from, to),
+    sourceTexts: sourceTexts.slice(from, to),
+  })
+
+  let build: (s: Slice) => string
   if (task === 'backTranslate') {
-    prompt = buildBackTranslationPrompt({
-      cues,
-      numbers: cueNumbers,
-      fromLang: targetLang,
-      toLang: body.sourceLang ?? 'Auto-detect',
-    })
+    build = s =>
+      buildBackTranslationPrompt({
+        cues: s.cues,
+        numbers: s.numbers,
+        fromLang: targetLang,
+        toLang: body.sourceLang ?? 'Auto-detect',
+      })
   } else if (task === 'shorten') {
-    prompt = buildShortenPrompt({
-      cues,
-      sourceTexts,
-      numbers: cueNumbers,
-      lang: targetLang,
-      maxChars,
-    })
+    build = s =>
+      buildShortenPrompt({
+        cues: s.cues,
+        sourceTexts: s.sourceTexts,
+        numbers: s.numbers,
+        lang: targetLang,
+        maxChars,
+      })
   } else if (task === 'review') {
-    prompt = buildReviewPrompt({
-      cues,
-      sourceTexts,
-      numbers: cueNumbers,
-      lang: targetLang,
-      sourceLang: body.sourceLang,
-      glossary: body.glossary,
-    })
+    build = s =>
+      buildReviewPrompt({
+        cues: s.cues,
+        sourceTexts: s.sourceTexts,
+        numbers: s.numbers,
+        lang: targetLang,
+        sourceLang: body.sourceLang,
+        glossary: body.glossary,
+      })
   } else if (task === 'revise') {
     if (typeof body.instructions !== 'string' || !body.instructions.trim()) {
       return NextResponse.json(
@@ -304,26 +337,29 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
-    prompt = buildRevisionPrompt({
-      cues,
-      sourceTexts,
-      numbers: cueNumbers,
-      lang: targetLang,
-      maxChars,
-      instructions: body.instructions,
-      glossary: body.glossary,
-    })
+    const instructions = body.instructions
+    build = s =>
+      buildRevisionPrompt({
+        cues: s.cues,
+        sourceTexts: s.sourceTexts,
+        numbers: s.numbers,
+        lang: targetLang,
+        maxChars,
+        instructions,
+        glossary: body.glossary,
+      })
   } else if (task === 'translate') {
-    prompt = buildTranslationPrompt({
-      cues,
-      numbers: cueNumbers,
-      targetLang,
-      sourceLang: body.sourceLang,
-      maxChars,
-      glossary: body.glossary,
-      extraInstructions: body.extraInstructions,
-      previousContext: body.previousContext,
-    })
+    build = s =>
+      buildTranslationPrompt({
+        cues: s.cues,
+        numbers: s.numbers,
+        targetLang,
+        sourceLang: body.sourceLang,
+        maxChars,
+        glossary: body.glossary,
+        extraInstructions: body.extraInstructions,
+        previousContext: body.previousContext,
+      })
   } else {
     return NextResponse.json({ error: 'unknown task' }, { status: 400 })
   }
@@ -379,24 +415,9 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    /**
-     * Two attempts, because a miscount is a dice roll rather than a verdict.
-     *
-     * The count coming back wrong — thirty cues answered with twenty-nine,
-     * two merged into one — cannot be repaired here: the parser can name the
-     * cue that is missing, but guessing at its words attaches every later
-     * translation to the wrong timecode. So the batch is refused, and refusing
-     * a whole batch over one unlucky reply is what makes a second roll worth
-     * its fraction of a cent.
-     *
-     * Two, not more. A prompt a model keeps mis-segmenting will keep
-     * mis-segmenting, and a retry loop is how one bad request becomes a bill.
-     */
-    let answer: string[] | ReviewNote[] | null = null
-    let lastFormatError: TranslationFormatError | null = null
-
-    for (let attempt = 0; attempt < 2 && answer === null; attempt++) {
-      const { text, tokensIn, tokensOut, model } = await translate(prompt)
+    /** One model call, metered whether or not the reply turns out usable. */
+    const ask = async (s: Slice): Promise<string> => {
+      const { text, tokensIn, tokensOut, model } = await translate(build(s))
 
       // Metered before parsing, and on every attempt: the tokens were spent
       // whether or not the reply was usable, and a bill that only counts
@@ -415,22 +436,28 @@ export async function POST(req: NextRequest) {
         // What the trial is denominated in. Counted here rather than from the
         // reply, so a batch that came back unusable still spends its allowance —
         // the provider charged for it either way.
-        cues: cues.length,
+        cues: s.cues.length,
       })
-
-      try {
-        answer =
-          task === 'review'
-            ? parseReviewResponse(text, cueNumbers)
-            : parseTranslationResponse(text, cueNumbers, cues)
-      } catch (err) {
-        if (!(err instanceof TranslationFormatError)) throw err
-        console.warn(`translation format rejected (attempt ${attempt + 1}):`, err.message)
-        lastFormatError = err
-      }
+      return text
     }
 
-    if (answer === null) throw lastFormatError
+    const parse = (text: string, s: Slice): (string | ReviewNote)[] =>
+      task === 'review'
+        ? parseReviewResponse(text, s.numbers)
+        : parseTranslationResponse(text, s.numbers, s.cues)
+
+    const answer = await askInHalves(
+      cues.length,
+      async (from, to) => {
+        const s = slice(from, to)
+        // A slice with nothing in it is answered here. Blank cues are never
+        // shown to the model, and a prompt with no subtitles in it invites an
+        // answer with none — which is the one reply that would be refused.
+        if (task !== 'review' && !s.cues.some(c => c.trim())) return s.cues.map(() => '')
+        return parse(await ask(s), s)
+      },
+      CALL_BUDGET,
+    )
 
     // A review answers with notes about the subtitles rather than with
     // subtitles, so nothing here is laid out and nothing is a cue. It leaves by
