@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import TeamPanel from '@/components/team/TeamPanel'
+import { ago } from '@/lib/ago'
 import { signOut as endSession } from '@/lib/auth/client'
 import type { MemberRow } from '@/lib/db/organizations'
 import type { ProjectSummary } from '@/lib/db/projects'
@@ -30,33 +31,6 @@ interface Props {
   } | null
   /** Newest month first. Empty for an organisation that has run nothing. */
   usage: MonthUsage[]
-}
-
-/**
- * Elapsed time, said the way a person would say it.
- *
- * A column of `17/08/2026` tells you less at a glance than "hace 2 horas",
- * and it sidesteps the trap absolute dates set for a component that renders
- * twice: the same instant formatted on a server running in UTC and again in
- * the reader's timezone is two different strings, which React reports as a
- * hydration mismatch. A difference between two clocks is the same everywhere.
- */
-const RELATIVE = new Intl.RelativeTimeFormat('es', { numeric: 'auto' })
-const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ['year', 365 * 86_400_000],
-  ['month', 30 * 86_400_000],
-  ['day', 86_400_000],
-  ['hour', 3_600_000],
-  ['minute', 60_000],
-]
-
-function ago(value: string | Date): string {
-  const delta = new Date(value).getTime() - Date.now()
-  if (Number.isNaN(delta)) return ''
-  for (const [unit, ms] of UNITS) {
-    if (Math.abs(delta) >= ms) return RELATIVE.format(Math.round(delta / ms), unit)
-  }
-  return 'ahora mismo'
 }
 
 /** `Spanish` as `ES`, and anything unrecognised as itself. */
@@ -240,8 +214,8 @@ export default function DashboardClient({
         />
       )}
 
-      <header className={s.head}>
-        <Link href="/dashboard" className={s.brand}>CAPTIO</Link>
+      <header className={`topbar ${s.head}`}>
+        <Link href="/dashboard" className="brand">captio</Link>
         <span className={s.org}>{organizationName}</span>
         <span className={s.plan}>{entitlement.plan}</span>
         <div className={s.headEnd}>

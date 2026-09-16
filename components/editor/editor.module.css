@@ -21,40 +21,7 @@
 
 /* ── Cabecera ───────────────────────────────────────────────────────────── */
 
-.head {
-  grid-area: head;
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  padding: 0 var(--sp-4);
-  border-bottom: 1px solid var(--line);
-  min-width: 0;
-}
-
-/* La marca en minúscula y negrita, en tinta: dentro del editor el acento
-   cede, y un logotipo que grita al lado de un subtítulo con un error
-   compite con lo que importa. */
-.brand {
-  font-size: var(--fs-lg);
-  font-weight: 700;
-  letter-spacing: -.01em;
-  color: var(--ink);
-  text-decoration: none;
-  flex: none;
-}
-
-.sep { width: 1px; height: 16px; background: var(--line-2); flex: none; }
-
-.crumbs {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  min-width: 0;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
-.crumbs a { color: var(--ink-3); text-decoration: none; }
-.crumbs a:hover { color: var(--ink); text-decoration: underline; }
+.head { grid-area: head; }
 .project { overflow: hidden; text-overflow: ellipsis; max-width: 200px; }
 
 /* El nombre de la secuencia se edita en su sitio: un campo sin borde que

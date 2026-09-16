@@ -78,11 +78,11 @@ export default function Header({ user, project, onPalette, onTeam }: Props) {
       : 'guardado'
 
   return (
-    <header className={s.head} ref={menusRef}>
-      <Link href="/dashboard" className={s.brand}>captio</Link>
-      <span className={s.sep} />
+    <header className={`topbar ${s.head}`} ref={menusRef}>
+      <Link href="/dashboard" className="brand">captio</Link>
+      <span className="topbar-sep" />
 
-      <nav className={s.crumbs} aria-label="Dónde estás">
+      <nav className="crumbs" aria-label="Dónde estás">
         <Link href="/dashboard">Proyectos</Link>
         <span>/</span>
         <Link href={`/projects/${project.id}`} className={s.project} title={project.name}>{project.name}</Link>
