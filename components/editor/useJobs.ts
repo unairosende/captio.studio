@@ -116,6 +116,9 @@ export function useTranslate() {
           body: JSON.stringify({
             task: 'translate',
             cues: batch.map(s => s.text),
+            // The anchor each cue travels under, so a reply short by one can
+            // say which one is missing.
+            cueNumbers: batch.map(s => s.index),
             targetLang: lang,
             sourceLang: srcLang,
             outputMode,

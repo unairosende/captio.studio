@@ -10,7 +10,7 @@ import {
   parseTranslationResponse,
 } from '../../lib/ai/prompt.ts'
 
-const base = { cues: ['Hola', 'Adiós'], targetLang: 'English', maxChars: 42 }
+const base = { cues: ['Hola', 'Adiós'], numbers: [1, 2], targetLang: 'English', maxChars: 42 }
 
 describe('buildTranslationPrompt', () => {
   it('states the exact cue count, twice', () => {
@@ -18,7 +18,7 @@ describe('buildTranslationPrompt', () => {
     // mention far more often than a repeated one.
     const p = buildTranslationPrompt(base)
     assert.match(p, /THE SUBTITLE COUNT IS FIXED/)
-    assert.match(p, /exactly 2 strings/)
+    assert.match(p, /exactly 2 objects/)
   })
 
   /**
@@ -48,8 +48,19 @@ describe('buildTranslationPrompt', () => {
     assert.doesNotMatch(buildTranslationPrompt(base), / from /)
   })
 
-  it('includes the cues as JSON so the model sees the boundaries', () => {
-    assert.match(buildTranslationPrompt(base), /\["Hola","Adiós"\]/)
+  it('numbers every cue, so the model completes a list rather than counting', () => {
+    // A bare array of strings came back one short, twice, and nothing in the
+    // reply said which two cues had been merged. With the number on each
+    // entry the parser can name the one that is missing.
+    assert.match(buildTranslationPrompt(base), /\[\{"n":1,"text":"Hola"\},\{"n":2,"text":"Adiós"\}\]/)
+  })
+
+  it('leaves blank cues out, and counts only what was sent', () => {
+    // An empty string is the entry models handle worst: one answers `,,` and
+    // the JSON will not parse, another skips it and the batch is one short.
+    const p = buildTranslationPrompt({ ...base, cues: ['Hola', '  ', 'Adiós'], numbers: [7, 8, 9] })
+    assert.match(p, /exactly 2 objects/)
+    assert.match(p, /\[\{"n":7,"text":"Hola"\},\{"n":9,"text":"Adiós"\}\]/)
   })
 
   it('renders glossary entries, including terms to leave alone', () => {
@@ -121,20 +132,16 @@ describe('buildRevisionPrompt', () => {
   it('keeps the fixed-count contract every other task keeps', () => {
     const p = buildRevisionPrompt(revision)
     assert.match(p, /THE SUBTITLE COUNT IS FIXED/)
-    assert.match(p, /exactly 2 strings/)
+    assert.match(p, /exactly 2 objects/)
   })
 
-  it('sends the cue numbers, so a correction naming one can find it', () => {
-    // Without these, cue 18 is the eighteenth line of some batch and the
-    // eighteenth line of a batch is not cue 18.
-    assert.match(buildRevisionPrompt(revision), /\[18,19\]/)
-  })
-
-  it('shows the source beside the translation being corrected', () => {
+  it('pairs each translation with its number and its source in one object', () => {
+    // Without the number, cue 18 is the eighteenth line of some batch and the
+    // eighteenth line of a batch is not cue 18. Without the source beside it,
+    // a correction is applied to wording the model can no longer check.
     const p = buildRevisionPrompt(revision)
-    assert.match(p, /At varietal level, at production level/)
-    assert.match(p, /CURRENT TRANSLATIONS/)
-    assert.match(p, /Lo embotellamos/)
+    assert.match(p, /\{"n":18,"source":"At varietal level, at production level","text":"A nivel varietal, a nivel de producciones"\}/)
+    assert.match(p, /"n":19/)
     assert.match(p, /recorta la repetición del anterior/)
   })
 
@@ -160,28 +167,65 @@ describe('buildRevisionPrompt', () => {
 })
 
 describe('parseTranslationResponse', () => {
-  it('reads a plain JSON array', () => {
-    assert.deepEqual(parseTranslationResponse('["one","two"]', 2), ['one', 'two'])
+  const numbers = [17, 18]
+  const cues = ['uno', 'dos']
+
+  it('reads the entries back in the order of the batch, whatever order they came in', () => {
+    const reply = '[{"n":18,"text":"two"},{"n":17,"text":"one"}]'
+    assert.deepEqual(parseTranslationResponse(reply, numbers, cues), ['one', 'two'])
   })
 
   it('tolerates markdown fences', () => {
-    assert.deepEqual(parseTranslationResponse('```json\n["one","two"]\n```', 2), ['one', 'two'])
+    const reply = '```json\n[{"n":17,"text":"one"},{"n":18,"text":"two"}]\n```'
+    assert.deepEqual(parseTranslationResponse(reply, numbers, cues), ['one', 'two'])
   })
 
-  it('rejects a re-segmented batch', () => {
-    // The bug this exists for: the model merges or splits cues, and every
-    // translation after that point lands on the wrong timecode.
+  it('names the cue a merged batch is missing', () => {
+    // The bug this exists for: thirty cues answered with twenty-nine. A count
+    // could only say the batch was short; the number says which one, so the
+    // caller can ask again about a smaller batch around it.
     assert.throws(
-      () => parseTranslationResponse('["one","two","three"]', 2),
-      (e: Error) => e instanceof TranslationFormatError && /re-segmented/.test(e.message),
+      () => parseTranslationResponse('[{"n":17,"text":"one two"}]', numbers, cues),
+      (e: Error) => e instanceof TranslationFormatError && /subtitle 18/.test(e.message),
     )
-    assert.throws(() => parseTranslationResponse('["only one"]', 2), TranslationFormatError)
+  })
+
+  it('treats an empty translation of a non-empty cue as the same merge', () => {
+    // An entry was written so the count would look right, and the words are
+    // in the neighbour.
+    assert.throws(
+      () => parseTranslationResponse('[{"n":17,"text":"one two"},{"n":18,"text":""}]', numbers, cues),
+      (e: Error) => e instanceof TranslationFormatError && /subtitle 18/.test(e.message),
+    )
+  })
+
+  it('rejects a split, whether it repeats a number or invents one', () => {
+    assert.throws(
+      () => parseTranslationResponse('[{"n":17,"text":"o"},{"n":17,"text":"ne"},{"n":18,"text":"two"}]', numbers, cues),
+      (e: Error) => e instanceof TranslationFormatError && /17 twice/.test(e.message),
+    )
+    assert.throws(
+      () => parseTranslationResponse('[{"n":17,"text":"one"},{"n":18,"text":"two"},{"n":19,"text":"three"}]', numbers, cues),
+      (e: Error) => e instanceof TranslationFormatError && /subtitle 19/.test(e.message),
+    )
+  })
+
+  it('answers for a blank cue itself, whether or not the model mentioned it', () => {
+    // It was never sent (see buildTranslationPrompt), so nothing is owed for it.
+    const blank = ['uno', '', 'dos']
+    const nums = [1, 2, 3]
+    const reply = '[{"n":1,"text":"one"},{"n":3,"text":"two"}]'
+    assert.deepEqual(parseTranslationResponse(reply, nums, blank), ['one', '', 'two'])
+    const mentioned = '[{"n":1,"text":"one"},{"n":2,"text":""},{"n":3,"text":"two"}]'
+    assert.deepEqual(parseTranslationResponse(mentioned, nums, blank), ['one', '', 'two'])
   })
 
   it('rejects malformed or wrongly shaped replies', () => {
-    assert.throws(() => parseTranslationResponse('not json at all', 1), TranslationFormatError)
-    assert.throws(() => parseTranslationResponse('{"a":1}', 1), TranslationFormatError)
-    assert.throws(() => parseTranslationResponse('[1,2]', 2), TranslationFormatError)
+    assert.throws(() => parseTranslationResponse('not json at all', [1], ['x']), TranslationFormatError)
+    assert.throws(() => parseTranslationResponse('{"a":1}', [1], ['x']), TranslationFormatError)
+    assert.throws(() => parseTranslationResponse('["one","two"]', numbers, cues), TranslationFormatError)
+    assert.throws(() => parseTranslationResponse('[{"n":"17","text":"one"}]', [17], ['x']), TranslationFormatError)
+    assert.throws(() => parseTranslationResponse('[{"n":17,"text":1}]', [17], ['x']), TranslationFormatError)
   })
 
   it('never substitutes the source text on failure', () => {
@@ -189,7 +233,7 @@ describe('parseTranslationResponse', () => {
     // and ship that way.
     let threw = false
     try {
-      parseTranslationResponse('garbage', 2)
+      parseTranslationResponse('garbage', numbers, cues)
     } catch {
       threw = true
     }

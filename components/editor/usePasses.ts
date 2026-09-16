@@ -50,7 +50,14 @@ export function usePasses() {
         const res = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task: 'shorten', cues: batch.map(c => c.text), sourceTexts: srcTexts, targetLang: lang, outputMode }),
+          body: JSON.stringify({
+            task: 'shorten',
+            cues: batch.map(c => c.text),
+            sourceTexts: srcTexts,
+            cueNumbers: batch.map(c => c.index),
+            targetLang: lang,
+            outputMode,
+          }),
         })
         const data = await readJson(res)
         if (data.error) throw new Error(data.error)
@@ -205,7 +212,13 @@ export function usePasses() {
         const res = await fetch('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task: 'backTranslate', cues: batch.map(c => c.text), targetLang: lang, sourceLang: srcLang }),
+          body: JSON.stringify({
+            task: 'backTranslate',
+            cues: batch.map(c => c.text),
+            cueNumbers: batch.map(c => c.index),
+            targetLang: lang,
+            sourceLang: srcLang,
+          }),
         })
         const data = await readJson(res)
         if (data.error) throw new Error(data.error)

@@ -201,9 +201,12 @@ interface Body {
   /**
    * The cue numbers behind this batch.
    *
-   * Required by `revise`, so a correction naming a cue can find it, and by
-   * `review`, so a note can say which cue it is about. Both are meaningless
-   * without them, which is why neither defaults to positions.
+   * Required by every task. `revise` needs them so a correction naming a cue
+   * can find it, and `review` so a note can say which cue it is about; the
+   * rest need them as the anchor each subtitle travels under, so that a reply
+   * short by one can say which one. None of them defaults to positions:
+   * numbering a batch by its own positions is right for the first batch and
+   * wrong for every one after it, and the damage is silent.
    */
   cueNumbers?: number[]
   targetLang?: string
@@ -238,6 +241,7 @@ export async function POST(req: NextRequest) {
   if (!body.targetLang) {
     return NextResponse.json({ error: 'targetLang is required' }, { status: 400 })
   }
+  const targetLang = body.targetLang
 
   if (!Array.isArray(body.cues) || !body.cues.every(c => typeof c === 'string')) {
     return NextResponse.json({ error: 'cues must be an array of strings' }, { status: 400 })
@@ -251,77 +255,69 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'a cue is implausibly long' }, { status: 400 })
   }
 
+  // Demanded rather than defaulted: see `Body.cueNumbers`.
+  if (
+    !Array.isArray(body.cueNumbers) ||
+    body.cueNumbers.length !== cues.length ||
+    !body.cueNumbers.every(n => typeof n === 'number')
+  ) {
+    return NextResponse.json({ error: 'cueNumbers must be one number per cue' }, { status: 400 })
+  }
+  const cueNumbers = body.cueNumbers
+
+  // Falls back to the translations themselves when no source is supplied,
+  // which is worse but still bounded — never an unbounded free-text field.
+  const sourceTexts = Array.isArray(body.sourceTexts) ? body.sourceTexts.slice(0, cues.length) : cues
+
   const maxChars = body.outputMode === 'vertical' ? MAX_CHARS_VERTICAL : MAX_CHARS_HORIZONTAL
   const task: Task = body.task ?? 'translate'
 
   let prompt: string
-  /** Set by the two tasks that cite cue numbers; the review parser reads it back. */
-  let cueNumbers: number[] = []
   if (task === 'backTranslate') {
     prompt = buildBackTranslationPrompt({
       cues,
-      fromLang: body.targetLang,
+      numbers: cueNumbers,
+      fromLang: targetLang,
       toLang: body.sourceLang ?? 'Auto-detect',
     })
   } else if (task === 'shorten') {
     prompt = buildShortenPrompt({
       cues,
-      // Falls back to the translations themselves when no source is supplied,
-      // which is worse but still bounded — never an unbounded free-text field.
-      sourceTexts: Array.isArray(body.sourceTexts) ? body.sourceTexts.slice(0, cues.length) : cues,
-      lang: body.targetLang,
+      sourceTexts,
+      numbers: cueNumbers,
+      lang: targetLang,
       maxChars,
     })
-  } else if (task === 'revise' || task === 'review') {
-    // Demanded rather than defaulted, for both. Numbering a batch by its own
-    // positions is right for the first batch and wrong for every one after it,
-    // and the damage is silent: a correction never finds the cue it names, and
-    // a note arrives pointing at somebody else's subtitle.
-    if (
-      !Array.isArray(body.cueNumbers) ||
-      body.cueNumbers.length !== cues.length ||
-      !body.cueNumbers.every(n => typeof n === 'number')
-    ) {
-      return NextResponse.json({ error: 'cueNumbers must be one number per cue' }, { status: 400 })
+  } else if (task === 'review') {
+    prompt = buildReviewPrompt({
+      cues,
+      sourceTexts,
+      numbers: cueNumbers,
+      lang: targetLang,
+      sourceLang: body.sourceLang,
+      glossary: body.glossary,
+    })
+  } else if (task === 'revise') {
+    if (typeof body.instructions !== 'string' || !body.instructions.trim()) {
+      return NextResponse.json(
+        { error: 'instructions are required to revise a translation' },
+        { status: 400 },
+      )
     }
-    cueNumbers = body.cueNumbers
-
-    // Falls back to the translations themselves when no source is supplied,
-    // as `shorten` does — worse, but never an unbounded free-text field.
-    const sourceTexts = Array.isArray(body.sourceTexts)
-      ? body.sourceTexts.slice(0, cues.length)
-      : cues
-
-    if (task === 'review') {
-      prompt = buildReviewPrompt({
-        cues,
-        sourceTexts,
-        numbers: cueNumbers,
-        lang: body.targetLang,
-        sourceLang: body.sourceLang,
-        glossary: body.glossary,
-      })
-    } else {
-      if (typeof body.instructions !== 'string' || !body.instructions.trim()) {
-        return NextResponse.json(
-          { error: 'instructions are required to revise a translation' },
-          { status: 400 },
-        )
-      }
-      prompt = buildRevisionPrompt({
-        cues,
-        sourceTexts,
-        numbers: cueNumbers,
-        lang: body.targetLang,
-        maxChars,
-        instructions: body.instructions,
-        glossary: body.glossary,
-      })
-    }
+    prompt = buildRevisionPrompt({
+      cues,
+      sourceTexts,
+      numbers: cueNumbers,
+      lang: targetLang,
+      maxChars,
+      instructions: body.instructions,
+      glossary: body.glossary,
+    })
   } else if (task === 'translate') {
     prompt = buildTranslationPrompt({
       cues,
-      targetLang: body.targetLang,
+      numbers: cueNumbers,
+      targetLang,
       sourceLang: body.sourceLang,
       maxChars,
       glossary: body.glossary,
@@ -387,10 +383,11 @@ export async function POST(req: NextRequest) {
      * Two attempts, because a miscount is a dice roll rather than a verdict.
      *
      * The count coming back wrong — thirty cues answered with twenty-nine,
-     * two merged into one — cannot be repaired here: nothing says which two,
-     * and guessing attaches every later translation to the wrong timecode.
-     * So the batch is refused, and refusing a whole batch over one unlucky
-     * reply is what makes a second roll worth its fraction of a cent.
+     * two merged into one — cannot be repaired here: the parser can name the
+     * cue that is missing, but guessing at its words attaches every later
+     * translation to the wrong timecode. So the batch is refused, and refusing
+     * a whole batch over one unlucky reply is what makes a second roll worth
+     * its fraction of a cent.
      *
      * Two, not more. A prompt a model keeps mis-segmenting will keep
      * mis-segmenting, and a retry loop is how one bad request becomes a bill.
@@ -425,7 +422,7 @@ export async function POST(req: NextRequest) {
         answer =
           task === 'review'
             ? parseReviewResponse(text, cueNumbers)
-            : parseTranslationResponse(text, cues.length)
+            : parseTranslationResponse(text, cueNumbers, cues)
       } catch (err) {
         if (!(err instanceof TranslationFormatError)) throw err
         console.warn(`translation format rejected (attempt ${attempt + 1}):`, err.message)
