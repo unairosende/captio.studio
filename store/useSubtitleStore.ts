@@ -10,6 +10,7 @@ import type {
 } from '../types/subtitle.ts'
 import type { GlossaryEntry, ReviewNote } from '../lib/ai/prompt.ts'
 import type { AnchorEdit, AnchorOp, ProjectComment } from '../types/comment.ts'
+import type { Playback } from '../types/media.ts'
 import { deleteAnchors, splitAnchors } from '../types/comment.ts'
 import { deleteCue, finalSubs, qcForMode, splitCue } from '../lib/subtitles/index.ts'
 
@@ -184,6 +185,18 @@ interface AppState {
   mediaId: string | null
   setMediaId: (id: string | null) => void
 
+  /**
+   * What the timeline plays: the sequence's upload, signed by the server, or a
+   * file somebody just dropped on the editor, straight from disk.
+   *
+   * In the store rather than inside the timeline because it arrives from three
+   * directions — the page that opened the editor, the route that switches
+   * sequences, and a transcription that has just finished — and the timeline
+   * is the one that should not have to know which.
+   */
+  playback: Playback | null
+  setPlayback: (playback: Playback | null) => void
+
   // The saved sequence this editor is a view of, if any
   sequenceId: string | null
   sequenceName: string
@@ -224,6 +237,7 @@ interface AppState {
     projectId: string
     projectName: string
     glossary?: GlossaryEntry[]
+    playback?: Playback | null
   }) => void
   markSaved: (id: string, name: string, version: number) => void
   /** A blank sequence in the given project. The glossary is the project's, so it stays. */
@@ -317,6 +331,14 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   projectName: '',
   mediaId: null,
   setMediaId: id => set({ mediaId: id }),
+  playback: null,
+  // A blob: URL holds the file it points at until it is revoked, and the file
+  // being replaced is the one thing nobody will ask for again.
+  setPlayback: playback =>
+    set(state => {
+      if (state.playback?.url.startsWith('blob:')) URL.revokeObjectURL(state.playback.url)
+      return { playback }
+    }),
   sequenceId: null,
   sequenceName: 'Untitled',
   sequenceVersion: null,
@@ -339,6 +361,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     // Not known when opening from storage, and not needed: a saved sequence is
     // already attached to its upload and already paid for.
     mediaId: null,
+    playback: s.playback ?? null,
     sequenceVersion: s.version,
     // Freshly loaded is by definition identical to what is stored.
     dirty: false,
@@ -379,6 +402,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     sequenceName: 'Untitled',
     sequenceVersion: null,
     mediaId: null,
+    playback: null,
     dirty: false,
     past: [],
     future: [],

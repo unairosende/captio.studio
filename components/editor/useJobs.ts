@@ -3,7 +3,10 @@
 import { useRouter } from 'next/navigation'
 
 import { useSubtitleStore } from '@/store/useSubtitleStore'
+import { decodeAudio, mediaType } from '@/lib/audio/decode'
+import { packPeaks } from '@/lib/audio/peaks'
 import { LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
+import { MAX_UPLOAD_BYTES } from '@/lib/upload'
 import {
   type ParseHint,
   type SubtitleFormat,
@@ -163,26 +166,56 @@ export function useTranscribe() {
   const spent = useSpent()
 
   async function start(file: File, language: string) {
-    const { outputMode, setTranscribeJob, setMediaId, loadSubtitles } = useSubtitleStore.getState()
-    setTranscribeJob({ running: true, progress: 30, message: 'Preparando el audio…', error: null })
+    const { outputMode, setTranscribeJob, setMediaId, setPlayback, loadSubtitles } = useSubtitleStore.getState()
+    setTranscribeJob({ running: true, progress: 30, message: 'Leyendo el archivo…', error: null })
 
     try {
-      let audioBlob: Blob = file
-      const isVideo = file.type.startsWith('video/') || /\.(mp4|mov|mkv|webm)$/i.test(file.name)
+      const contentType = mediaType(file)
+      const isVideo = contentType.startsWith('video/')
 
-      if (isVideo) {
-        setTranscribeJob({ message: 'Extrayendo el audio…', progress: 40 })
-        audioBlob = await extractAudio(file)
+      // Decoded once, here, for everything that needs it: the waveform the
+      // timeline draws now and every later visit draws from the row, the length
+      // the row records, and — only when the file is too big to send — the audio
+      // that goes up in its place.
+      const decoded = await decodeAudio(file)
+      const peaks = decoded ? packPeaks(decoded.peaks) : []
+
+      // The picture, straight from disk, before a byte has gone up. The upload
+      // is for next time; this time the file is right here.
+      setPlayback({
+        url: URL.createObjectURL(file),
+        contentType,
+        filename: file.name,
+        durationSeconds: decoded?.duration ?? null,
+        peaks,
+      })
+
+      // Whole, so it plays back from the bucket later — unless it is a master
+      // that would not fit, in which case the audio alone goes, as it always
+      // did, and playback stays local to this session.
+      let upload: Blob = file
+      let uploadName = file.name
+      let uploadType = contentType
+      if (file.size > MAX_UPLOAD_BYTES) {
+        if (!decoded) throw new Error('El archivo pasa de 1 GB y no se pudo extraer el audio para subirlo')
+        setTranscribeJob({ message: 'Demasiado grande para subir entero — extrayendo el audio…', progress: 40 })
+        upload = new Blob([audioBufferToWav(decoded.buffer)], { type: 'audio/wav' })
+        uploadName = file.name.replace(/\.[^.]+$/, '.wav')
+        uploadType = 'audio/wav'
       }
 
-      setTranscribeJob({ message: 'Subiendo el audio…', progress: 55 })
-      const uploadName  = isVideo ? file.name.replace(/\.[^.]+$/, '.mp3') : file.name
-      const contentType = audioBlob.type || 'audio/mpeg'
+      setTranscribeJob({ message: isVideo && upload === file ? 'Subiendo el vídeo…' : 'Subiendo el audio…', progress: 55 })
 
       const grant = await fetch('/api/media', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ filename: uploadName, contentType, bytes: audioBlob.size }),
+        body:    JSON.stringify({
+          filename: uploadName,
+          contentType: uploadType,
+          bytes: upload.size,
+          durationSeconds: decoded?.duration,
+          peaks: decoded ? peaks : undefined,
+        }),
       })
       const grantData = await readJson(grant)
       if (!grant.ok) throw new Error(grantData.error ?? `HTTP ${grant.status}`)
@@ -195,8 +228,8 @@ export function useTranscribe() {
       // cap the file at the platform's request-body limit.
       const put = await fetch(grantData.uploadUrl as string, {
         method:  'PUT',
-        body:    audioBlob,
-        headers: { 'Content-Type': contentType },
+        body:    upload,
+        headers: { 'Content-Type': uploadType },
       })
       if (!put.ok) throw new Error(`La subida falló (HTTP ${put.status})`)
 
@@ -230,29 +263,7 @@ export function useTranscribe() {
   return { start }
 }
 
-async function extractAudio(file: File): Promise<Blob> {
-  return new Promise(resolve => {
-    const url   = URL.createObjectURL(file)
-    const audio = new Audio()
-    audio.src   = url
-    audio.addEventListener('loadedmetadata', async () => {
-      try {
-        const sr      = 16000
-        const ctx     = new OfflineAudioContext(1, Math.ceil(audio.duration * sr), sr)
-        const src     = ctx.createBufferSource()
-        const buf     = await file.arrayBuffer()
-        const decoded = await ctx.decodeAudioData(buf).catch(() => null)
-        if (!decoded) { URL.revokeObjectURL(url); resolve(file); return }
-        src.buffer = decoded; src.connect(ctx.destination); src.start(0)
-        const rendered = await ctx.startRendering()
-        URL.revokeObjectURL(url)
-        resolve(new Blob([audioBufferToWav(rendered)], { type: 'audio/wav' }))
-      } catch { URL.revokeObjectURL(url); resolve(file) }
-    })
-    audio.addEventListener('error', () => { URL.revokeObjectURL(url); resolve(file) })
-  })
-}
-
+/** 16-bit mono PCM of the first channel, for a master too big to upload whole. */
 function audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
   const samples    = buffer.getChannelData(0)
   const dataLength = samples.length * 2

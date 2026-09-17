@@ -14,6 +14,7 @@ import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { Entitlement } from '@/lib/entitlement'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
+import type { Playback } from '@/types/media'
 import type { Subtitle, TranslationStore } from '@/types/subtitle'
 
 interface Props {
@@ -41,6 +42,8 @@ interface Props {
     subtitles: Subtitle[]
     translations: TranslationStore
     comments: ProjectComment[]
+    /** Its upload, signed on the server, when there is one to play. */
+    playback: Playback | null
   } | null
 }
 
@@ -82,6 +85,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
         version: sequence.version,
         subtitles: sequence.subtitles,
         translations: sequence.translations,
+        playback: sequence.playback,
         projectId: project.id,
         projectName: project.name,
         glossary: project.glossary,

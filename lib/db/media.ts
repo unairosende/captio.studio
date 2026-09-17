@@ -13,8 +13,15 @@ export interface MediaRow {
   sequence_id: string | null
   storage_key: string
   filename: string | null
+  /**
+   * What the object is, as the browser declared it at upload — `video/mp4`,
+   * `audio/wav`. Null on rows from before 0012, which are audio and undrawable.
+   */
+  content_type: string | null
   bytes: string | null
   duration_seconds: string | null
+  /** Waveform peaks, 0..1 — see lib/audio/peaks.ts. Null when the upload could not be decoded. */
+  peaks: number[] | null
   created_by: string | null
   created_at: string
 }
@@ -25,22 +32,26 @@ export async function createMedia(
     sequenceId?: string | null
     storageKey: string
     filename?: string | null
+    contentType?: string | null
     bytes?: number | null
     durationSeconds?: number | null
+    peaks?: number[] | null
     createdBy?: string | null
   },
 ): Promise<MediaRow> {
   const rows = await query<MediaRow>(
-    `insert into media (org_id, sequence_id, storage_key, filename, bytes, duration_seconds, created_by)
-     values ($1, $2, $3, $4, $5, $6, $7)
+    `insert into media (org_id, sequence_id, storage_key, filename, content_type, bytes, duration_seconds, peaks, created_by)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
      returning *`,
     [
       requireOrg(orgId),
       input.sequenceId ?? null,
       input.storageKey,
       input.filename ?? null,
+      input.contentType ?? null,
       input.bytes ?? null,
       input.durationSeconds ?? null,
+      input.peaks ? JSON.stringify(input.peaks) : null,
       input.createdBy ?? null,
     ],
   )
@@ -57,6 +68,24 @@ export async function getMedia(orgId: string, id: string): Promise<MediaRow | nu
 export async function listSequenceMedia(orgId: string, sequenceId: string): Promise<MediaRow[]> {
   return query<MediaRow>(
     `select * from media where org_id = $1 and sequence_id = $2 order by created_at desc`,
+    [requireOrg(orgId), sequenceId],
+  )
+}
+
+/**
+ * The upload a sequence plays back: the newest one whose type is known.
+ *
+ * Newest, because a sequence transcribed twice has two, and the second is the
+ * one whose cues are on screen. Typed, because a row from before 0012 is
+ * extracted audio with no waveform saved — playable in principle, but nothing
+ * in the editor would be any better for it, and it stands in front of nothing.
+ */
+export async function playableMedia(orgId: string, sequenceId: string): Promise<MediaRow | null> {
+  return queryOne<MediaRow>(
+    `select * from media
+      where org_id = $1 and sequence_id = $2 and content_type is not null
+      order by created_at desc
+      limit 1`,
     [requireOrg(orgId), sequenceId],
   )
 }

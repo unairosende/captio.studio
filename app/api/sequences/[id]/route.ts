@@ -5,6 +5,7 @@ import { parseAnchorOps } from '@/lib/db/comments'
 import { markSequencePaid } from '@/lib/db/billing'
 import { attachMedia } from '@/lib/db/media'
 import { ConflictError, deleteSequence, getSequence, updateSequence } from '@/lib/db/sequences'
+import { sequencePlayback } from '@/lib/storage/playback'
 
 /**
  * One sequence: read it, save over it, throw it away.
@@ -30,7 +31,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
   const sequence = await getSequence(ctx.orgId, (await params).id)
   if (!sequence) return NextResponse.json({ error: 'Sequence not found' }, { status: 404 })
 
-  return NextResponse.json({ sequence })
+  // With the upload it plays back, signed here: the page that first opened the
+  // editor did the same, and switching sequences should not lose the picture.
+  return NextResponse.json({ sequence, playback: await sequencePlayback(ctx.orgId, sequence.id) })
 }
 
 export async function PATCH(req: NextRequest, { params }: Params) {

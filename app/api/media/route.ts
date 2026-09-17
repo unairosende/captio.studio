@@ -1,25 +1,30 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { readPeaks } from '@/lib/audio/peaks'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { createMedia } from '@/lib/db/media'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { StorageNotConfiguredError, newStorageKey, presign } from '@/lib/storage/r2'
+import { MAX_UPLOAD_BYTES as MAX_BYTES } from '@/lib/upload'
 
 /**
  * Permission to upload one object.
  *
  * The browser sends the bytes straight to R2 with the URL this returns, so the
- * audio never enters a serverless function. That is not an optimisation: the
+ * media never enters a serverless function. That is not an optimisation: the
  * platform caps a request body at a few megabytes, which is minutes of audio,
  * and everything that does pass through a function is paid for twice — once
  * arriving and once leaving.
  *
  * The URL is what carries the authorisation, so it is deliberately narrow. It
  * is good for one method, one key, one size, for fifteen minutes.
+ *
+ * The request may also carry what the browser learned while decoding the file
+ * — its length, and the waveform peaks — which are recorded on the row so the
+ * timeline can draw the track again later without downloading it. Neither is
+ * trusted for anything that costs money: billing reads the recogniser's
+ * timings, never this duration.
  */
-
-/** Generous for extracted audio, and far below anything worth paying to store. */
-const MAX_BYTES = 1024 * 1024 * 1024
 
 /** Long enough for a slow connection, short enough that a leaked URL is stale. */
 const UPLOAD_WINDOW = 15 * 60
@@ -49,6 +54,15 @@ export async function POST(req: NextRequest) {
       { status: 413 },
     )
   }
+
+  // Optional, and checked rather than stored as sent: a track of the wrong
+  // length or with a value off the scale would become canvas arithmetic later.
+  const peaks = body?.peaks === undefined ? null : readPeaks(body.peaks)
+  if (body?.peaks !== undefined && !peaks) {
+    return NextResponse.json({ error: 'peaks must be PEAK_BUCKETS numbers in 0..1' }, { status: 400 })
+  }
+  const durationSeconds = Number(body?.durationSeconds)
+  const duration = Number.isFinite(durationSeconds) && durationSeconds > 0 ? durationSeconds : null
 
   // Refused here rather than at transcription: an upload nobody may transcribe
   // is storage we pay for to no purpose, and being told after the file has gone
@@ -82,7 +96,10 @@ export async function POST(req: NextRequest) {
   const media = await createMedia(ctx.orgId, {
     storageKey,
     filename,
+    contentType,
     bytes,
+    durationSeconds: duration,
+    peaks,
     createdBy: ctx.userId,
   })
 
