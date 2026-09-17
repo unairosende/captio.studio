@@ -18,6 +18,7 @@ import {
 } from '../../lib/db/sequences.ts'
 import { createComment, deleteComment, listComments } from '../../lib/db/comments.ts'
 import { currentMonthCostUsd, logUsage } from '../../lib/db/billing.ts'
+import { createMedia, getMedia, playableMedia } from '../../lib/db/media.ts'
 import { requireDisposableDatabase } from '../support/disposable-db.ts'
 
 /**
@@ -132,6 +133,30 @@ describe(
       assert.equal(await getSequence(orgB, madeUp), null)
       assert.equal(await getProject(orgB, p.id), null)
       assert.equal(await getProject(orgB, madeUp), null)
+    })
+
+    it('does not let one organisation reach another’s media', async () => {
+      // Two lookups hand out the bucket: getMedia by id (transcription) and
+      // playableMedia by sequence, which is what signs the playback URL the
+      // editor and the review link open. A row from another organisation has to
+      // come back not-found from both, or a signed URL for somebody else’s
+      // recording is one guessed id away.
+      const p = await createProject(orgA, { name: 'Con audio' })
+      const seq = await createSequence(orgA, { projectId: p.id, name: 'Bobina' })
+      const media = await createMedia(orgA, {
+        sequenceId: seq.id,
+        storageKey: 'orgA/clip.wav',
+        filename: 'clip.wav',
+        contentType: 'audio/wav',
+      })
+      const madeUp = '00000000-0000-0000-0000-000000000000'
+
+      assert.equal((await getMedia(orgA, media.id))?.id, media.id)
+      assert.equal(await getMedia(orgB, media.id), null)
+      assert.equal(await getMedia(orgB, madeUp), null)
+
+      assert.equal((await playableMedia(orgA, seq.id))?.id, media.id)
+      assert.equal(await playableMedia(orgB, seq.id), null)
     })
 
     it('keeps snapshots and comments inside the organisation', async () => {
