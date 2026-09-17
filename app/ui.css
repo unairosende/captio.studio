@@ -769,6 +769,8 @@
 .v2 .transport-clock { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
 .v2 .transport-tools { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); }
 .v2 .transport-zoom { min-width: 40px; text-align: center; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+.v2 .transport-video { position: relative; flex: 0 0 clamp(280px, 28vw, 420px); background: #000; border-right: 1px solid var(--line); container-type: inline-size; }
+.v2 .transport-video video { display: block; width: 100%; height: 100%; object-fit: contain; }
 
 /* ── Esqueleto ───────────────────────────────────────────────────────────── */
 

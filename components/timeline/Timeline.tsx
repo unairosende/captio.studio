@@ -2,8 +2,10 @@
 
 import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { peakBetween, peaksFrom } from '@/lib/audio/peaks'
-import { qcTrack, srtToSec } from '@/lib/subtitles'
+import Caption from '@/components/video/Caption'
+import { decodeAudio, mediaType } from '@/lib/audio/decode'
+import { packPeaks, peakBetween } from '@/lib/audio/peaks'
+import { cueAt, qcTrack, srtToSec } from '@/lib/subtitles'
 import { type Edge, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
 import { publishPlayhead, publishSeek } from '@/lib/timeline/playhead'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
@@ -15,6 +17,7 @@ import {
 } from '@/lib/timeline/transport'
 import { clampZoom, scrollToShow, visibleWindow } from '@/lib/timeline/view'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
+import type { Playback } from '@/types/media'
 import type { Subtitle } from '@/types/subtitle'
 
 /**
@@ -31,10 +34,17 @@ import type { Subtitle } from '@/types/subtitle'
  * pixels wide. Scrolling is a real scrollbar over an empty spacer, so the
  * browser supplies the affordance and we supply only the arithmetic.
  *
- * The audio never leaves the browser. It is decoded locally for drawing and
- * playback, so scrubbing costs nothing and it works on a file that was never
- * uploaded: somebody correcting an SRT against a screener should not have to
- * hand us their video first.
+ * Playback is a <video> element, whatever the file: it decodes what the platform
+ * decodes, plays audio-only files as happily, and reads a file in the bucket
+ * through a signed URL with range requests, so nothing is downloaded that is
+ * not watched. The element is also the clock — the playhead is read off it
+ * every frame rather than accumulated, so it cannot drift from what is heard.
+ *
+ * The waveform comes from peaks, not from the bytes: computed once when the
+ * file was uploaded and saved with it, or here and now for a file somebody
+ * hands the timeline from disk. That second path still exists on purpose:
+ * somebody correcting an SRT against a screener should not have to upload
+ * their video first.
  */
 
 const RULER_H = 18
@@ -139,44 +149,48 @@ interface Drag {
   track: Subtitle[]
 }
 
+/**
+ * Remounted on new material, so every piece of state — duration, zoom, the
+ * playhead, the element's own buffer — starts over with the file rather than
+ * being reset one by one in an effect.
+ */
 export default function Timeline() {
-  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo } = useSubtitleStore()
+  const playback = useSubtitleStore(s => s.playback)
+  return <Track key={playback?.url ?? ''} playback={playback} />
+}
+
+function Track({ playback }: { playback: Playback | null }) {
+  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, setPlayback } =
+    useSubtitleStore()
 
   const scrollRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   // Refs rather than state: these change every animation frame, and re-rendering
   // React at 60fps to move a one-pixel line is how a timeline starts dropping
   // frames on the long files where it earns its place.
-  const bufferRef = useRef<AudioBuffer | null>(null)
-  const peaksRef = useRef<Float32Array>(new Float32Array(0))
-  const audioRef = useRef<AudioContext | null>(null)
-  const sourceRef = useRef<AudioBufferSourceNode | null>(null)
+  const peaksRef = useRef<Float32Array>(Float32Array.from(playback?.peaks ?? []))
   const frameRef = useRef(0)
   const playheadRef = useRef(0)
   const dragRef = useRef<Drag | null>(null)
   const transportRef = useRef<Transport | null>(null)
+  /** When the picture was last told where a backwards scrub had got to. */
+  const scrubSeekRef = useRef(0)
+  /** The cue under the picture, as last shown — so state changes only at a boundary. */
+  const activeRef = useRef<number | null>(null)
 
-  /**
-   * Where playback started, so the playhead can be derived rather than
-   * accumulated.
-   *
-   * Adding a delta every frame drifts, and at 8x it drifts eight times as fast.
-   * The
-   * clock is the audio context's, which is the same clock the sound is coming
-   * out of — anything else and the picture slides away from what is audible.
-   */
-  const anchorRef = useRef<{ ctxTime: number; playhead: number; speed: number } | null>(null)
-
-  const [duration, setDuration] = useState(0)
+  // Provisional until the element has read the header: enough to draw the
+  // peaks at once rather than after the first range request.
+  const [duration, setDuration] = useState(playback?.durationSeconds ?? 0)
   const [zoom, setZoom] = useState(1)
   const [playing, setPlaying] = useState(false)
   const [clock, setClock] = useState('00:00:00,000')
   const [loading, setLoading] = useState(false)
-  const [name, setName] = useState<string | null>(null)
   const [failed, setFailed] = useState(false)
   const [transport, setTransport] = useState<Transport | null>(null)
+  const [activeIndex, setActiveIndex] = useState<number | null>(null)
 
   // The cues on screen, so the blocks match the tab being edited.
   const cues: Subtitle[] =
@@ -187,6 +201,21 @@ export default function Timeline() {
   // a feature-length track inside that loop is how the playhead starts to
   // stutter on exactly the files where it matters.
   const quality = useMemo(() => qcTrack(cues), [cues])
+
+  // Held as an index and looked up here, so a line being retyped changes under
+  // the picture as it is typed rather than at the next cue boundary.
+  const active = activeIndex === null ? null : (cues.find(c => c.index === activeIndex) ?? null)
+
+  const showCue = useCallback(
+    (t: number) => {
+      const index = cueAt(cues, t)?.index ?? null
+      if (index !== activeRef.current) {
+        activeRef.current = index
+        setActiveIndex(index)
+      }
+    },
+    [cues],
+  )
 
   /** The window currently on screen, read from the scroller rather than stored. */
   const currentView = useCallback(() => {
@@ -319,10 +348,15 @@ export default function Timeline() {
   }, [draw, zoom])
 
   const stop = useCallback(() => {
-    sourceRef.current?.stop()
-    sourceRef.current?.disconnect()
-    sourceRef.current = null
-    anchorRef.current = null
+    const video = videoRef.current
+    if (video) {
+      video.pause()
+      // After a backwards scrub the picture is behind the playhead by up to a
+      // seek interval; after playing, they already agree and this is a no-op.
+      if (Math.abs(video.currentTime - playheadRef.current) > 0.05) {
+        video.currentTime = playheadRef.current
+      }
+    }
     cancelAnimationFrame(frameRef.current)
     setPlaying(false)
   }, [])
@@ -342,54 +376,48 @@ export default function Timeline() {
   /** Play forward with sound, at `speed`. */
   const play = useCallback(
     (speed = 1) => {
-      const buffer = bufferRef.current
-      const audio = audioRef.current
-      if (!buffer || !audio) return
+      const video = videoRef.current
+      if (!video || duration <= 0) return
 
       stop()
       // Past the end, pressing play should start over rather than do nothing.
-      const from = playheadRef.current >= buffer.duration ? 0 : playheadRef.current
-
-      const source = audio.createBufferSource()
-      source.buffer = buffer
-      source.playbackRate.value = speed
-      source.connect(audio.destination)
-      source.start(0, from)
-      sourceRef.current = source
-      anchorRef.current = { ctxTime: audio.currentTime, playhead: from, speed }
+      if (playheadRef.current >= duration) playheadRef.current = 0
+      if (Math.abs(video.currentTime - playheadRef.current) > 0.05) {
+        video.currentTime = playheadRef.current
+      }
+      video.playbackRate = speed
+      // Refused only by an autoplay policy, and every path here is a key or a
+      // click; the tick below notices the element still paused and stops.
+      void video.play().catch(() => {})
       setPlaying(true)
 
       const tick = () => {
-        const anchor = anchorRef.current
-        if (!anchor) return
-
-        const t = anchor.playhead + (audio.currentTime - anchor.ctxTime) * anchor.speed
-        if (t >= buffer.duration) {
-          playheadRef.current = buffer.duration
-          setClock(clockLabel(buffer.duration))
-          stop()
-          draw()
-          return
-        }
-
+        const t = video.currentTime
         playheadRef.current = t
         setClock(clockLabel(t))
         follow(t)
+        showCue(t)
         draw()
+        // Ended, or paused by something that is not us — a media key, the
+        // element losing its source — and the button should say so.
+        if (video.ended || video.paused) {
+          stop()
+          return
+        }
         frameRef.current = requestAnimationFrame(tick)
       }
       frameRef.current = requestAnimationFrame(tick)
     },
-    [draw, follow, stop],
+    [draw, duration, follow, showCue, stop],
   )
 
   /**
-   * Move the playhead without sound.
+   * Move the playhead backwards, without sound.
    *
-   * Reverse is silent because it has to be: the Web Audio API rejects a
-   * negative playbackRate outright, and reversing a decoded buffer to play it
-   * backwards would cost more than the feature is worth. Editors use J to find
-   * a moment by eye against the waveform, which this does.
+   * Reverse is silent because it has to be: no browser plays media at a
+   * negative rate. Editors use J to find a moment by eye against the waveform,
+   * which this does, and the picture follows at a walking pace — a seek every
+   * frame stalls the decoder, a seek every few frames reads as scrubbing.
    */
   const scrub = useCallback(
     (direction: Direction, speed: number) => {
@@ -403,7 +431,14 @@ export default function Timeline() {
           playheadRef.current = Math.max(0, Math.min(duration, t))
           setClock(clockLabel(playheadRef.current))
           follow(playheadRef.current)
+          showCue(playheadRef.current)
           draw()
+
+          const video = videoRef.current
+          if (video && now - scrubSeekRef.current > 120) {
+            video.currentTime = playheadRef.current
+            scrubSeekRef.current = now
+          }
 
           if (t <= 0 || t >= duration) {
             stop()
@@ -415,7 +450,7 @@ export default function Timeline() {
       }
       frameRef.current = requestAnimationFrame(step)
     },
-    [draw, duration, follow, stop],
+    [draw, duration, follow, showCue, stop],
   )
 
   const seek = useCallback(
@@ -424,9 +459,12 @@ export default function Timeline() {
       playheadRef.current = t
       setClock(clockLabel(t))
       if (playing) stop()
+      const video = videoRef.current
+      if (video) video.currentTime = t
+      showCue(t)
       draw()
     },
-    [duration, draw, playing, stop],
+    [duration, draw, playing, showCue, stop],
   )
 
   /**
@@ -460,7 +498,7 @@ export default function Timeline() {
       setTransport(next)
 
       // Forward has sound; backwards cannot, so it scrubs.
-      if (next.direction === 1 && bufferRef.current) play(next.speed)
+      if (next.direction === 1) play(next.speed)
       else scrub(next.direction, next.speed)
     }
 
@@ -487,47 +525,28 @@ export default function Timeline() {
     [draw, duration],
   )
 
+  /**
+   * A file from disk, for a sequence whose upload is elsewhere or nowhere.
+   *
+   * Goes through the store like a file from the bucket does, so there is one
+   * way for the timeline to receive material. Decoded here for the waveform;
+   * a file the platform cannot decode still gets handed to the <video>, which
+   * may manage the picture even so, and says next to the button if it cannot.
+   */
   async function load(file: File) {
     setLoading(true)
-    setFailed(false)
-    try {
-      const audio = audioRef.current ?? new AudioContext()
-      audioRef.current = audio
-      const buffer = await audio.decodeAudioData(await file.arrayBuffer())
-
-      bufferRef.current = buffer
-      peaksRef.current = peaksFrom(buffer.getChannelData(0))
-      playheadRef.current = 0
-      anchorRef.current = null
-      transportRef.current = null
-      setTransport(null)
-      setDuration(buffer.duration)
-      setZoom(1)
-      setClock(clockLabel(0))
-      setName(file.name)
-    } catch {
-      // A file the browser cannot decode is an ordinary thing to be handed, not
-      // an exceptional one. Say so next to the button rather than in a console
-      // nobody has open.
-      bufferRef.current = null
-      peaksRef.current = new Float32Array(0)
-      setDuration(0)
-      setName(null)
-      setFailed(true)
-    } finally {
-      setLoading(false)
-    }
+    const decoded = await decodeAudio(file)
+    setPlayback({
+      url: URL.createObjectURL(file),
+      contentType: mediaType(file),
+      filename: file.name,
+      durationSeconds: decoded?.duration ?? null,
+      peaks: decoded ? packPeaks(decoded.peaks) : [],
+    })
+    setLoading(false)
   }
 
-  // An AudioContext holds an output device. Leaving it open outlives the
-  // component and eventually exhausts them.
-  useEffect(() => {
-    return () => {
-      cancelAnimationFrame(frameRef.current)
-      sourceRef.current?.stop()
-      audioRef.current?.close()
-    }
-  }, [])
+  useEffect(() => () => cancelAnimationFrame(frameRef.current), [])
 
   // Lend the playhead to the editor, so splitting a cue can cut where somebody
   // is listening rather than halfway through on principle.
@@ -543,9 +562,31 @@ export default function Timeline() {
   }, [seek])
 
   const ready = duration > 0
+  const hasVideo = playback?.contentType.startsWith('video/') ?? false
 
   return (
-    <div className="transport">
+    <div className="transport" style={{ display: 'flex', alignItems: 'stretch' }}>
+      {/*
+        Always in the tree, because it is the player for audio-only files too;
+        only shown when there is a picture to show. Pane width is fixed and the
+        footage letterboxes inside it: an aspect-ratio box stretched to the
+        row's height is a layout question with different answers per browser.
+      */}
+      <div className="transport-video" style={{ display: hasVideo ? 'block' : 'none' }}>
+        <video
+          ref={videoRef}
+          src={playback?.url}
+          preload="metadata"
+          playsInline
+          onLoadedMetadata={e => {
+            if (Number.isFinite(e.currentTarget.duration)) setDuration(e.currentTarget.duration)
+          }}
+          onError={() => setFailed(true)}
+        />
+        <Caption text={active?.text} />
+      </div>
+
+      <div style={{ flex: 1, minWidth: 0 }}>
       <div className="transport-bar">
         <button
           className="btn"
@@ -572,20 +613,20 @@ export default function Timeline() {
           <span className="kbd">{speedLabel(transport)}</span>
         )}
 
-        <span className={failed ? 'err' : 'muted'} title={name ?? undefined}>
+        <span className={failed ? 'err' : 'muted'} title={playback?.filename}>
           {loading
             ? 'Descodificando…'
             : failed
-              ? 'Ese archivo no se pudo descodificar'
-              : (name ?? 'Sin audio — carga el de la secuencia para cuadrar tiempos')}
+              ? 'Ese archivo no se pudo reproducir'
+              : (playback?.filename || 'Sin vídeo ni audio — carga el de la secuencia para cuadrar tiempos')}
         </span>
 
         <div className="transport-tools">
           <button className="btn btn-quiet" onClick={() => changeZoom(zoom / ZOOM_STEP)} disabled={!ready} aria-label="Alejar">−</button>
           <span className="transport-zoom">{zoom.toFixed(1)}×</span>
           <button className="btn btn-quiet" onClick={() => changeZoom(zoom * ZOOM_STEP)} disabled={!ready} aria-label="Acercar">+</button>
-          <button className={ready ? 'btn' : 'btn btn-primary'} data-cmd="Cargar el audio de la secuencia" onClick={() => fileRef.current?.click()}>
-            {ready ? 'Cambiar audio' : 'Cargar audio'}
+          <button className={ready ? 'btn' : 'btn btn-primary'} data-cmd="Cargar el vídeo o el audio de la secuencia" onClick={() => fileRef.current?.click()}>
+            {ready ? 'Cambiar archivo' : 'Cargar vídeo o audio'}
           </button>
         </div>
 
@@ -666,6 +707,7 @@ export default function Timeline() {
         <div style={{ width: `${zoom * 100}%`, height: HEIGHT, position: 'relative' }}>
           <canvas ref={canvasRef} style={{ display: 'block', position: 'sticky', left: 0, top: 0 }} />
         </div>
+      </div>
       </div>
     </div>
   )
