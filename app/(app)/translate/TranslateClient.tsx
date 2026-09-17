@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import CueTable, { type Filter } from '@/components/editor/CueTable'
 import Header from '@/components/editor/Header'
-import Inspector from '@/components/editor/Inspector'
-import Pipeline, { type Step } from '@/components/editor/Pipeline'
+import Panel, { type Section } from '@/components/editor/Panel'
+import Steps, { type Step } from '@/components/editor/Steps'
 import s from '@/components/editor/editor.module.css'
 import CommandPalette from '@/components/palette/CommandPalette'
 import TeamPanel from '@/components/team/TeamPanel'
@@ -14,6 +14,7 @@ import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { Entitlement } from '@/lib/entitlement'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
+import type { Playback } from '@/types/media'
 import type { Subtitle, TranslationStore } from '@/types/subtitle'
 
 interface Props {
@@ -23,7 +24,7 @@ interface Props {
    * server, so the panel cannot be talked into offering buttons that would be
    * refused anyway.
    */
-  user: { id: string; email: string; role: string }
+  user: { id: string; email: string; name: string; role: string }
   entitlement: Entitlement
   /** The project being worked inside. Always present: the page refuses without one. */
   project: { id: string; name: string; glossary: GlossaryEntry[] }
@@ -41,33 +42,32 @@ interface Props {
     subtitles: Subtitle[]
     translations: TranslationStore
     comments: ProjectComment[]
-    /** The upload attached to this sequence, if any — what the waveform auto-loads. */
-    mediaId: string | null
+    /** Its upload, signed on the server, when there is one to play. */
+    playback: Playback | null
   } | null
 }
 
 /**
- * The editor: the pipeline down the left, the cues in the middle with both
- * languages on one row, the selected cue in full on the right, and the
- * waveform along the bottom — the instrument timing depends on.
+ * The editor: a rail of steps down the left edge with their sidebar, the
+ * cues in the middle with a tab per language and the text corrected in
+ * place, a panel on the right, and the waveform along the bottom — the
+ * instrument timing depends on. Both sides fold.
  *
- * Structure B from the redesign. The logic underneath is the one that was
- * already here; what changed is where each control appears, which is only
- * where it applies.
+ * Structure B from the redesign, twice reviewed by Unai. The logic
+ * underneath is the one that was already here; what changed is where each
+ * control appears, which is only where it applies.
  */
 export default function TranslateClient({ user, entitlement, project, sequence }: Props) {
   const { undo, redo, openSequence, newSequence, setComments } = useSubtitleStore()
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
   const [filter, setFilter] = useState<Filter>(null)
-  const [sideFocus, setSideFocus] = useState(false)
-  // Which pipeline step is open: the first one with work still in it, read
-  // from what the server sent rather than from the store, which is seeded a
-  // moment later.
-  const [step, setStep] = useState<Step | null>(() =>
-    !sequence?.subtitles.length ? 'import' : !Object.keys(sequence.translations).length ? 'translate' : 'review',
-  )
-  const editRef = useRef<HTMLTextAreaElement>(null)
+  // The panel starts open and the sidebar folded: the steps are a rail of
+  // icons, and the empty table has its own button to the first one.
+  const [step, setStep] = useState<Step | null>(null)
+  const [panel, setPanel] = useState(true)
+  const [section, setSection] = useState<Section>('review')
+  const openPanel = (sec: Section) => { setSection(sec); setPanel(true) }
 
   /**
    * Seed the store from what the server already resolved.
@@ -85,10 +85,10 @@ export default function TranslateClient({ user, entitlement, project, sequence }
         version: sequence.version,
         subtitles: sequence.subtitles,
         translations: sequence.translations,
+        playback: sequence.playback,
         projectId: project.id,
         projectName: project.name,
         glossary: project.glossary,
-        mediaId: sequence.mediaId,
       })
       setComments(sequence.comments)
     } else {
@@ -135,14 +135,14 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   }, [redo, undo])
 
   return (
-    <div className={`v2 ${s.editor}`} data-focus={sideFocus ? 'side' : undefined}>
+    <div className={`v2 ${s.editor}`}>
       {team && <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />}
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
 
       <Header user={user} project={project} onPalette={() => setPalette(true)} onTeam={() => setTeam(true)} />
-      <Pipeline entitlement={entitlement} step={step} onStep={setStep} filter={filter} onFilter={setFilter} onProject={() => useSubtitleStore.getState().select(null)} />
-      <CueTable filter={filter} onFilter={setFilter} onOpen={() => editRef.current?.focus()} onImport={() => setStep('import')} />
-      <Inspector userId={user.id} editRef={editRef} onFocus={setSideFocus} />
+      <Steps entitlement={entitlement} step={step} onStep={setStep} />
+      <CueTable userId={user.id} filter={filter} onFilter={setFilter} onImport={() => setStep('import')} panel={panel} onPanel={() => setPanel(p => !p)} />
+      <Panel userId={user.id} open={panel} section={section} onOpen={openPanel} onClose={() => setPanel(false)} filter={filter} onFilter={setFilter} />
       <div className={s.wave}><Timeline /></div>
     </div>
   )

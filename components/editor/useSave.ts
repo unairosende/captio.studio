@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
+import type { Playback } from '@/types/media'
 import type { Subtitle, TranslationStore } from '@/types/subtitle'
 
 export interface SequenceSummary {
@@ -121,7 +122,7 @@ export function useSave() {
       subtitles: s.data?.subtitles ?? [],
       translations: s.data?.translations ?? {},
       glossary,
-      mediaId: typeof json.mediaId === 'string' ? json.mediaId : null,
+      playback: (json.playback as Playback | null) ?? null,
     })
     setConflict(false)
     const notes = await fetch(`/api/sequences/${id}/comments`)

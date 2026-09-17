@@ -8,6 +8,7 @@ import { listComments } from '@/lib/db/comments'
 import { getProject } from '@/lib/db/projects'
 import { sequenceInProject, touchGuest } from '@/lib/db/review-links'
 import { getSequence, listVersions } from '@/lib/db/sequences'
+import { sequencePlayback } from '@/lib/storage/playback'
 import { readCues } from '@/lib/subtitles/data'
 
 /**
@@ -36,11 +37,14 @@ export default async function GuestReviewPage({ params, searchParams }: Props) {
 
   if (!(await sequenceInProject(link.org_id, sequenceId, link.project_id))) notFound()
 
-  const [sequence, project, comments, versions] = await Promise.all([
+  // The playback URL is signed here too, against the organisation the link
+  // resolved to: a guest gets the picture without any route of their own for it.
+  const [sequence, project, comments, versions, playback] = await Promise.all([
     getSequence(link.org_id, sequenceId),
     getProject(link.org_id, link.project_id),
     listComments(link.org_id, sequenceId),
     listVersions(link.org_id, sequenceId),
+    sequencePlayback(link.org_id, sequenceId),
     touchGuest(link.org_id, guest.id),
   ])
   if (!sequence || !project) notFound()
@@ -68,6 +72,7 @@ export default async function GuestReviewPage({ params, searchParams }: Props) {
       }}
       comments={comments}
       versions={versions}
+      playback={playback}
       focusCue={Number.isInteger(focus) && focus > 0 ? focus : undefined}
     />
   )

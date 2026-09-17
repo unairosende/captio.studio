@@ -7,6 +7,8 @@ export interface GlossaryEntry {
 export interface TranslationRequest {
   /** Cue texts, in order. */
   cues: string[]
+  /** The numbers these cues carry on screen, in the same order. */
+  numbers: number[]
   targetLang: string
   /** Omitted or 'Auto-detect' lets the model work it out. */
   sourceLang?: string
@@ -27,10 +29,20 @@ export interface TranslationRequest {
  *
  * The count is restated as a hard constraint here, and verified in
  * `parseTranslationResponse` — asking is not enough on its own.
+ *
+ * Asking was not enough with a bare array either. Thirty strings went in and
+ * twenty-nine came back, twice in a row, and nothing in either reply said
+ * which two had been merged. So every subtitle now travels as an object
+ * carrying its number, and comes back the same way: the number is the anchor
+ * the model completes one by one, and it is what lets the parser say "47 is
+ * missing" rather than "the count is off".
  */
 const FIXED_COUNT_RULES = [
-  'CRITICAL — THE SUBTITLE COUNT IS FIXED: return exactly one translation per input subtitle, in the same order.',
-  '• NEVER split one subtitle into two entries, and NEVER merge two subtitles into one.',
+  'CRITICAL — THE SUBTITLE COUNT IS FIXED: return exactly one entry per input subtitle, carrying the same "n", in the same order.',
+  '• NEVER split one subtitle into two entries, and NEVER merge two subtitles into one — every "n" in the input appears exactly once in the output.',
+  // The merge that happens most: a sentence split across two cues by the
+  // transcription, which a translator "helpfully" reunites.
+  '• A subtitle that stops mid-sentence is translated as the fragment it is — the sentence continues in the next subtitle. Do NOT move words between subtitles.',
   // Where a line breaks is lib/subtitles/layout.ts's job, and asking for it here
   // is what made the count unreliable: told to break long text, a model that
   // cannot write \n often opens a second array entry instead — thirty cues came
@@ -38,6 +50,29 @@ const FIXED_COUNT_RULES = [
   '• NEVER insert line breaks. Return each subtitle as one single line of text.',
   '',
 ]
+
+/** A cue with nothing in it. */
+const isBlank = (text: string | undefined) => !text?.trim()
+
+/**
+ * One object per subtitle, numbered, in place of a bare array.
+ *
+ * Blank cues are left out. There is nothing to translate in one, and an empty
+ * string is the entry models handle worst: one answers it with `,,` and the
+ * JSON will not parse, another skips it and the batch is short by one. The
+ * parser knows which cues were blank and answers for them itself.
+ */
+function subtitleObjects(numbers: number[], cues: string[], sourceTexts?: string[]) {
+  return numbers.flatMap((n, i) =>
+    isBlank(cues[i])
+      ? []
+      : [{ n, ...(sourceTexts ? { source: sourceTexts[i] ?? '' } : {}), text: cues[i] }],
+  )
+}
+
+/** The output instruction every string-per-cue task ends with. */
+const returnLine = (count: number, what: string) =>
+  `Return ONLY a JSON array of exactly ${count} objects, one per input subtitle, each {"n": <the subtitle's n>, "text": "<${what}>"}, in the same order. No markdown, no commentary.`
 
 /**
  * What a glossary may be, so that it cannot become something else.
@@ -60,7 +95,7 @@ const MAX_GLOSSARY_CHARS = 200
  * a subtitle editor as a text box.
  *
  * The cap is the second line of defence, not the first. The output contract is
- * the first: every task here must answer with exactly one string per input cue
+ * the first: every task here must answer with exactly one entry per input cue
  * or `parseTranslationResponse` refuses the batch, so even an instruction that
  * talked the model into writing something else would produce nothing the
  * caller could read back.
@@ -107,6 +142,7 @@ function glossaryRules(entries: GlossaryEntry[] = []): string[] {
  */
 export function buildTranslationPrompt(req: TranslationRequest): string {
   const from = req.sourceLang && req.sourceLang !== 'Auto-detect' ? ` from ${req.sourceLang}` : ''
+  const items = subtitleObjects(req.numbers, req.cues)
 
   return [
     `You are a professional subtitle translator. Translate the following subtitles${from} into ${req.targetLang}.`,
@@ -142,10 +178,10 @@ export function buildTranslationPrompt(req: TranslationRequest): string {
           '',
         ]
       : []),
-    `Return ONLY a JSON array of exactly ${req.cues.length} strings — one per input subtitle, same order, same count. No markdown, no commentary.`,
+    returnLine(items.length, 'translation'),
     '',
     'SOURCE:',
-    JSON.stringify(req.cues),
+    JSON.stringify(items),
   ].join('\n')
 }
 
@@ -157,10 +193,12 @@ export function buildTranslationPrompt(req: TranslationRequest): string {
  */
 export function buildBackTranslationPrompt(req: {
   cues: string[]
+  numbers: number[]
   fromLang: string
   toLang: string
 }): string {
   const to = req.toLang === 'Auto-detect' ? 'the original language' : req.toLang
+  const items = subtitleObjects(req.numbers, req.cues)
   return [
     `You are a professional subtitle translator. Translate each subtitle from ${req.fromLang} back to ${to}.`,
     '',
@@ -169,10 +207,10 @@ export function buildBackTranslationPrompt(req: {
     '• Keep line breaks using \\n if the source has them',
     '',
     ...FIXED_COUNT_RULES,
-    `Return ONLY a JSON array of exactly ${req.cues.length} strings — one per input subtitle, same order, same count. No markdown, no commentary.`,
+    returnLine(items.length, 'back-translation'),
     '',
     'SOURCE:',
-    JSON.stringify(req.cues),
+    JSON.stringify(items),
   ].join('\n')
 }
 
@@ -186,9 +224,11 @@ export function buildBackTranslationPrompt(req: {
 export function buildShortenPrompt(req: {
   cues: string[]
   sourceTexts: string[]
+  numbers: number[]
   lang: string
   maxChars: number
 }): string {
+  const items = subtitleObjects(req.numbers, req.cues, req.sourceTexts)
   return [
     `You are a professional subtitle editor. Each subtitle in ${req.lang} is too long.`,
     '',
@@ -200,13 +240,10 @@ export function buildShortenPrompt(req: {
     '• Do NOT drop information; compress wording instead',
     '',
     ...FIXED_COUNT_RULES,
-    `Return ONLY a JSON array of exactly ${req.cues.length} strings — one per input subtitle, same order, same count. No markdown, no commentary.`,
+    returnLine(items.length, 'shortened text'),
     '',
-    'ORIGINAL SOURCE TEXTS (for meaning):',
-    JSON.stringify(req.sourceTexts),
-    '',
-    'CURRENT TRANSLATIONS (too long — rewrite these):',
-    JSON.stringify(req.cues),
+    'SUBTITLES ("source" is the original, for meaning; "text" is the translation that is too long — rewrite it):',
+    JSON.stringify(items),
   ].join('\n')
 }
 
@@ -245,6 +282,7 @@ export interface RevisionRequest {
 }
 
 export function buildRevisionPrompt(req: RevisionRequest): string {
+  const items = subtitleObjects(req.numbers, req.cues, req.sourceTexts)
   return [
     `You are a professional subtitle editor. Revise these subtitles in ${req.lang} by applying the corrections below.`,
     '',
@@ -267,16 +305,13 @@ export function buildRevisionPrompt(req: RevisionRequest): string {
     '',
     ...glossaryRules(req.glossary),
     ...instructionBlock('CORRECTIONS TO APPLY:', req.instructions),
-    `Return ONLY a JSON array of exactly ${req.cues.length} strings — one per input subtitle, same order, same count. No markdown, no commentary.`,
+    returnLine(items.length, 'revised text'),
     '',
-    'SUBTITLE NUMBERS (same order as the two arrays below):',
-    JSON.stringify(req.numbers),
-    '',
-    'ORIGINAL SOURCE TEXTS (for meaning):',
-    JSON.stringify(req.sourceTexts),
-    '',
-    'CURRENT TRANSLATIONS (revise these):',
-    JSON.stringify(req.cues),
+    // One object per subtitle rather than three arrays to be read in step —
+    // the same lesson buildReviewPrompt learned: parallel arrays made the
+    // model count, and it counted wrong.
+    'SUBTITLES ("n" is the number a correction may name; "source" is the original, for meaning; "text" is the current translation — revise it):',
+    JSON.stringify(items),
   ].join('\n')
 }
 
@@ -366,13 +401,8 @@ export class TranslationFormatError extends Error {
   }
 }
 
-/**
- * Read the model's reply, or refuse it.
- *
- * Never falls back to the source text. A cue that silently stays untranslated
- * looks like a finished job and ships that way; a visible error does not.
- */
-export function parseTranslationResponse(raw: string, expected: number): string[] {
+/** The JSON array in a reply, or a refusal. */
+function jsonArray(raw: string): unknown[] {
   const cleaned = raw.replace(/```json\n?|```\n?/g, '').trim()
 
   let parsed: unknown
@@ -385,20 +415,53 @@ export function parseTranslationResponse(raw: string, expected: number): string[
   if (!Array.isArray(parsed)) {
     throw new TranslationFormatError('model returned something other than an array')
   }
+  return parsed
+}
 
-  // The re-segmentation guard. A mismatch means every cue from the first
-  // difference onward would land on the wrong timecode.
-  if (parsed.length !== expected) {
+/**
+ * Read the model's reply, or refuse it.
+ *
+ * Matched by number, not by position. A reply short by one used to be refused
+ * as a whole with nothing to say about which cue had gone; now the missing
+ * number is named, and the caller can retry a smaller batch around it. The
+ * re-segmentation guard is still absolute — a merge or a split means every
+ * cue from that point on would land on the wrong timecode — it is just no
+ * longer blind.
+ *
+ * Blank cues were never sent (see `subtitleObjects`) and are answered here
+ * with a blank, whatever the model did or did not say about them.
+ *
+ * Never falls back to the source text. A cue that silently stays untranslated
+ * looks like a finished job and ships that way; a visible error does not.
+ */
+export function parseTranslationResponse(raw: string, numbers: number[], cues: string[]): string[] {
+  const inBatch = new Set(numbers)
+  const byNumber = new Map<number, string>()
+
+  for (const entry of jsonArray(raw)) {
+    const { n, text } = (entry ?? {}) as Record<string, unknown>
+    if (typeof n !== 'number' || typeof text !== 'string') {
+      throw new TranslationFormatError('model returned an entry without "n" and "text"')
+    }
+    if (!inBatch.has(n)) {
+      throw new TranslationFormatError(`model returned subtitle ${n}, which is not in this batch — it split one`)
+    }
+    if (byNumber.has(n)) {
+      throw new TranslationFormatError(`model returned subtitle ${n} twice — it split it`)
+    }
+    byNumber.set(n, text)
+  }
+
+  // A cue that came back empty is a merge in disguise: its words are in a
+  // neighbour, and an entry was written so the count would look right.
+  const missing = numbers.filter((n, i) => !isBlank(cues[i]) && isBlank(byNumber.get(n)))
+  if (missing.length) {
     throw new TranslationFormatError(
-      `model returned ${parsed.length} translations for ${expected} subtitles — it re-segmented the batch`,
+      `model returned nothing for subtitle ${missing.join(', ')} — it merged it into a neighbour`,
     )
   }
 
-  if (!parsed.every(x => typeof x === 'string')) {
-    throw new TranslationFormatError('model returned a non-string entry')
-  }
-
-  return parsed as string[]
+  return numbers.map((n, i) => (isBlank(cues[i]) ? '' : byNumber.get(n) ?? ''))
 }
 
 /** One thing a reviewer would fix, tied to the cue it is about. */
@@ -412,7 +475,7 @@ export interface ReviewNote {
 /**
  * Read the review, and bound it.
  *
- * Every other task here answers with exactly one string per input cue, and
+ * Every other task here answers with exactly one entry per input cue, and
  * that shared shape is what stops any of them being used to get arbitrary text
  * out of a subtitling subscription. A review cannot keep it — notes are prose,
  * and there are fewer of them than there are cues.
@@ -431,24 +494,11 @@ export interface ReviewNote {
  * mistake.
  */
 export function parseReviewResponse(raw: string, cueNumbers: number[]): ReviewNote[] {
-  const cleaned = raw.replace(/```json\n?|```\n?/g, '').trim()
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(cleaned)
-  } catch {
-    throw new TranslationFormatError(`model returned malformed JSON — ${cleaned.slice(0, 120)}`)
-  }
-
-  if (!Array.isArray(parsed)) {
-    throw new TranslationFormatError('model returned something other than an array')
-  }
-
   const inBatch = new Set(cueNumbers)
   const seen = new Set<number>()
   const notes: ReviewNote[] = []
 
-  for (const entry of parsed) {
+  for (const entry of jsonArray(raw)) {
     if (!entry || typeof entry !== 'object') continue
     const { cue, level, note } = entry as Record<string, unknown>
 

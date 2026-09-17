@@ -4,12 +4,15 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import ReviewLinksPanel from '@/components/review/ReviewLinksPanel'
+import { ago } from '@/lib/ago'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { ProjectSummary } from '@/lib/db/projects'
 import type { ReviewLinkSummary } from '@/lib/db/review-links'
 import type { SequenceSummary } from '@/lib/db/sequences'
 import { LANG_CODES } from '@/lib/providers'
+
+import ReviewLinks from './ReviewLinks'
+import s from './project.module.css'
 
 interface Props {
   project: ProjectSummary
@@ -17,41 +20,23 @@ interface Props {
   links: ReviewLinkSummary[]
 }
 
-/** `Spanish` as `ES`, and anything unrecognised as itself. */
-const short = (lang: string | null): string => (lang ? (LANG_CODES[lang] ?? lang) : '—')
+/** `Spanish` as `ES`, a bare code as itself in capitals, and the rest as written. */
+const short = (lang: string): string => LANG_CODES[lang] ?? (lang.length <= 3 ? lang.toUpperCase() : lang)
 
-/**
- * Elapsed time, said the way a person would say it.
- *
- * Relative rather than absolute for the same reason as on the dashboard: a date
- * formatted on a server running in UTC and again in the reader's timezone is two
- * different strings for one instant, which React reports as a hydration
- * mismatch. A difference between two clocks reads the same everywhere.
- */
-const RELATIVE = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' })
-const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
-  ['year', 365 * 86_400_000],
-  ['month', 30 * 86_400_000],
-  ['day', 86_400_000],
-  ['hour', 3_600_000],
-  ['minute', 60_000],
-]
-
-function ago(value: string | Date): string {
-  const delta = new Date(value).getTime() - Date.now()
-  if (Number.isNaN(delta)) return ''
-  for (const [unit, ms] of UNITS) {
-    if (Math.abs(delta) >= ms) return RELATIVE.format(Math.round(delta / ms), unit)
-  }
-  return 'just now'
+/** «8 cues · ES → EN · FR» — without the source while it is still to be detected. */
+function describe(q: SequenceSummary): string {
+  const src = q.source_lang && q.source_lang !== 'Auto-detect' ? short(q.source_lang) : null
+  const targets = q.target_langs.map(short).join(' · ')
+  return [`${q.cue_count.toLocaleString('es-ES')} cues`, src && targets ? `${src} → ${targets}` : src ?? targets].filter(Boolean).join(' · ')
 }
 
 /**
- * The inside of a project: its sequences, and the terms they all obey.
+ * The inside of a project: its sequences, the client's way in, and the
+ * terms every sequence obeys.
  *
- * The glossary sits on this page rather than only in the editor because it is
- * the thing the project exists to hold. Somebody setting up a job spells the
- * character names once, here, before anybody starts on reel one.
+ * The glossary sits on this page rather than only in the editor because it
+ * is the thing the project exists to hold. Somebody setting up a job spells
+ * the character names once, here, before anybody starts on reel one.
  */
 export default function ProjectClient({ project, sequences, links }: Props) {
   const router = useRouter()
@@ -66,10 +51,10 @@ export default function ProjectClient({ project, sequences, links }: Props) {
   /**
    * Renaming, inline rather than through `prompt()`.
    *
-   * The browser dialog is not something to rely on: it is blocked outright in a
-   * sandboxed frame, browsers disable it after a page uses it a few times, and a
-   * refused call throws — which turns the button into one that silently does
-   * nothing while looking perfectly fine.
+   * The browser dialog is not something to rely on: it is blocked outright in
+   * a sandboxed frame, browsers disable it after a page uses it a few times,
+   * and a refused call throws — which turns the button into one that silently
+   * does nothing while looking perfectly fine.
    */
   async function rename(next: string) {
     const name = next.trim()
@@ -83,7 +68,7 @@ export default function ProjectClient({ project, sequences, links }: Props) {
     })
     if (!res.ok) {
       const json = await res.json().catch(() => ({}))
-      setError(json.error ?? 'Could not rename it')
+      setError(json.error ?? 'No se pudo renombrar')
       return
     }
     router.refresh()
@@ -98,22 +83,22 @@ export default function ProjectClient({ project, sequences, links }: Props) {
     const res = await fetch(`/api/projects/${project.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      // Blank rows are dropped server-side; sending them keeps the row on screen
-      // while somebody is still typing into it.
+      // Blank rows are dropped server-side; sending them keeps the row on
+      // screen while somebody is still typing into it.
       body: JSON.stringify({ glossary: next }),
     })
     setSavingTerms(false)
 
     if (!res.ok) {
       const json = await res.json().catch(() => ({}))
-      setError(json.error ?? 'Could not save the glossary')
+      setError(json.error ?? 'No se pudo guardar el glosario')
       return
     }
     setSavedTerms(true)
   }
 
   async function removeSequence(sequence: SequenceSummary) {
-    if (!confirm(`Delete “${sequence.name}”? Its subtitles and comments go with it.`)) return
+    if (!confirm(`¿Borrar «${sequence.name}»? Sus subtítulos y sus comentarios se van con ella.`)) return
 
     setBusyId(sequence.id)
     setError(null)
@@ -122,32 +107,34 @@ export default function ProjectClient({ project, sequences, links }: Props) {
 
     if (!res.ok) {
       const json = await res.json().catch(() => ({}))
-      setError(json.error ?? `Could not delete it (HTTP ${res.status})`)
+      setError(json.error ?? `No se pudo borrar (HTTP ${res.status})`)
       return
     }
     router.refresh()
   }
 
-  return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)' }}>
-      <div style={{ background: 'var(--bg1)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em' }}>
-          Captio
-        </div>
-        <Link href="/dashboard" style={{ fontSize: 'var(--fs-md)', color: 'var(--text3)', textDecoration: 'none' }}>
-          ← All projects
-        </Link>
-      </div>
+  const newSequence = () => router.push(`/translate?project=${project.id}`)
 
-      <div style={{ maxWidth: 1080, margin: '0 auto', padding: '22px 16px 60px' }}>
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 4 }}>
+  return (
+    <div className={`v2 ${s.page}`}>
+      <header className={`topbar ${s.head}`}>
+        <Link href="/dashboard" className="brand">captio</Link>
+        <span className="topbar-sep" />
+        <nav className="crumbs" aria-label="Dónde estás">
+          <Link href="/dashboard">Proyectos</Link>
+          <span>/</span>
+          <span>{project.name}</span>
+        </nav>
+      </header>
+
+      <main className={s.main}>
+        <div className={s.title}>
           {renaming ? (
             <input
-              className="field"
-              style={{ fontSize: 18, width: 360 }}
+              className={`field ${s.rename}`}
               autoFocus
               value={draftName}
-              aria-label="Project name"
+              aria-label="Nombre del proyecto"
               onChange={e => setDraftName(e.target.value)}
               onBlur={() => void rename(draftName)}
               onKeyDown={e => {
@@ -157,87 +144,49 @@ export default function ProjectClient({ project, sequences, links }: Props) {
             />
           ) : (
             <>
-              <h1 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)' }}>{project.name}</h1>
-              <button
-                className="btn btn-quiet"
-                onClick={() => { setDraftName(project.name); setRenaming(true) }}
-              >
-                Rename
-              </button>
+              <h1>{project.name}</h1>
+              <button className="btn btn-quiet" onClick={() => { setDraftName(project.name); setRenaming(true) }}>Renombrar</button>
             </>
           )}
         </div>
-        <div className="muted" style={{ marginBottom: 20 }}>
-          {sequences.length} sequence{sequences.length === 1 ? '' : 's'}
-          {project.cue_count > 0 && ` · ${project.cue_count.toLocaleString('en-GB')} cues`}
-          {project.target_langs.length > 0 && ` · ${project.target_langs.map(short).join(' ')}`}
+        <div className={s.meta}>
+          {sequences.length} {sequences.length === 1 ? 'secuencia' : 'secuencias'}
+          {project.cue_count > 0 && ` · ${project.cue_count.toLocaleString('es-ES')} cues`}
+          {project.target_langs.length > 0 && ` · ${project.target_langs.map(short).join(' · ')}`}
         </div>
 
-        {error && <div className="err" style={{ marginBottom: 10 }}>{error}</div>}
+        {error && <div className={`err ${s.err}`}>{error}</div>}
 
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, margin: '0 0 12px' }}>
-          <span className="caps">Sequences</span>
-          <button
-            className="btn btn-primary btn-lg"
-            style={{ marginLeft: 'auto' }}
-            onClick={() => router.push(`/translate?project=${project.id}`)}
-          >
-            New sequence
-          </button>
+        {/* ── Secuencias ─────────────────────────────────────────────────── */}
+        <div className={s.sectionHead}>
+          <h2>Secuencias</h2>
+          <span className={s.spacer} />
+          <button className="btn btn-primary btn-lg" onClick={newSequence}>Nueva secuencia</button>
         </div>
 
         {sequences.length === 0 ? (
-          <div className="card" style={{ textAlign: 'center', padding: '38px 16px' }}>
-            <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text2)' }}>
-              Nothing in this project yet
+          <div className="card">
+            <div className="empty">
+              <span className="empty-title">Nada en este proyecto todavía</span>
+              <p>Una secuencia es una pista de subtítulos — un rollo, un episodio, un corte. Transcribe un archivo o importa un SRT, y guárdalo aquí.</p>
+              <button className="btn btn-primary" onClick={newSequence}>Empezar una</button>
             </div>
-            <div className="muted" style={{ marginTop: 5 }}>
-              A sequence is one subtitle track — a reel, an episode, a cut.
-              Transcribe a file or import an SRT, then save it here.
-            </div>
-            <button className="btn btn-primary btn-lg" style={{ marginTop: 14 }}
-              onClick={() => router.push(`/translate?project=${project.id}`)}>
-              Start one
-            </button>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12 }}>
-            {sequences.map(s => (
-              <div key={s.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
-                <button
-                  onClick={() => router.push(`/translate?sequence=${s.id}`)}
-                  style={{
-                    flex: 1, textAlign: 'left', padding: '13px 15px 9px',
-                    background: 'none', border: 'none', cursor: 'pointer', font: 'inherit',
-                  }}
-                >
-                  <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {s.name}
-                  </div>
-                  <div className="muted" style={{ fontFamily: 'var(--mono)', marginTop: 5 }}>
-                    {s.cue_count.toLocaleString('en-GB')} cues · {short(s.source_lang)}
-                    {s.target_langs.length > 0 && ` → ${s.target_langs.map(short).join(' ')}`}
-                  </div>
+          <div className={s.grid}>
+            {sequences.map(q => (
+              <div key={q.id} className={`card ${s.seqCard}`}>
+                <button className={s.seqOpen} onClick={() => router.push(`/translate?sequence=${q.id}`)}>
+                  <div className={s.seqName}>{q.name}</div>
+                  <div className={s.seqMeta}>{describe(q)}</div>
                 </button>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 15px 11px' }}>
-                  <span className="muted" suppressHydrationWarning>{ago(s.updated_at)}</span>
+                <div className={s.seqFoot}>
+                  <span className={s.seqAgo} suppressHydrationWarning>{ago(q.updated_at)}</span>
+                  <span className={s.spacer} />
                   {/* Every language side by side, with the client's notes: the
                       view the client gets through a link, opened from inside. */}
-                  <button
-                    className="btn btn-quiet"
-                    style={{ marginLeft: 'auto' }}
-                    onClick={() => router.push(`/review/${s.id}`)}
-                  >
-                    Review
-                  </button>
-                  <button
-                    className="btn btn-quiet btn-danger"
-                    disabled={busyId === s.id}
-                    onClick={() => void removeSequence(s)}
-                  >
-                    {busyId === s.id ? 'Deleting…' : 'Delete'}
-                  </button>
+                  <button className="btn btn-quiet" onClick={() => router.push(`/review/${q.id}`)}>Revisión</button>
+                  <button className="btn btn-danger" disabled={busyId === q.id} aria-busy={busyId === q.id || undefined} onClick={() => void removeSequence(q)}>Borrar</button>
                 </div>
               </div>
             ))}
@@ -246,60 +195,55 @@ export default function ProjectClient({ project, sequences, links }: Props) {
 
         {/* The client's way in. Below the sequences because it opens all of
             them, and above the glossary because it is used far more often. */}
-        <ReviewLinksPanel projectId={project.id} initial={links} />
+        <ReviewLinks projectId={project.id} initial={links} />
 
-        {/* ── Glossary ─────────────────────────────────────────────────────
-            Here rather than only in the editor because it is what makes this a
-            project and not a folder: one list of terms, obeyed by every
+        {/* ── Glosario ────────────────────────────────────────────────────
+            Here rather than only in the editor because it is what makes this
+            a project and not a folder: one list of terms, obeyed by every
             sequence in it. Saved on blur rather than on every keystroke — this
             is shared, and a PATCH per character would be a fight between two
             people typing at once. */}
-        <div className="card" style={{ marginTop: 28 }}>
-          <div className="card-head">
-            <span className="caps">Glossary</span>
-            <span className="muted" style={{ marginLeft: 'auto' }}>
-              {savingTerms ? 'Saving…' : savedTerms ? 'Saved' : `${terms.length} term${terms.length === 1 ? '' : 's'}`}
-            </span>
-          </div>
-          <div className="muted" style={{ marginBottom: 10 }}>
-            Every sequence in this project translates these the same way. Leave a
-            translation blank to keep the term exactly as written.
-          </div>
-
-          {terms.map((entry, i) => (
-            <div key={i} style={{ display: 'flex', gap: 7, marginBottom: 6 }}>
-              <input
-                className="field"
-                style={{ flex: 1 }}
-                value={entry.term}
-                placeholder="Term"
-                onChange={e => setTerms(terms.map((t, j) => (j === i ? { ...t, term: e.target.value } : t)))}
-                onBlur={() => void saveTerms(terms)}
-              />
-              <input
-                className="field"
-                style={{ flex: 1 }}
-                value={entry.translation ?? ''}
-                placeholder="Leave as written"
-                onChange={e => setTerms(terms.map((t, j) => (j === i ? { ...t, translation: e.target.value } : t)))}
-                onBlur={() => void saveTerms(terms)}
-              />
-              <button
-                className="btn btn-danger"
-                onClick={() => void saveTerms(terms.filter((_, j) => j !== i))}
-                aria-label={`Remove ${entry.term || 'term'}`}
-              >
-                ×
-              </button>
-            </div>
-          ))}
-
-          <button className="btn" style={{ marginTop: 4 }}
-            onClick={() => setTerms([...terms, { term: '', translation: '' }])}>
-            Add term
-          </button>
+        <div className={s.sectionHead}>
+          <h2>Glosario</h2>
+          <span className={s.spacer} />
+          <span className="muted">
+            {savingTerms ? 'Guardando…' : savedTerms ? 'Guardado' : `${terms.length} ${terms.length === 1 ? 'término' : 'términos'}`}
+          </span>
         </div>
-      </div>
+        <div className="card">
+          <div className={s.hint}>
+            Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual.
+          </div>
+          {terms.length > 0 && (
+            <div className={s.terms}>
+              {terms.map((entry, i) => (
+                <div key={i} className={s.term}>
+                  <input
+                    className="field"
+                    value={entry.term}
+                    placeholder="Término"
+                    aria-label="Término"
+                    spellCheck={false}
+                    onChange={e => setTerms(terms.map((t, j) => (j === i ? { ...t, term: e.target.value } : t)))}
+                    onBlur={() => void saveTerms(terms)}
+                  />
+                  <input
+                    className="field"
+                    value={entry.translation ?? ''}
+                    placeholder="Tal cual"
+                    aria-label="Traducción"
+                    spellCheck={false}
+                    onChange={e => setTerms(terms.map((t, j) => (j === i ? { ...t, translation: e.target.value } : t)))}
+                    onBlur={() => void saveTerms(terms)}
+                  />
+                  <button className="btn btn-danger" aria-label={`Quitar ${entry.term || 'el término'}`} onClick={() => void saveTerms(terms.filter((_, j) => j !== i))}>×</button>
+                </div>
+              ))}
+            </div>
+          )}
+          <button className="btn" style={{ marginTop: terms.length ? 0 : 'var(--sp-3)' }} onClick={() => setTerms([...terms, { term: '', translation: '' }])}>Añadir término</button>
+        </div>
+      </main>
     </div>
   )
 }

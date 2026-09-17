@@ -5,6 +5,7 @@ import { getSession, requireOrgContext } from '@/lib/auth/session'
 import { listComments } from '@/lib/db/comments'
 import { getProject } from '@/lib/db/projects'
 import { getSequence, listVersions } from '@/lib/db/sequences'
+import { sequencePlayback } from '@/lib/storage/playback'
 import { readCues } from '@/lib/subtitles/data'
 
 /**
@@ -35,10 +36,11 @@ export default async function TeamReviewPage({ params, searchParams }: Props) {
   const sequence = await getSequence(orgId, sequenceId)
   if (!sequence) notFound()
 
-  const [project, comments, versions] = await Promise.all([
+  const [project, comments, versions, playback] = await Promise.all([
     getProject(orgId, sequence.project_id),
     listComments(orgId, sequenceId),
     listVersions(orgId, sequenceId),
+    sequencePlayback(orgId, sequenceId),
   ])
   if (!project) notFound()
 
@@ -62,6 +64,7 @@ export default async function TeamReviewPage({ params, searchParams }: Props) {
       }}
       comments={comments}
       versions={versions}
+      playback={playback}
       focusCue={Number.isInteger(focus) && focus > 0 ? focus : undefined}
     />
   )

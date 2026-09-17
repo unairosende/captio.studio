@@ -5,11 +5,13 @@ import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import CommentsPanel from '@/components/comments/CommentsPanel'
+import Player from '@/components/video/Player'
 import type { VersionSummary } from '@/lib/db/sequences'
 import { REVIEW_TOKEN_HEADER } from '@/lib/review/protocol'
-import { readCues, wordDiff } from '@/lib/subtitles'
+import { readCues, srtToSec, wordDiff } from '@/lib/subtitles'
 import type { TextEdit } from '@/lib/subtitles/data'
 import type { ProjectComment } from '@/types/comment'
+import type { Playback } from '@/types/media'
 import type { Subtitle, TranslationStore } from '@/types/subtitle'
 
 /**
@@ -25,6 +27,10 @@ import type { Subtitle, TranslationStore } from '@/types/subtitle'
  * server on its own within a couple of seconds. The same component serves the
  * team, who arrive with a session, and the client, who arrives with a token —
  * the token travels in a header on every request when it is there.
+ *
+ * With the picture beside the sheet when the sequence has one: the line under
+ * the footage is the first translation on show, which is what is being
+ * reviewed, and a click on a row's timecode takes the footage there.
  */
 
 export interface ReviewProps {
@@ -49,6 +55,8 @@ export interface ReviewProps {
   }
   comments: ProjectComment[]
   versions: VersionSummary[]
+  /** The sequence's upload, signed on the server; null when it has none. */
+  playback: Playback | null
   /** A cue to scroll to on arrival — the one an email was about. */
   focusCue?: number
 }
@@ -69,7 +77,7 @@ const applyLocally = (cues: Cues, edit: TextEdit): Cues => {
 const when = (iso: string) => new Date(iso).toLocaleString()
 
 export default function ReviewClient(props: ReviewProps) {
-  const { token, self, canEdit, canRestore, back, project, sequence, focusCue } = props
+  const { token, self, canEdit, canRestore, back, project, sequence, playback, focusCue } = props
   const router = useRouter()
 
   const [cues, setCues] = useState<Cues>({ subtitles: sequence.subtitles, translations: sequence.translations })
@@ -220,6 +228,19 @@ export default function ReviewClient(props: ReviewProps) {
     window.addEventListener('beforeunload', warn)
     return () => window.removeEventListener('beforeunload', warn)
   }, [unsaved])
+
+  // ── The picture ────────────────────────────────────────────────────────────
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const [playingCue, setPlayingCue] = useState<number | null>(null)
+  // What goes under the footage: the translation being reviewed, or the
+  // original when nothing else is on show.
+  const overlayLang = shownLangs.find(l => l !== SOURCE) ?? SOURCE
+  const overlayCues = overlayLang === SOURCE ? cues.subtitles : (cues.translations[overlayLang] ?? [])
+  const seekTo = (cue: Subtitle) => {
+    const video = videoRef.current
+    if (!video) return
+    video.currentTime = srtToSec(cue.start)
+  }
 
   // ── Arriving from an email ─────────────────────────────────────────────────
   const [highlight, setHighlight] = useState<number | null>(focusCue ?? null)
@@ -373,6 +394,15 @@ export default function ReviewClient(props: ReviewProps) {
       )}
 
       <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+        {playback && (
+          <div style={{ flex: '0 0 clamp(300px, 36vw, 640px)', borderRight: '1px solid var(--border)', background: 'var(--bg1)', overflow: 'auto' }}>
+            <Player playback={playback} cues={overlayCues} videoRef={videoRef} onActive={setPlayingCue} />
+            <div className="muted" style={{ padding: '8px 12px', fontSize: 11 }}>
+              {playback.filename} · showing {label(overlayLang)} · click a timecode to go there
+            </div>
+          </div>
+        )}
+
         {/* The sheet */}
         <div style={{ flex: 1, overflow: 'auto' }}>
           <div style={{ display: 'grid', gridTemplateColumns: gridCols, position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg1)', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text2)' }}>
@@ -399,7 +429,7 @@ export default function ReviewClient(props: ReviewProps) {
                 style={{
                   display: 'grid', gridTemplateColumns: gridCols,
                   borderBottom: '1px solid var(--border)',
-                  background: highlight === s.index ? 'var(--accent-dim)' : 'transparent',
+                  background: highlight === s.index ? 'var(--accent-dim)' : playingCue === s.index ? 'var(--bg2)' : 'transparent',
                   transition: 'background .6s',
                   // The browser skips laying out and painting rows that are off
                   // screen, which is what makes a feature-length track scroll.
@@ -417,7 +447,11 @@ export default function ReviewClient(props: ReviewProps) {
                     💬{total ? ` ${total}` : ''}
                   </button>
                 </div>
-                <div style={{ padding: '8px 10px', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)', lineHeight: 1.6 }}>
+                <div
+                  style={{ padding: '8px 10px', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)', lineHeight: 1.6, cursor: playback ? 'pointer' : 'default' }}
+                  title={playback ? 'Go there in the video' : undefined}
+                  onClick={() => playback && seekTo(s)}
+                >
                   {s.start}<br />{s.end}
                 </div>
                 {shownLangs.map(lang => {

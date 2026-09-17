@@ -8,28 +8,26 @@ import { signOut as endSession } from '@/lib/auth/client'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
-import { langCode } from './useJobs'
 import { useSave } from './useSave'
 
 interface Props {
-  user: { id: string; email: string; role: string }
+  user: { id: string; email: string; name: string; role: string }
   project: { id: string; name: string }
   onPalette: () => void
   onTeam: () => void
 }
 
 /**
- * The bar across the top: where you are, the way out, and the way to
- * everything else.
+ * The bar across the top: where you are, the way out, and the account.
  *
- * Identity, place, the palette, the save and the account — in that order,
- * and nothing else. The eight controls the old bar carried side by side are
- * either here with a name or reachable from ⌘K, which reads every button on
- * the page whether it is on screen or not.
+ * Identity, place, the save beside the name it saves, and the account — in
+ * that order, and nothing else. The palette has no field up here any more:
+ * ⌘K opens it from anywhere, and the account menu names it for whoever has
+ * not learnt that yet.
  */
 export default function Header({ user, project, onPalette, onTeam }: Props) {
   const router = useRouter()
-  const { srcLang, activeTab, sequenceName, setSequenceName } = useSubtitleStore()
+  const { sequenceName, setSequenceName } = useSubtitleStore()
   const save = useSave()
 
   const [seqMenu, setSeqMenu] = useState(false)
@@ -69,7 +67,10 @@ export default function Header({ user, project, onPalette, onTeam }: Props) {
     router.refresh()
   }
 
-  const initials = user.email.slice(0, 2).toUpperCase()
+  // Two letters from the name — first and last word — or the start of the
+  // address when the account was created without one.
+  const words = user.name.trim().split(/\s+/).filter(Boolean)
+  const initials = (words.length >= 2 ? words[0][0] + words[words.length - 1][0] : (words[0] ?? user.email).slice(0, 2)).toUpperCase()
   const savedLabel = save.dirty
     ? 'sin guardar'
     : save.savedAt
@@ -77,11 +78,11 @@ export default function Header({ user, project, onPalette, onTeam }: Props) {
       : 'guardado'
 
   return (
-    <header className={s.head} ref={menusRef}>
-      <Link href="/dashboard" className={s.brand}>CAPTIO</Link>
-      <span className={s.sep} />
+    <header className={`topbar ${s.head}`} ref={menusRef}>
+      <Link href="/dashboard" className="brand">captio</Link>
+      <span className="topbar-sep" />
 
-      <nav className={s.crumbs} aria-label="Dónde estás">
+      <nav className="crumbs" aria-label="Dónde estás">
         <Link href="/dashboard">Proyectos</Link>
         <span>/</span>
         <Link href={`/projects/${project.id}`} className={s.project} title={project.name}>{project.name}</Link>
@@ -113,43 +114,37 @@ export default function Header({ user, project, onPalette, onTeam }: Props) {
         </div>
       </nav>
 
-      {activeTab !== 'source' && (
-        <div className={s.pair} aria-label="Par de idiomas">
-          <span>{srcLang === 'Auto-detect' ? '?' : langCode(srcLang)}</span>→<span>{langCode(activeTab)}</span>
-        </div>
-      )}
-
-      <button className={s.palTrigger} onClick={onPalette} aria-label="Buscar o ejecutar una acción">
-        <span>Cue, timecode o acción…</span>
-        <span className="kbd">⌘K</span>
-      </button>
-
-      <span className={s.saved} data-dirty={save.dirty}>{savedLabel}</span>
-      {save.error && <span className="err">{save.error}</span>}
-      <button className="btn" data-cmd="Guardar la secuencia" onClick={() => void save.save()} aria-busy={save.busy || undefined}>
-        Guardar <span className="kbd">⌘S</span>
-      </button>
-
-      <div className={s.anchor}>
-        <button className={s.avatar} onClick={() => setMeMenu(v => !v)} aria-label="Cuenta" aria-expanded={meMenu} title={user.email}>
-          {initials}
+      <div className={s.saveGroup}>
+        <button className="btn" data-cmd="Guardar la secuencia" onClick={() => void save.save()} aria-busy={save.busy || undefined}>
+          Guardar <span className="kbd">⌘S</span>
         </button>
-        {meMenu && (
-          <div className={`menu ${s.pop}`} role="menu">
-            <span className="caps">{user.email}</span>
-            <button className="menu-item" role="menuitem" onClick={() => { setMeMenu(false); onTeam() }}>Equipo</button>
-            {save.sequenceId && (
-              <button className="menu-item" role="menuitem" onClick={() => router.push(`/review/${save.sequenceId}`)}>Vista de revisión</button>
-            )}
-            <div className="menu-sep" />
-            <span className="caps">Tema</span>
-            {([['light', 'Claro'], ['system', 'Como el sistema'], ['dark', 'Oscuro']] as const).map(([id, label]) => (
-              <button key={id} className="menu-item" role="menuitemradio" aria-checked={theme === id} onClick={() => setTheme(id)}>{label}</button>
-            ))}
-            <div className="menu-sep" />
-            <button className="menu-item" role="menuitem" onClick={() => void signOut()}>Cerrar sesión</button>
-          </div>
-        )}
+        <span className={s.saved} data-dirty={save.dirty}>{savedLabel}</span>
+        {save.error && <span className="err">{save.error}</span>}
+      </div>
+
+      <div className={s.headEnd}>
+        <div className={s.anchor}>
+          <button className={s.avatar} onClick={() => setMeMenu(v => !v)} aria-label="Cuenta" aria-expanded={meMenu} title={user.email}>
+            {initials}
+          </button>
+          {meMenu && (
+            <div className={`menu ${s.pop}`} role="menu">
+              <span className="caps">{user.name || user.email}</span>
+              <button className="menu-item" role="menuitem" onClick={() => { setMeMenu(false); onPalette() }}>Buscar o ejecutar una acción <span className="kbd">⌘K</span></button>
+              <button className="menu-item" role="menuitem" onClick={() => { setMeMenu(false); onTeam() }}>Equipo</button>
+              {save.sequenceId && (
+                <button className="menu-item" role="menuitem" onClick={() => router.push(`/review/${save.sequenceId}`)}>Vista de revisión</button>
+              )}
+              <div className="menu-sep" />
+              <span className="caps">Tema</span>
+              {([['light', 'Claro'], ['system', 'Como el sistema'], ['dark', 'Oscuro']] as const).map(([id, label]) => (
+                <button key={id} className="menu-item" role="menuitemradio" aria-checked={theme === id} onClick={() => setTheme(id)}>{label}</button>
+              ))}
+              <div className="menu-sep" />
+              <button className="menu-item" role="menuitem" onClick={() => void signOut()}>Cerrar sesión</button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* The palette reads every [data-cmd] on the page. What lives inside a

@@ -59,10 +59,10 @@ export async function getSession() {
   return auth.api.getSession({ headers: await headers() })
 }
 
-export async function requireUser(): Promise<{ id: string; email: string }> {
+export async function requireUser(): Promise<{ id: string; email: string; name: string }> {
   const session = await getSession()
   if (!session?.user) throw new UnauthorizedError()
-  return { id: session.user.id, email: session.user.email }
+  return { id: session.user.id, email: session.user.email, name: session.user.name }
 }
 
 /**

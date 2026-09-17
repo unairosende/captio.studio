@@ -72,3 +72,23 @@ export function peakBetween(
   for (let i = first; i <= last; i++) if (peaks[i] > peak) peak = peaks[i]
   return peak
 }
+
+/**
+ * Peaks as they travel: to the server at upload, back down with a sequence.
+ *
+ * Two decimals is a hundred levels over a waveform some sixty pixels tall, so
+ * nothing is lost that could be drawn, and the row weighs a few kilobytes
+ * instead of the twenty a float's worth of digits would cost. Read back with
+ * the same care as anything else the browser hands us: a bucket that is not a
+ * number between zero and one is refused, and so is a track of the wrong
+ * length, because both would end up as arithmetic against the canvas.
+ */
+export function packPeaks(peaks: Float32Array): number[] {
+  return Array.from(peaks, v => Math.round(v * 100) / 100)
+}
+
+export function readPeaks(input: unknown, buckets = PEAK_BUCKETS): number[] | null {
+  if (!Array.isArray(input) || input.length !== buckets) return null
+  for (const v of input) if (typeof v !== 'number' || !(v >= 0 && v <= 1)) return null
+  return input as number[]
+}

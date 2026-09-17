@@ -120,7 +120,7 @@ function CueHead() {
  *  dos se parecen, el acento no ha cedido. */
 export function CueTable({ className = '' }: { className?: string }) {
   return (
-    <div className={`cues ${className}`}>
+    <div className={`cues ${className}`} style={{ '--cols': '36px 116px minmax(0, 1fr) minmax(0, 1fr) 52px 56px' } as CSSProperties}>
       <CueHead />
       {CUES.map(c => <CueRow key={c.n} c={c} selected={c.n === 1} />)}
     </div>
@@ -214,13 +214,15 @@ export function Pieces() {
 
       <Grid
         title="Pestañas de idioma"
-        note={<>Un idioma por pestaña, en mono y mayúsculas. La que se traduce lleva un punto que gira; la que tiene fallos, la cifra en rojo. Ninguna de las dos empuja la pestaña de al lado.</>}
+        note={<>Pestañas de fichero: la activa se funde con la tabla, las demás van hundidas. Un idioma que se traduce lleva un punto que gira; uno con fallos, un punto ámbar o rojo. La cruz solo aparece al pasar el ratón o en la activa.</>}
       >
         {st => (
           <div className="tabs" role="tablist">
-            <button className="tab" role="tab" aria-selected={st !== 'activo'}>ES · original</button>
-            <button className="tab" role="tab" {...(st === 'error' ? { 'data-issues': '3' } : st === 'activo' ? { 'aria-selected': true } : at(st))}>EN</button>
-            <button className="tab" role="tab">FR</button>
+            <button className="tab" role="tab" aria-selected={st !== 'activo'}><span>ES · original</span></button>
+            <button className="tab" role="tab" {...(st === 'error' ? { 'data-qc': 'danger' } : st === 'activo' ? { 'aria-selected': true } : at(st))}>
+              <span>EN</span><span className="tab-dot" /><span className="tab-x">×</span>
+            </button>
+            <button className="tab" role="tab"><span>FR</span></button>
           </div>
         )}
       </Grid>

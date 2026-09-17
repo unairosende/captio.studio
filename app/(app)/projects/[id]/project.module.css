@@ -1,0 +1,115 @@
+/* La composición de la página de proyecto: se lee, como el panel, con las
+   mismas reglas — más aire, letra mayor — y las mismas piezas. Solo
+   maquetación de esta pantalla. */
+
+.page {
+  min-height: 100vh;
+  background: var(--s1);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-lg);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+.head { background: var(--s1); }
+.main { max-width: 1080px; margin: 0 auto; padding: var(--sp-8) var(--sp-4) 72px; }
+
+/* ── El nombre ──────────────────────────────────────────────────────────── */
+
+.title { display: flex; align-items: baseline; gap: var(--sp-3); min-height: 36px; }
+.title h1 { margin: 0; font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -.01em; }
+.rename { font-size: var(--fs-2xl); font-weight: 600; height: 36px; width: 420px; max-width: 100%; }
+.meta { margin-top: 4px; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+.err { margin-top: var(--sp-3); }
+
+/* ── Secciones ──────────────────────────────────────────────────────────── */
+
+.sectionHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-3);
+  margin: var(--sp-8) 0 var(--sp-4);
+}
+.sectionHead h2 { margin: 0; font-size: var(--fs-xl); font-weight: 600; }
+.sectionHead .spacer { margin-left: auto; }
+.hint { font-size: var(--fs-md); color: var(--ink-3); line-height: 1.5; }
+
+/* ── Secuencias ─────────────────────────────────────────────────────────── */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: var(--sp-4);
+}
+
+.seqCard { padding: 0; display: flex; flex-direction: column; }
+.seqOpen {
+  flex: 1;
+  text-align: left;
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+  border: 0;
+  border-radius: var(--r-lg) var(--r-lg) 0 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.seqOpen:hover { background: var(--hover); }
+.seqOpen:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.seqName { font-size: var(--fs-lg); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seqMeta { margin-top: 6px; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+.seqFoot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4) var(--sp-3);
+  border-top: 1px solid var(--line);
+}
+.seqFoot .spacer { margin-left: auto; }
+.seqAgo { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+
+/* ── Revisión del cliente ───────────────────────────────────────────────── */
+
+.newLink { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.newLink > :global(.field) { flex: 1; min-width: 200px; }
+.check { display: flex; align-items: center; gap: 6px; font-size: var(--fs-md); color: var(--ink-2); white-space: nowrap; cursor: pointer; }
+.check input { accent-color: var(--ink); margin: 0; }
+
+.url {
+  margin-top: var(--sp-2);
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--s2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+  user-select: all;
+  word-break: break-all;
+}
+
+.access {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3) 0;
+  border-top: 1px solid var(--line);
+}
+.access:first-of-type { margin-top: var(--sp-3); }
+.access[data-off] .accessBody { opacity: .6; }
+.accessBody { flex: 1; min-width: 0; }
+.accessLine { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
+.accessLabel { color: var(--ink); }
+.accessNote { font-size: var(--fs-sm); color: var(--ink-3); }
+.accessNote[data-tone="ok"] { color: var(--ok); }
+.accessGuests { margin-top: 3px; font-size: var(--fs-sm); color: var(--ink-3); }
+
+/* ── Glosario ───────────────────────────────────────────────────────────── */
+
+.terms { display: grid; gap: var(--sp-1); margin: var(--sp-3) 0; }
+.term { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-2); }
+
+@media (max-width: 680px) {
+  .main { padding-top: var(--sp-6); }
+}

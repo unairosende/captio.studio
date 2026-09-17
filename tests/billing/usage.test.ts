@@ -100,13 +100,13 @@ describe('durations a person can read', () => {
 
 describe('naming a month', () => {
   it('reads as a month, not as a key', () => {
-    assert.equal(formatMonth('2026-08'), 'August 2026')
+    assert.equal(formatMonth('2026-08'), 'agosto de 2026')
   })
 
   it('does not slip into the month before', () => {
     // January is the one that would show as December of the previous year, in
     // every timezone west of Greenwich.
-    assert.equal(formatMonth('2026-01'), 'January 2026')
+    assert.equal(formatMonth('2026-01'), 'enero de 2026')
   })
 
   it('hands back anything it does not recognise', () => {

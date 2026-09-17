@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { PEAK_BUCKETS, peakBetween, peaksFrom } from '../../lib/audio/peaks.ts'
+import { PEAK_BUCKETS, packPeaks, peakBetween, peaksFrom, readPeaks } from '../../lib/audio/peaks.ts'
 
 /**
  * The waveform is how somebody finds the start of a line without listening to
@@ -98,5 +98,23 @@ describe('the peak under one bar', () => {
 
   it('stays inside the array at the very end', () => {
     assert.doesNotThrow(() => peakBetween(peaks, 10, 9.99, 10))
+  })
+})
+
+describe('peaks in transit', () => {
+  it('round-trips through the packed form to two decimals', () => {
+    const peaks = peaksFrom(tone(10_000, 0.5), 8)
+    const back = readPeaks(packPeaks(peaks), 8)
+    assert.ok(back)
+    for (let i = 0; i < 8; i++) assert.ok(Math.abs(back[i] - peaks[i]) <= 0.005)
+  })
+
+  it('refuses a track of the wrong length or with a value off the scale', () => {
+    assert.equal(readPeaks([0.5, 0.5], 8), null)
+    assert.equal(readPeaks(Array(8).fill(1.5), 8), null)
+    assert.equal(readPeaks(Array(8).fill('0.5'), 8), null)
+    assert.equal(readPeaks(Array(8).fill(NaN), 8), null)
+    assert.equal(readPeaks('nope', 8), null)
+    assert.ok(readPeaks(Array(8).fill(0), 8))
   })
 })
