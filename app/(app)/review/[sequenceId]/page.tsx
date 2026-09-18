@@ -52,7 +52,7 @@ export default async function TeamReviewPage({ params, searchParams }: Props) {
       self={{ userId, name: session?.user.name || session?.user.email || 'You' }}
       canEdit
       canRestore
-      back={{ href: `/projects/${project.id}`, label: 'Project' }}
+      back={`/projects/${project.id}`}
       project={{ name: project.name }}
       sequence={{
         id: sequence.id,

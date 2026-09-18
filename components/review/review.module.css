@@ -1,0 +1,183 @@
+/* Las pantallas del cliente y la vista de revisión: la puerta, la lista de
+   secuencias, la hoja con todos los idiomas cue a cue y el enlace muerto. Se
+   leen y se corrigen, no se operan: el aire del panel y las piezas de la
+   biblioteca. Solo maquetación de estas pantallas. */
+
+.page {
+  min-height: 100vh;
+  background: var(--s1);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-lg);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── La puerta y el enlace muerto ───────────────────────────────────────── */
+
+.center { display: flex; align-items: center; justify-content: center; padding: var(--sp-6); }
+.gate { display: flex; flex-direction: column; gap: var(--sp-3); width: 400px; max-width: 100%; padding: var(--sp-6); }
+.gate h1 { margin: 0; font-size: var(--fs-xl); font-weight: 600; }
+.gate p { margin: 0; font-size: var(--fs-md); color: var(--ink-2); }
+
+/* ── La lista de secuencias ─────────────────────────────────────────────── */
+
+.org { font-size: var(--fs-md); color: var(--ink-2); }
+.headEnd { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
+.guest { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-md); color: var(--ink-2); white-space: nowrap; }
+
+.main { max-width: 1080px; margin: 0 auto; padding: var(--sp-8) var(--sp-4) 72px; }
+.title { margin: 0; font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -.01em; }
+.meta { margin: 4px 0 var(--sp-6); font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: var(--sp-4); }
+.seq { display: block; color: inherit; text-decoration: none; transition: background var(--t-fast); }
+.seq:hover { background: var(--s0-hover); }
+.seq:focus-visible { outline: 2px solid var(--ring); outline-offset: 1px; }
+.seqName { display: block; font-size: var(--fs-lg); color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.seqMeta { display: block; margin-top: 6px; font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
+
+/* ── La hoja ────────────────────────────────────────────────────────────── */
+
+.app { height: 100vh; min-height: 0; display: flex; flex-direction: column; overflow: hidden; font-size: var(--fs-md); }
+.app > :global(.topbar) { flex: none; background: var(--s1); }
+.state { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); white-space: nowrap; }
+.state[data-dirty] { color: var(--ink); }
+.who { font-size: var(--fs-md); color: var(--ink-3); white-space: nowrap; }
+
+.bar {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--s1);
+}
+.spacer { flex: 1; }
+
+/* Lo que ha ido mal, encima de la hoja y no flotando: se queda hasta que se
+   resuelve, y el botón que lo resuelve va dentro. */
+.notice {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--fs-sm);
+}
+.notice > :global(.btn) { margin-left: auto; }
+
+.body { flex: 1; min-height: 0; display: flex; }
+
+.picture { flex: 0 0 clamp(300px, 36vw, 640px); min-width: 0; border-right: 1px solid var(--line); background: var(--s1); overflow: auto; }
+.pictureNote { margin: 0; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-xs); color: var(--ink-3); }
+
+/* Las columnas las pone la vista: número, tiempos y un idioma por columna. */
+.sheet { flex: 1; min-width: 0; overflow: auto; background: var(--s0); }
+.sheetHead, .row { display: grid; grid-template-columns: var(--cols); }
+.sheetHead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--s2);
+  border-bottom: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+.sheetHead > span { display: flex; align-items: center; height: 32px; padding: 0 var(--sp-3); }
+.colHead { border-left: 1px solid var(--line); color: var(--ink-2); }
+
+/* El navegador se salta las filas que no se ven, que es lo que hace que un
+   largometraje se desplace. */
+.row {
+  border-bottom: 1px solid var(--line);
+  transition: background .6s;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 64px;
+}
+.row[data-playing] { background: var(--hover); }
+.row[data-highlight] { background: var(--select); }
+
+.n {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding: var(--sp-2) var(--sp-3);
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.tc {
+  display: block;
+  padding: var(--sp-2) var(--sp-3);
+  border: 0;
+  background: none;
+  text-align: left;
+  font-family: var(--mono);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.tc:disabled { cursor: default; }
+.tc:hover:not(:disabled) { color: var(--ink); }
+.tc:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+
+/* Una celda es un idioma en un cue. Corregida, lleva un tick verde en el
+   margen — un dato, como los del control de calidad — y nada más cambia. */
+.cell { position: relative; padding: var(--sp-2) 36px var(--sp-2) var(--sp-3); border-left: 1px solid var(--line); color: var(--ink); }
+.cell[data-empty] { color: var(--ink-3); }
+.cell[data-editable] { cursor: text; }
+.cell[data-editable]:hover { background: var(--hover); }
+.cell[data-edited] { box-shadow: inset 2px 0 0 var(--ok); }
+.text { white-space: pre-wrap; word-break: break-word; }
+.edit { font-size: var(--fs-md); }
+.cellBadge { position: absolute; top: var(--sp-2); right: var(--sp-2); }
+.quiet { opacity: .35; }
+.row:hover .quiet, .quiet:focus-visible { opacity: 1; }
+
+.emptySheet { margin: var(--sp-6); }
+
+/* ── El historial ───────────────────────────────────────────────────────── */
+
+.history { flex: 0 0 380px; min-width: 0; min-height: 0; display: flex; flex-direction: column; border-left: 1px solid var(--line-2); background: var(--s1); }
+.historyHead { flex: none; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-2) var(--sp-4); border-bottom: 1px solid var(--line); }
+.historyHead > :global(.btn) { margin-left: auto; }
+.versions { flex: 1; overflow-y: auto; padding: var(--sp-1); }
+.versions[data-split] { flex: 0 0 auto; max-height: 40%; }
+.historyNote { margin: 0; padding: var(--sp-3); }
+.version { flex-wrap: wrap; width: 100%; border: 0; background: none; text-align: left; font: inherit; cursor: pointer; }
+.version:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+.version[aria-pressed="true"] { background: var(--select); }
+.vn { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-2); }
+.vAuthor { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vWhen { margin-left: auto; font-family: var(--mono); white-space: nowrap; }
+.vNote { flex-basis: 100%; }
+
+.diff { flex: 1; min-height: 0; display: flex; flex-direction: column; border-top: 1px solid var(--line-2); }
+.diffHead { flex: none; display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-2) var(--sp-4); font-size: var(--fs-sm); color: var(--ink-2); }
+.diffHead > :global(.btn) { margin-left: auto; }
+.changes { flex: 1; overflow-y: auto; padding: 0 var(--sp-4) var(--sp-4); }
+.change { padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); font-size: var(--fs-sm); line-height: var(--lh); }
+.changeWhere { margin-bottom: 2px; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+.changeWhere a { color: inherit; }
+.changeText { word-break: break-word; }
+.ins { color: var(--ok); text-decoration: none; }
+.del { color: var(--danger); text-decoration: line-through; opacity: .8; }
+
+@media (max-width: 680px) {
+  .main { padding-top: var(--sp-6); }
+  .org { display: none; }
+}

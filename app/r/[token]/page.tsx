@@ -1,15 +1,17 @@
+import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 
 import DeadLink from '@/components/review/DeadLink'
 import GuestBadge from '@/components/review/GuestBadge'
 import GuestGate from '@/components/review/GuestGate'
+import s from '@/components/review/review.module.css'
 import { guestCookie, resolveGuest, resolveLink } from '@/lib/auth/actor'
 import { getOrganization } from '@/lib/db/organizations'
 import { getProject } from '@/lib/db/projects'
 import { touchGuest } from '@/lib/db/review-links'
 import { listSequences } from '@/lib/db/sequences'
-import { LANG_CODES } from '@/lib/providers'
+import { describeSequence } from '@/lib/lang'
 
 /**
  * Where a review link lands: the project it opens, and the sequences in it.
@@ -20,11 +22,11 @@ import { LANG_CODES } from '@/lib/providers'
  * three cases: saying which would tell a stranger which tokens were once real.
  */
 
+export const metadata: Metadata = { title: 'Revisión de subtítulos · Captio' }
+
 interface Props {
   params: Promise<{ token: string }>
 }
-
-const short = (lang: string | null): string => (lang ? (LANG_CODES[lang] ?? lang) : '—')
 
 export default async function ReviewLinkPage({ params }: Props) {
   const { token } = await params
@@ -37,67 +39,53 @@ export default async function ReviewLinkPage({ params }: Props) {
   ])
   if (!project) return <DeadLink />
 
+  const organizationName = organization?.name ?? 'Una productora'
   const guest = await resolveGuest(link, (await cookies()).get(guestCookie(link.id))?.value)
   if (!guest) {
-    return (
-      <GuestGate
-        token={token}
-        projectName={project.name}
-        organizationName={organization?.name ?? 'A production company'}
-      />
-    )
+    return <GuestGate token={token} projectName={project.name} organizationName={organizationName} />
   }
 
   const [sequences] = await Promise.all([
     listSequences(link.org_id, link.project_id),
     touchGuest(link.org_id, guest.id),
   ])
+  const count = sequences.length
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)' }}>
-      <div style={{ background: 'var(--bg1)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em' }}>
-          Captio
-        </div>
-        <span className="muted">{organization?.name}</span>
-        <div style={{ marginLeft: 'auto' }}>
+    <div className={`v2 ${s.page}`}>
+      <header className="topbar">
+        <span className="brand">captio</span>
+        <span className="topbar-sep" />
+        <span className={s.org}>{organizationName}</span>
+        <div className={s.headEnd}>
           <GuestBadge token={token} name={guest.name} email={guest.email} />
         </div>
-      </div>
+      </header>
 
-      <div style={{ maxWidth: 880, margin: '0 auto', padding: '22px 16px 60px' }}>
-        <h1 style={{ fontSize: 18, fontWeight: 500, color: 'var(--text)' }}>{project.name}</h1>
-        <div className="muted" style={{ marginBottom: 20 }}>
+      <main className={s.main}>
+        <h1 className={s.title}>{project.name}</h1>
+        <p className={s.meta}>
           {link.label ? `${link.label} · ` : ''}
-          {sequences.length} sequence{sequences.length === 1 ? '' : 's'} to review
-          {link.can_edit ? ' · you can comment and correct the text' : ' · you can comment'}
-        </div>
+          {count === 1 ? '1 secuencia para revisar' : `${count} secuencias para revisar`}
+          {link.can_edit ? ' · puedes comentar y corregir el texto' : ' · puedes comentar'}
+        </p>
 
-        {sequences.length === 0 ? (
-          <div className="card muted" style={{ textAlign: 'center', padding: '38px 16px' }}>
-            Nothing to review yet.
+        {count === 0 ? (
+          <div className="empty">
+            <span className="empty-title">Nada que revisar todavía</span>
+            <p>Cuando {organizationName} guarde una secuencia en este proyecto, aparecerá aquí.</p>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(258px, 1fr))', gap: 12 }}>
-            {sequences.map(s => (
-              <Link
-                key={s.id}
-                href={`/r/${token}/${s.id}`}
-                className="card"
-                style={{ display: 'block', padding: '13px 15px', textDecoration: 'none' }}
-              >
-                <div style={{ fontSize: 'var(--fs-base)', color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {s.name}
-                </div>
-                <div className="muted" style={{ fontFamily: 'var(--mono)', marginTop: 5 }}>
-                  {s.cue_count.toLocaleString('en-GB')} cues · {short(s.source_lang)}
-                  {s.target_langs.length > 0 && ` → ${s.target_langs.map(short).join(' ')}`}
-                </div>
+          <div className={s.grid}>
+            {sequences.map(q => (
+              <Link key={q.id} href={`/r/${token}/${q.id}`} className={`card ${s.seq}`}>
+                <span className={s.seqName}>{q.name}</span>
+                <span className={s.seqMeta}>{describeSequence(q)}</span>
               </Link>
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }

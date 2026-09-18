@@ -1,3 +1,5 @@
+import s from './review.module.css'
+
 /**
  * A review link that opens nothing.
  *
@@ -6,14 +8,12 @@
  */
 export default function DeadLink() {
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <div className="card" style={{ width: 380 }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em', marginBottom: 10 }}>
-          Captio
-        </div>
-        <div style={{ fontSize: 15, color: 'var(--text)' }}>This link is no longer active.</div>
-        <div className="muted" style={{ marginTop: 5 }}>
-          Ask whoever sent it to you for a new one.
+    <div className={`v2 ${s.page} ${s.center}`}>
+      <div className={`card ${s.gate}`}>
+        <span className="brand">captio</span>
+        <div>
+          <h1>Este enlace ya no está activo.</h1>
+          <p>Pídele otro a quien te lo envió.</p>
         </div>
       </div>
     </div>

@@ -2,17 +2,20 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import CommentsPanel from '@/components/comments/CommentsPanel'
 import Player from '@/components/video/Player'
 import type { VersionSummary } from '@/lib/db/sequences'
+import { knownSource, shortLang } from '@/lib/lang'
 import { REVIEW_TOKEN_HEADER } from '@/lib/review/protocol'
 import { readCues, srtToSec, wordDiff } from '@/lib/subtitles'
 import type { TextEdit } from '@/lib/subtitles/data'
 import type { ProjectComment } from '@/types/comment'
 import type { Playback } from '@/types/media'
 import type { Subtitle, TranslationStore } from '@/types/subtitle'
+
+import s from './review.module.css'
 
 /**
  * The review view: every language of a sequence side by side, cue by cue.
@@ -41,7 +44,8 @@ export interface ReviewProps {
   canEdit: boolean
   /** Restoring a version rewrites the whole track — the team's call, never a client's. */
   canRestore: boolean
-  back: { href: string; label: string }
+  /** Where the project is: the crumb before the sequence's name. */
+  back: string
   project: { name: string }
   sequence: {
     id: string
@@ -68,13 +72,16 @@ const SOURCE = 'source'
 type Cues = { subtitles: Subtitle[]; translations: TranslationStore }
 
 const applyLocally = (cues: Cues, edit: TextEdit): Cues => {
-  const rewrite = (subs: Subtitle[]) => subs.map(s => (s.index === edit.index ? { ...s, text: edit.text } : s))
+  const rewrite = (subs: Subtitle[]) => subs.map(c => (c.index === edit.index ? { ...c, text: edit.text } : c))
   return edit.lang === SOURCE
     ? { ...cues, subtitles: rewrite(cues.subtitles) }
     : { ...cues, translations: { ...cues.translations, [edit.lang]: rewrite(cues.translations[edit.lang] ?? []) } }
 }
 
-const when = (iso: string) => new Date(iso).toLocaleString()
+const when = (iso: string) =>
+  new Date(iso).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
 
 export default function ReviewClient(props: ReviewProps) {
   const { token, self, canEdit, canRestore, back, project, sequence, playback, focusCue } = props
@@ -90,7 +97,13 @@ export default function ReviewClient(props: ReviewProps) {
     const ordered = sequence.targetLangs.filter(l => present.includes(l))
     return [SOURCE, ...ordered, ...present.filter(l => !ordered.includes(l))]
   }, [cues.translations, sequence.targetLangs])
-  const label = (lang: string) => (lang === SOURCE ? sequence.sourceLang || 'Original' : lang)
+  // The columns are named as the editor's tabs are: the code, and «original»
+  // on the source while its language is known.
+  const label = (lang: string) => {
+    if (lang !== SOURCE) return shortLang(lang)
+    const src = knownSource(sequence.sourceLang)
+    return src ? `${shortLang(src)} · original` : 'Original'
+  }
 
   // Two columns to start with: the original and the first translation. That is
   // the comparison a review is, and the chips add the rest.
@@ -123,7 +136,7 @@ export default function ReviewClient(props: ReviewProps) {
     const out: Record<string, Map<number, string>> = {}
     for (const lang of langs) {
       const track = lang === SOURCE ? cues.subtitles : cues.translations[lang] ?? []
-      out[lang] = new Map(track.map(s => [s.index, s.text]))
+      out[lang] = new Map(track.map(c => [c.index, c.text]))
     }
     return out
   }, [cues, langs])
@@ -145,18 +158,18 @@ export default function ReviewClient(props: ReviewProps) {
   }, [comments])
 
   const cuesWithOpen = useMemo(() => {
-    const s = new Set<number>()
-    for (const c of comments) if (!c.resolved) s.add(c.cue_index)
-    return s
+    const set = new Set<number>()
+    for (const c of comments) if (!c.resolved) set.add(c.cue_index)
+    return set
   }, [comments])
   const cuesEdited = useMemo(() => {
-    const s = new Set<number>()
-    for (const key of edited) s.add(Number(key.split('|')[0]))
-    return s
+    const set = new Set<number>()
+    for (const key of edited) set.add(Number(key.split('|')[0]))
+    return set
   }, [edited])
 
-  const rows = cues.subtitles.filter(s =>
-    filter === 'open' ? cuesWithOpen.has(s.index) : filter === 'edited' ? cuesEdited.has(s.index) : true,
+  const rows = cues.subtitles.filter(c =>
+    filter === 'open' ? cuesWithOpen.has(c.index) : filter === 'edited' ? cuesEdited.has(c.index) : true,
   )
 
   // ── Saving ─────────────────────────────────────────────────────────────────
@@ -191,7 +204,7 @@ export default function ReviewClient(props: ReviewProps) {
       return
     }
     if (!res.ok) {
-      setError(json.error ?? `Could not save (HTTP ${res.status})`)
+      setError(json.error ?? `No se pudo guardar (HTTP ${res.status})`)
       return
     }
     // Only what went out is cleared: a cell edited while the request was in
@@ -218,7 +231,7 @@ export default function ReviewClient(props: ReviewProps) {
     setCues(c => applyLocally(c, edit))
     pending.current.set(`${index}|${lang}`, edit)
     setUnsaved(pending.current.size)
-    setEdited(s => new Set(s).add(`${index}|${lang}`))
+    setEdited(set => new Set(set).add(`${index}|${lang}`))
     schedule()
   }
 
@@ -261,7 +274,7 @@ export default function ReviewClient(props: ReviewProps) {
     const res = await fetch(`/api/sequences/${sequence.id}/versions/${v.id}`, { headers: authHeaders })
     const json = await res.json().catch(() => ({}))
     setLoadingVersion(null)
-    if (!res.ok) { setError(json.error ?? 'Could not open that version'); return }
+    if (!res.ok) { setError(json.error ?? 'No se pudo abrir esa versión'); return }
     setPicked({ summary: v, cues: readCues(json.version.data) })
   }
 
@@ -277,7 +290,7 @@ export default function ReviewClient(props: ReviewProps) {
     const allLangs = new Set([...langs, ...Object.keys(picked.cues.translations)])
     for (const lang of [SOURCE, ...[...allLangs].filter(l => l !== SOURCE)]) {
       const then = new Map(
-        (lang === SOURCE ? picked.cues.subtitles : picked.cues.translations[lang] ?? []).map(s => [s.index, s.text]),
+        (lang === SOURCE ? picked.cues.subtitles : picked.cues.translations[lang] ?? []).map(c => [c.index, c.text]),
       )
       const now = byLang[lang] ?? new Map<number, string>()
       for (const index of new Set([...then.keys(), ...now.keys()])) {
@@ -291,29 +304,30 @@ export default function ReviewClient(props: ReviewProps) {
 
   async function restore() {
     if (!picked || !canRestore) return
-    if (!confirm(`Put the whole sequence back to v${picked.summary.version ?? '?'}? This is saved as a new version.`)) return
+    const v = picked.summary.version ?? '?'
+    if (!confirm(`¿Dejar toda la secuencia como en la v${v}? Se guarda como una versión nueva.`)) return
     const res = await fetch(`/api/sequences/${sequence.id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({
         data: picked.cues,
         version,
-        note: `Restored v${picked.summary.version ?? ''}`.trim(),
+        note: `Restaurada la v${picked.summary.version ?? ''}`.trim(),
       }),
     })
     if (res.status === 409) { setConflict(true); return }
-    if (!res.ok) { setError('Could not restore that version'); return }
+    if (!res.ok) { setError('No se pudo restaurar esa versión'); return }
     router.refresh()
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
-  const gridCols = `54px 168px repeat(${shownLangs.length}, minmax(220px, 1fr))`
+  const cols = `56px 132px repeat(${shownLangs.length}, minmax(220px, 1fr))`
+  const status = saving ? 'Guardando…' : unsaved ? `${unsaved} sin guardar` : canEdit ? 'Guardado' : 'Solo lectura'
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', display: 'flex', flexDirection: 'column' }}>
-      {/* Same as the dashboard: the dialog is already on the new tokens. */}
+    <div className={`v2 ${s.page} ${s.app}`}>
       {openCue && (
-        <div className="v2"><CommentsPanel
+        <CommentsPanel
           sequenceId={sequence.id}
           cueIndex={openCue.index}
           lang={openCue.lang}
@@ -322,179 +336,171 @@ export default function ReviewClient(props: ReviewProps) {
           isMine={c => (self.userId ? c.author_id === self.userId : c.guest_id === self.guestId)}
           authHeaders={authHeaders}
           onClose={() => setOpenCue(null)}
-        /></div>
+        />
       )}
 
-      {/* Top bar */}
-      <div style={{ background: 'var(--bg1)', borderBottom: '1px solid var(--border)', padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em' }}>
-          Captio
-        </div>
-        <Link href={back.href} style={{ fontSize: 'var(--fs-md)', color: 'var(--text3)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
-          ← {back.label}
-        </Link>
-        <div style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 'var(--fs-base)', color: 'var(--text)' }}>
-          <span className="muted">{project.name} · </span>{sequence.name}
-        </div>
-        <span style={{ padding: '2px 8px', borderRadius: 10, fontSize: 10, fontFamily: 'var(--mono)', background: 'var(--accent-dim)', color: '#8ba8ff' }}>
-          v{version}
-        </span>
-        <span className="muted" style={{ fontSize: 'var(--fs-xs)', whiteSpace: 'nowrap' }}>
-          {saving ? 'Saving…' : unsaved ? `${unsaved} unsaved` : canEdit ? 'Saved' : 'Read only'}
-        </span>
-
-        <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-          <button className={`btn${historyOpen ? ' btn-primary' : ''}`} onClick={() => { setHistoryOpen(o => !o); if (!historyOpen) void refreshVersions() }}>
-            History{versions.length ? ` · ${versions.length}` : ''}
+      <header className="topbar">
+        {/* A client has nowhere else to go; the team's brand leads home. */}
+        {token ? <span className="brand">captio</span> : <Link href="/dashboard" className="brand">captio</Link>}
+        <span className="topbar-sep" />
+        <nav className="crumbs" aria-label="Dónde estás">
+          <Link href={back}>{project.name}</Link>
+          <span>/</span>
+          <span>{sequence.name}</span>
+        </nav>
+        <span className="kbd">v{version}</span>
+        <span className={s.state} data-dirty={unsaved > 0 || undefined}>{status}</span>
+        <div className={s.headEnd}>
+          <button
+            className="btn"
+            aria-pressed={historyOpen}
+            onClick={() => { setHistoryOpen(o => !o); if (!historyOpen) void refreshVersions() }}
+          >
+            Versiones{versions.length ? ` · ${versions.length}` : ''}
           </button>
-          <span className="muted" style={{ fontSize: 'var(--fs-xs)', whiteSpace: 'nowrap' }}>{self.name}</span>
+          <span className={s.who}>{self.name}</span>
         </div>
-      </div>
+      </header>
 
-      {/* Languages and filters */}
-      <div style={{ background: 'var(--bg2)', borderBottom: '1px solid var(--border)', padding: '6px 16px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap', flexShrink: 0 }}>
-        <span className="caps" style={{ marginRight: 4 }}>Compare</span>
+      {/* Which languages are on the sheet, and which rows. */}
+      <div className={s.bar}>
+        <span className="caps">Comparar</span>
         {langs.map(lang => {
           const on = selected.includes(lang)
           return (
             <button
               key={lang}
-              onClick={() => setSelected(s => (on ? s.filter(l => l !== lang) : [...s, lang]))}
-              style={{
-                padding: '3px 10px', borderRadius: 12, fontSize: 11, cursor: 'pointer',
-                border: `1px solid ${on ? 'var(--accent)' : 'var(--border)'}`,
-                background: on ? 'var(--accent-dim)' : 'transparent',
-                color: on ? '#8ba8ff' : 'var(--text3)',
-              }}
+              className="chip"
+              aria-pressed={on}
+              onClick={() => setSelected(sel => (on ? sel.filter(l => l !== lang) : [...sel, lang]))}
             >
               {label(lang)}
             </button>
           )
         })}
-        <div style={{ width: 1, height: 16, background: 'var(--border)', margin: '0 6px' }} />
-        {(['all', 'open', 'edited'] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{ padding: '3px 10px', borderRadius: 5, fontSize: 11, cursor: 'pointer', border: 'none', background: filter === f ? 'var(--bg3)' : 'transparent', color: filter === f ? 'var(--text)' : 'var(--text3)' }}>
-            {f === 'all' ? `All · ${cues.subtitles.length}` : f === 'open' ? `Open notes · ${cuesWithOpen.size}` : `Edited · ${cuesEdited.size}`}
-          </button>
-        ))}
+        <span className={s.spacer} />
+        <div className="seg" role="group" aria-label="Qué filas enseñar">
+          <button aria-pressed={filter === 'all'} onClick={() => setFilter('all')}>Todas · {cues.subtitles.length}</button>
+          <button aria-pressed={filter === 'open'} onClick={() => setFilter('open')}>Con notas abiertas · {cuesWithOpen.size}</button>
+          <button aria-pressed={filter === 'edited'} onClick={() => setFilter('edited')}>Corregidas · {cuesEdited.size}</button>
+        </div>
       </div>
 
       {conflict && (
-        <div style={{ background: 'var(--red-dim)', borderBottom: '1px solid #5a1a1a', padding: '8px 16px', fontSize: 12, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-          Somebody else saved this sequence after you opened it. Reload to see their version — your unsaved changes here will be lost.
-          <button className="btn" onClick={() => router.refresh()}>Reload</button>
+        <div className={s.notice} role="alert">
+          Alguien guardó esta secuencia después de que la abrieras. Recarga para ver su versión: lo que no
+          hayas guardado aquí se pierde.
+          <button className="btn" onClick={() => router.refresh()}>Recargar</button>
         </div>
       )}
       {error && !conflict && (
-        <div style={{ background: 'var(--red-dim)', borderBottom: '1px solid #5a1a1a', padding: '6px 16px', fontSize: 12, color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+        <div className={s.notice} role="alert">
           {error}
-          {unsaved > 0 && <button className="btn" onClick={() => void flush()}>Retry</button>}
+          {unsaved > 0 && <button className="btn" onClick={() => void flush()}>Reintentar</button>}
         </div>
       )}
 
-      <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+      <div className={s.body}>
         {playback && (
-          <div style={{ flex: '0 0 clamp(300px, 36vw, 640px)', borderRight: '1px solid var(--border)', background: 'var(--bg1)', overflow: 'auto' }}>
+          <aside className={s.picture}>
             <Player playback={playback} cues={overlayCues} videoRef={videoRef} onActive={setPlayingCue} />
-            <div className="muted" style={{ padding: '8px 12px', fontSize: 11 }}>
-              {playback.filename} · showing {label(overlayLang)} · click a timecode to go there
-            </div>
-          </div>
+            <p className={s.pictureNote}>
+              {playback.filename} · debajo, {label(overlayLang)} · pulsa un tiempo para ir allí
+            </p>
+          </aside>
         )}
 
         {/* The sheet */}
-        <div style={{ flex: 1, overflow: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: gridCols, position: 'sticky', top: 0, zIndex: 2, background: 'var(--bg1)', borderBottom: '1px solid var(--border)', fontSize: 11, color: 'var(--text2)' }}>
-            <div style={{ padding: '7px 10px' }}>#</div>
-            <div style={{ padding: '7px 10px' }}>Time</div>
-            {shownLangs.map(lang => (
-              <div key={lang} style={{ padding: '7px 12px', fontWeight: 500, borderLeft: '1px solid var(--border)' }}>{label(lang)}</div>
-            ))}
+        <div className={s.sheet} style={{ '--cols': cols } as CSSProperties}>
+          <div className={s.sheetHead}>
+            <span>#</span>
+            <span>in · out</span>
+            {shownLangs.map(lang => <span key={lang} className={s.colHead}>{label(lang)}</span>)}
           </div>
 
           {rows.length === 0 && (
-            <div className="muted" style={{ padding: 30, textAlign: 'center' }}>
-              {filter === 'all' ? 'This sequence has no subtitles yet.' : 'Nothing matches this filter.'}
+            <div className={`empty ${s.emptySheet}`}>
+              <span className="empty-title">
+                {filter === 'all' ? 'Esta secuencia no tiene subtítulos todavía' : 'Ninguna fila coincide con este filtro'}
+              </span>
             </div>
           )}
 
-          {rows.map(s => {
-            const cueOpen = openOn.get(`${s.index}|`) ?? 0
-            const total = totalOn.get(s.index) ?? 0
+          {rows.map(cue => {
+            const cueOpen = openOn.get(`${cue.index}|`) ?? 0
+            const total = totalOn.get(cue.index) ?? 0
             return (
               <div
-                key={s.index}
-                id={`cue-${s.index}`}
-                style={{
-                  display: 'grid', gridTemplateColumns: gridCols,
-                  borderBottom: '1px solid var(--border)',
-                  background: highlight === s.index ? 'var(--accent-dim)' : playingCue === s.index ? 'var(--bg2)' : 'transparent',
-                  transition: 'background .6s',
-                  // The browser skips laying out and painting rows that are off
-                  // screen, which is what makes a feature-length track scroll.
-                  contentVisibility: 'auto', containIntrinsicSize: 'auto 64px',
-                } as React.CSSProperties}
+                key={cue.index}
+                id={`cue-${cue.index}`}
+                className={s.row}
+                data-highlight={highlight === cue.index || undefined}
+                data-playing={playingCue === cue.index || undefined}
               >
-                <div style={{ padding: '8px 10px', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)' }}>
-                  {s.index}
+                <div className={s.n}>
+                  {cue.index}
                   <button
-                    className={`cmt-badge${cueOpen ? ' open' : ''}`}
-                    style={{ position: 'static', display: 'block', marginTop: 6, opacity: total || cueOpen ? 1 : .45 }}
-                    title={total ? `${total} comment${total > 1 ? 's' : ''} on this cue` : 'Comment on this cue'}
-                    onClick={() => setOpenCue({ index: s.index, lang: null })}
+                    className={`badge${total ? '' : ` ${s.quiet}`}`}
+                    data-unread={cueOpen > 0 || undefined}
+                    title={total ? `${plural(total, 'comentario', 'comentarios')} en este cue` : 'Comentar este cue'}
+                    aria-label={total ? `${plural(total, 'comentario', 'comentarios')} en el cue ${cue.index}` : `Comentar el cue ${cue.index}`}
+                    onClick={() => setOpenCue({ index: cue.index, lang: null })}
                   >
-                    💬{total ? ` ${total}` : ''}
+                    {total || '+'}
                   </button>
                 </div>
-                <div
-                  style={{ padding: '8px 10px', fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--accent)', lineHeight: 1.6, cursor: playback ? 'pointer' : 'default' }}
-                  title={playback ? 'Go there in the video' : undefined}
-                  onClick={() => playback && seekTo(s)}
+                <button
+                  className={s.tc}
+                  disabled={!playback}
+                  title={playback ? 'Ir a este punto del vídeo' : undefined}
+                  onClick={() => seekTo(cue)}
                 >
-                  {s.start}<br />{s.end}
-                </div>
+                  {cue.start}<br />{cue.end}
+                </button>
                 {shownLangs.map(lang => {
-                  const text = byLang[lang]?.get(s.index)
-                  const isEditing = editing?.index === s.index && editing.lang === lang
-                  const open = openOn.get(`${s.index}|${lang === SOURCE ? '' : lang}`) ?? 0
-                  const wasEdited = edited.has(`${s.index}|${lang}`)
+                  const text = byLang[lang]?.get(cue.index)
+                  const isEditing = editing?.index === cue.index && editing.lang === lang
+                  const open = openOn.get(`${cue.index}|${lang === SOURCE ? '' : lang}`) ?? 0
+                  const editable = canEdit && text !== undefined && !isEditing
                   return (
                     <div
                       key={lang}
-                      style={{ position: 'relative', padding: '8px 12px', borderLeft: '1px solid var(--border)', fontSize: 13, lineHeight: 1.5, color: text === undefined ? 'var(--text3)' : 'var(--text)', cursor: canEdit && text !== undefined && !isEditing ? 'text' : 'default', background: wasEdited ? 'var(--green-dim)' : 'transparent' }}
+                      className={s.cell}
+                      data-empty={text === undefined || undefined}
+                      data-editable={editable || undefined}
+                      data-edited={edited.has(`${cue.index}|${lang}`) || undefined}
                       onClick={() => {
-                        if (!canEdit || text === undefined || isEditing) return
+                        if (!editable) return
                         setDraft(text)
-                        setEditing({ index: s.index, lang })
+                        setEditing({ index: cue.index, lang })
                       }}
                     >
                       {isEditing ? (
                         <textarea
+                          className={`field ${s.edit}`}
                           autoFocus
                           value={draft}
                           rows={Math.max(2, draft.split('\n').length + 1)}
+                          aria-label={`${label(lang)}, cue ${cue.index}`}
                           onChange={e => setDraft(e.target.value)}
-                          onBlur={() => commit(lang, s.index, draft)}
+                          onBlur={() => commit(lang, cue.index, draft)}
                           onKeyDown={e => {
                             if (e.key === 'Escape') { e.preventDefault(); setEditing(null) }
-                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit(lang, s.index, draft) }
+                            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit(lang, cue.index, draft) }
                           }}
-                          style={{ width: '100%', background: 'var(--bg0)', border: '1px solid var(--accent)', borderRadius: 4, color: 'var(--text)', fontSize: 13, padding: '6px 8px', resize: 'vertical', outline: 'none', lineHeight: 1.5, fontFamily: 'inherit' }}
                         />
                       ) : (
-                        <div style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', paddingRight: 34 }}>
-                          {text === undefined ? <span className="muted">—</span> : text}
-                        </div>
+                        <div className={s.text}>{text === undefined ? '—' : text}</div>
                       )}
                       {!isEditing && lang !== SOURCE && (
                         <button
-                          className={`cmt-badge${open ? ' open' : ''}`}
-                          style={{ opacity: open ? 1 : .45 }}
-                          title={open ? `${open} open on the ${lang}` : `Comment on the ${lang}`}
-                          onClick={e => { e.stopPropagation(); setOpenCue({ index: s.index, lang }) }}
+                          className={`badge ${s.cellBadge}${open ? '' : ` ${s.quiet}`}`}
+                          data-unread={open > 0 || undefined}
+                          title={open ? `${plural(open, 'nota abierta', 'notas abiertas')} sobre el ${label(lang)}` : `Comentar el ${label(lang)}`}
+                          aria-label={open ? `${plural(open, 'nota abierta', 'notas abiertas')} sobre el ${label(lang)} del cue ${cue.index}` : `Comentar el ${label(lang)} del cue ${cue.index}`}
+                          onClick={e => { e.stopPropagation(); setOpenCue({ index: cue.index, lang }) }}
                         >
-                          💬{open ? ` ${open}` : ''}
+                          {open || '+'}
                         </button>
                       )}
                     </div>
@@ -507,52 +513,57 @@ export default function ReviewClient(props: ReviewProps) {
 
         {/* History */}
         {historyOpen && (
-          <div style={{ width: 380, flexShrink: 0, borderLeft: '1px solid var(--border2)', background: 'var(--bg1)', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-            <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="caps">Versions</span>
-              <button className="panel-close" style={{ marginLeft: 'auto' }} onClick={() => setHistoryOpen(false)} aria-label="Close history">×</button>
+          <aside className={s.history} aria-label="Versiones">
+            <div className={s.historyHead}>
+              <span className="caps">Versiones</span>
+              <button className="btn btn-quiet btn-icon" onClick={() => setHistoryOpen(false)} aria-label="Cerrar las versiones">×</button>
             </div>
-            <div style={{ overflowY: 'auto', flex: picked ? '0 0 auto' : 1, maxHeight: picked ? '40%' : undefined }}>
-              {versions.length === 0 && <div className="muted" style={{ padding: 14 }}>No versions yet — the first save records one.</div>}
+            <div className={s.versions} data-split={picked ? '' : undefined}>
+              {versions.length === 0 && (
+                <p className={`muted ${s.historyNote}`}>Todavía no hay versiones: el primer guardado crea una.</p>
+              )}
               {versions.map(v => (
                 <button
                   key={v.id}
+                  className={`row ${s.version}`}
+                  aria-pressed={picked?.summary.id === v.id}
                   onClick={() => void pick(v)}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', padding: '8px 14px', border: 'none', borderBottom: '1px solid var(--border)', cursor: 'pointer', background: picked?.summary.id === v.id ? 'var(--accent-dim)' : 'transparent', color: 'var(--text2)', font: 'inherit' }}
                 >
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'baseline', fontSize: 12 }}>
-                    <span style={{ fontFamily: 'var(--mono)', color: 'var(--accent)' }}>v{v.version ?? '?'}</span>
-                    <span style={{ color: 'var(--text)' }}>{v.author_name ?? 'Someone'}</span>
-                    {v.guest_id && <span className="muted" style={{ fontSize: 9 }}>client</span>}
-                    <span className="muted" style={{ marginLeft: 'auto', fontSize: 10 }} suppressHydrationWarning>{when(v.created_at)}</span>
-                  </div>
-                  {v.note && <div className="muted" style={{ marginTop: 2, fontSize: 11 }}>{v.note}</div>}
+                  <span className={s.vn}>v{v.version ?? '?'}</span>
+                  <span className={s.vAuthor}>
+                    {v.author_name ?? 'Alguien'}
+                    {v.guest_id && <span className="muted"> · cliente</span>}
+                  </span>
                   {loadingVersion === v.id && <span className="spinner" />}
+                  <span className={`muted ${s.vWhen}`} suppressHydrationWarning>{when(v.created_at)}</span>
+                  {v.note && <span className={`muted ${s.vNote}`}>{v.note}</span>}
                 </button>
               ))}
             </div>
             {picked && (
-              <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', borderTop: '1px solid var(--border2)' }}>
-                <div style={{ padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: 'var(--text2)' }}>
-                  <span>v{picked.summary.version ?? '?'} → now: {changes.length} line{changes.length === 1 ? '' : 's'} differ</span>
+              <div className={s.diff}>
+                <div className={s.diffHead}>
+                  <span>
+                    v{picked.summary.version ?? '?'} → ahora: {plural(changes.length, 'línea distinta', 'líneas distintas')}
+                  </span>
                   {canRestore && (
-                    <button className="btn" style={{ marginLeft: 'auto' }} onClick={() => void restore()}>
-                      Restore v{picked.summary.version ?? '?'}
+                    <button className="btn" onClick={() => void restore()}>
+                      Restaurar la v{picked.summary.version ?? '?'}
                     </button>
                   )}
                 </div>
-                <div style={{ overflowY: 'auto', flex: 1, padding: '0 14px 14px' }}>
-                  {changes.length === 0 && <div className="muted">The words are the same as on screen now.</div>}
+                <div className={s.changes}>
+                  {changes.length === 0 && <p className="muted">Las palabras son las mismas que hay ahora en pantalla.</p>}
                   {changes.map(ch => (
-                    <div key={`${ch.lang}|${ch.index}`} style={{ padding: '7px 0', borderBottom: '1px solid var(--border)', fontSize: 12, lineHeight: 1.5 }}>
-                      <div style={{ fontFamily: 'var(--mono)', fontSize: 10, color: 'var(--text3)', marginBottom: 3 }}>
-                        <a href={`#cue-${ch.index}`} style={{ color: 'inherit' }}>#{ch.index}</a> · {label(ch.lang)}
+                    <div key={`${ch.lang}|${ch.index}`} className={s.change}>
+                      <div className={s.changeWhere}>
+                        <a href={`#cue-${ch.index}`}>#{ch.index}</a> · {label(ch.lang)}
                       </div>
-                      <div style={{ wordBreak: 'break-word' }}>
+                      <div className={s.changeText}>
                         {wordDiff(ch.before, ch.after).map((op, i) =>
                           op.type === 'eq' ? <span key={i}>{op.val} </span> :
-                          op.type === 'ins' ? <span key={i} className="diff-ins">{op.val} </span> :
-                                              <span key={i} className="diff-del">{op.val} </span>,
+                          op.type === 'ins' ? <ins key={i} className={s.ins}>{op.val} </ins> :
+                                              <del key={i} className={s.del}>{op.val} </del>,
                         )}
                       </div>
                     </div>
@@ -560,7 +571,7 @@ export default function ReviewClient(props: ReviewProps) {
                 </div>
               </div>
             )}
-          </div>
+          </aside>
         )}
       </div>
     </div>

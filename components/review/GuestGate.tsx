@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import s from './review.module.css'
+
 /**
  * Who are you?
  *
@@ -41,7 +43,7 @@ export default function GuestGate({ token, projectName, organizationName }: Prop
     setBusy(false)
 
     if (!res.ok) {
-      setError(json.error ?? 'Could not continue')
+      setError(json.error ?? 'No se pudo continuar')
       return
     }
     // The cookie is set; the server component reads it and shows the project.
@@ -49,24 +51,22 @@ export default function GuestGate({ token, projectName, organizationName }: Prop
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24 }}>
-      <form onSubmit={submit} className="card" style={{ width: 380, display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <div style={{ fontFamily: 'var(--mono)', fontSize: 14, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em' }}>
-          Captio
-        </div>
+    <div className={`v2 ${s.page} ${s.center}`}>
+      <form onSubmit={submit} className={`card ${s.gate}`}>
+        <span className="brand">captio</span>
         <div>
-          <div style={{ fontSize: 16, color: 'var(--text)', fontWeight: 500 }}>{projectName}</div>
-          <div className="muted" style={{ marginTop: 3 }}>
-            {organizationName} has shared the subtitles of this project with you to review.
-            Tell us who you are so your comments carry your name.
-          </div>
+          <h1>{projectName}</h1>
+          <p>
+            {organizationName} ha compartido contigo los subtítulos de este proyecto para que los
+            revises. Di quién eres para que tus comentarios lleven tu nombre.
+          </p>
         </div>
         <input
           className="field"
           value={name}
           onChange={e => setName(e.target.value)}
-          placeholder="Your name"
-          aria-label="Your name"
+          placeholder="Tu nombre"
+          aria-label="Tu nombre"
           autoFocus
           maxLength={80}
           required
@@ -76,17 +76,20 @@ export default function GuestGate({ token, projectName, organizationName }: Prop
           type="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
-          placeholder="you@company.com"
-          aria-label="Your email"
+          placeholder="tu@empresa.com"
+          aria-label="Tu correo"
           maxLength={254}
           required
         />
-        <div className="muted" style={{ fontSize: 'var(--fs-xs)' }}>
-          Your email is only used to let you know when somebody answers your comments.
-        </div>
-        {error && <div className="err">{error}</div>}
-        <button className="btn btn-primary btn-lg" type="submit" disabled={busy || !name.trim() || !email.trim()}>
-          {busy ? 'One moment…' : 'Open the review'}
+        <p className="muted">Tu correo solo sirve para avisarte cuando alguien responda a tus comentarios.</p>
+        {error && <p className="err" role="alert">{error}</p>}
+        <button
+          className="btn btn-primary btn-lg"
+          type="submit"
+          aria-busy={busy || undefined}
+          disabled={!name.trim() || !email.trim()}
+        >
+          Abrir la revisión
         </button>
       </form>
     </div>

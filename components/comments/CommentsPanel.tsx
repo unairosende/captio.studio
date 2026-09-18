@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 
+import { shortLang } from '@/lib/lang'
 import type { ProjectComment } from '@/types/comment'
 
 /**
@@ -73,7 +74,7 @@ export default function CommentsPanel({
     setBusy(false)
 
     if (!res.ok) {
-      setError(json.error ?? 'Could not post that')
+      setError(json.error ?? 'No se pudo enviar')
       return
     }
     onChange(json.comments as ProjectComment[])
@@ -88,7 +89,7 @@ export default function CommentsPanel({
     })
     const json = await res.json().catch(() => ({}))
     if (!res.ok) {
-      setError('Could not update that comment')
+      setError('No se pudo cambiar ese comentario')
       return
     }
     const updated = json.comment as ProjectComment | undefined
@@ -103,7 +104,7 @@ export default function CommentsPanel({
       headers: authHeaders,
     })
     if (!res.ok) {
-      setError('Could not delete that comment')
+      setError('No se pudo borrar ese comentario')
       return
     }
     onChange(comments.filter(x => x.id !== c.id))
@@ -115,18 +116,18 @@ export default function CommentsPanel({
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       role="dialog"
       aria-modal="true"
-      aria-label={`Comments on subtitle ${cueIndex}`}
+      aria-label={`Comentarios del cue ${cueIndex}`}
     >
       <div className="panel" style={{ '--panel-w': '420px', '--panel-h': '64vh' } as CSSProperties}>
         <div className="panel-head">
-          <span className="panel-title">Comments on #{cueIndex}</span>
-          <button className="panel-close" onClick={onClose} aria-label="Close comments">×</button>
+          <span className="panel-title">Comentarios del #{cueIndex}</span>
+          <button className="panel-close" onClick={onClose} aria-label="Cerrar los comentarios">×</button>
         </div>
 
         <div className="panel-body">
           {thread.length === 0 && (
             <div className="muted" style={{ padding: '10px 0' }}>
-              No comments on this subtitle yet.
+              Todavía no hay comentarios en este cue.
             </div>
           )}
           {thread.map(c => (
@@ -136,31 +137,31 @@ export default function CommentsPanel({
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
                 <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--ink-2)' }}>
-                  {c.author_name ?? 'Someone'}
+                  {c.author_name ?? 'Alguien'}
                 </span>
                 {c.guest_id && (
-                  <span className="muted" style={{ fontSize: 9 }}>client</span>
+                  <span className="muted" style={{ fontSize: 9 }}>cliente</span>
                 )}
                 {c.lang && (
                   <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 3, background: 'var(--select)', color: 'var(--accent)' }}>
-                    {c.lang}
+                    {shortLang(c.lang)}
                   </span>
                 )}
                 <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>
-                  {new Date(c.created_at).toLocaleString()}
+                  {new Date(c.created_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </span>
                 <button className="btn" style={{ marginLeft: 'auto' }}
                   onClick={() => void toggleResolved(c)}
                   title={c.resolved
-                    ? `Resolved ${c.resolved_at ? new Date(c.resolved_at).toLocaleString() : ''} — reopen`
-                    : 'Mark as resolved'}>
-                  {c.resolved ? 'Reopen' : 'Resolve'}
+                    ? `Resuelto ${c.resolved_at ? new Date(c.resolved_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''} — reabrir`
+                    : 'Marcar como resuelto'}>
+                  {c.resolved ? 'Reabrir' : 'Resolver'}
                 </button>
                 {/* Only on your own, because only your own would be accepted —
                     offering the button to everyone is offering a 404. */}
                 {isMine(c) && (
                   <button className="btn btn-danger" onClick={() => void remove(c)}
-                    title="Delete this comment">
+                    title="Borrar este comentario">
                     ✕
                   </button>
                 )}
@@ -186,11 +187,11 @@ export default function CommentsPanel({
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void post() } }}
-            placeholder={lang ? `Comment on the ${lang}…` : 'Write a comment…'}
+            placeholder={lang ? `Comenta sobre el ${shortLang(lang)}…` : 'Escribe un comentario…'}
           />
           <button className="btn btn-primary btn-lg" onClick={() => void post()}
             disabled={busy || !draft.trim()}>
-            {busy ? 'Sending…' : 'Send'}
+            {busy ? 'Enviando…' : 'Enviar'}
           </button>
         </div>
       </div>

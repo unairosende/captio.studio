@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { notFound, redirect } from 'next/navigation'
 
@@ -20,6 +21,8 @@ import { readCues } from '@/lib/subtitles/data'
  * on the server, and the token goes down to the browser only so that it can
  * come back in a header on every request the view makes.
  */
+
+export const metadata: Metadata = { title: 'Revisión de subtítulos · Captio' }
 
 interface Props {
   params: Promise<{ token: string; sequenceId: string }>
@@ -60,7 +63,7 @@ export default async function GuestReviewPage({ params, searchParams }: Props) {
       self={{ guestId: guest.id, name: guest.name }}
       canEdit={link.can_edit}
       canRestore={false}
-      back={{ href: `/r/${token}`, label: 'Sequences' }}
+      back={`/r/${token}`}
       project={{ name: project.name }}
       sequence={{
         id: sequence.id,
