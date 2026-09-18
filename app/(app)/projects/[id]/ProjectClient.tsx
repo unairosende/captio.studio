@@ -9,7 +9,7 @@ import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { ProjectSummary } from '@/lib/db/projects'
 import type { ReviewLinkSummary } from '@/lib/db/review-links'
 import type { SequenceSummary } from '@/lib/db/sequences'
-import { LANG_CODES } from '@/lib/providers'
+import { describeSequence, shortLang } from '@/lib/lang'
 
 import ReviewLinks from './ReviewLinks'
 import s from './project.module.css'
@@ -18,16 +18,6 @@ interface Props {
   project: ProjectSummary
   sequences: SequenceSummary[]
   links: ReviewLinkSummary[]
-}
-
-/** `Spanish` as `ES`, a bare code as itself in capitals, and the rest as written. */
-const short = (lang: string): string => LANG_CODES[lang] ?? (lang.length <= 3 ? lang.toUpperCase() : lang)
-
-/** «8 cues · ES → EN · FR» — without the source while it is still to be detected. */
-function describe(q: SequenceSummary): string {
-  const src = q.source_lang && q.source_lang !== 'Auto-detect' ? short(q.source_lang) : null
-  const targets = q.target_langs.map(short).join(' · ')
-  return [`${q.cue_count.toLocaleString('es-ES')} cues`, src && targets ? `${src} → ${targets}` : src ?? targets].filter(Boolean).join(' · ')
 }
 
 /**
@@ -152,7 +142,7 @@ export default function ProjectClient({ project, sequences, links }: Props) {
         <div className={s.meta}>
           {sequences.length} {sequences.length === 1 ? 'secuencia' : 'secuencias'}
           {project.cue_count > 0 && ` · ${project.cue_count.toLocaleString('es-ES')} cues`}
-          {project.target_langs.length > 0 && ` · ${project.target_langs.map(short).join(' · ')}`}
+          {project.target_langs.length > 0 && ` · ${project.target_langs.map(shortLang).join(' · ')}`}
         </div>
 
         {error && <div className={`err ${s.err}`}>{error}</div>}
@@ -178,7 +168,7 @@ export default function ProjectClient({ project, sequences, links }: Props) {
               <div key={q.id} className={`card ${s.seqCard}`}>
                 <button className={s.seqOpen} onClick={() => router.push(`/translate?sequence=${q.id}`)}>
                   <div className={s.seqName}>{q.name}</div>
-                  <div className={s.seqMeta}>{describe(q)}</div>
+                  <div className={s.seqMeta}>{describeSequence(q)}</div>
                 </button>
                 <div className={s.seqFoot}>
                   <span className={s.seqAgo} suppressHydrationWarning>{ago(q.updated_at)}</span>
