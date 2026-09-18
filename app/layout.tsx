@@ -46,8 +46,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Captio — Professional Subtitle Translation',
-  description: 'AI-powered subtitle translation with quality checking, glossaries, and team review.',
+  title: 'Captio — subtitulado en una sola ventana',
+  description: 'Transcribir, traducir con glosario, revisar con el cliente y exportar subtítulos, en un solo sitio.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -55,7 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // suppressHydrationWarning: the theme script below stamps data-theme on
     // <html> before React hydrates, so the server's HTML and the client's
     // attributes differ on purpose. Scoped to this one element.
-    <html lang="en" className={`h-full ${sans.variable} ${mono.variable} ${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`h-full ${sans.variable} ${mono.variable} ${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <body className="h-full">
         {/* The theme, before anything paints. A preference read after
             hydration would draw the page in one theme and flip it a moment
