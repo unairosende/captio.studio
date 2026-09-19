@@ -1,7 +1,9 @@
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import Shell from '@/components/marketing/Shell'
 import { readLegalDocument, type LegalSlug } from '@/lib/legal'
+
+import s from './legal.module.css'
 
 /**
  * One legal document, rendered from its markdown in docs/legal.
@@ -18,23 +20,17 @@ export default async function LegalPage({ slug }: { slug: LegalSlug }) {
   if (!doc.published && process.env.NODE_ENV === 'production') notFound()
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--bg0)' }}>
-      <nav style={{ padding: '16px 32px', borderBottom: '1px solid var(--border)', background: 'var(--bg1)' }}>
-        <Link href="/" style={{ fontFamily: 'var(--mono)', fontSize: 16, fontWeight: 500, color: 'var(--accent)', letterSpacing: '.04em', textDecoration: 'none' }}>
-          Captio
-        </Link>
-      </nav>
-
-      <article className="legal">
+    <Shell>
+      <article className={s.article}>
         {!doc.published && (
-          <p className="err" style={{ fontSize: 'var(--fs-base)', border: '1px solid var(--red)', borderRadius: 'var(--r-md)', padding: '10px 12px' }}>
-            Draft — visible in development only. It starts being served the day
-            docs/legal/{doc.slug}.md carries <code>Status: published</code> on a
-            line of its own, with no <code>[PLACEHOLDER]</code> left in it.
+          <p className={s.draft} role="note">
+            Borrador, visible solo en desarrollo. Empieza a servirse el día que
+            docs/legal/{doc.slug}.md lleve <code>Status: published</code> en una línea propia, sin
+            ningún <code>[PLACEHOLDER]</code> dentro.
           </p>
         )}
         <div dangerouslySetInnerHTML={{ __html: doc.html }} />
       </article>
-    </div>
+    </Shell>
   )
 }

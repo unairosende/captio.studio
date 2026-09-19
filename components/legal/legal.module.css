@@ -1,0 +1,48 @@
+/* Un documento legal: prosa de contrato, no la herramienta densa de 13 px.
+   Lo mínimo que hace legible una página de texto y una tabla de
+   subencargados, sobre las mismas piezas que el resto de lo público. El
+   marcado lo escribe lib/legal.ts a partir del markdown, así que las reglas
+   van por etiqueta y no por clase. */
+
+.article {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 48px 0 48px;
+  color: var(--ink-2);
+  font-size: var(--fs-lg);
+  line-height: 1.7;
+}
+
+.article h1 { margin: 0 0 var(--sp-6); font-size: clamp(28px, 4vw, 36px); font-weight: 600; line-height: 1.1; letter-spacing: -.02em; color: var(--ink); text-wrap: balance; }
+.article h2 { margin: var(--sp-8) 0 var(--sp-3); font-size: var(--fs-xl); font-weight: 600; color: var(--ink); }
+.article h3 { margin: var(--sp-6) 0 var(--sp-2); font-size: var(--fs-lg); font-weight: 600; color: var(--ink); }
+.article p { margin: var(--sp-3) 0; }
+.article ul { margin: var(--sp-3) 0; padding-left: var(--sp-6); }
+.article li { margin: 6px 0; }
+.article hr { border: 0; border-top: 1px solid var(--line); margin: var(--sp-8) 0; }
+.article strong { color: var(--ink); font-weight: 600; }
+.article a { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.article code {
+  padding: 1px 5px;
+  border-radius: var(--r-sm);
+  background: var(--s2);
+  font-family: var(--mono);
+  font-size: .88em;
+  color: var(--ink);
+}
+
+/* Ancha en un teléfono, y un contrato que no se puede leer de lado no se ha
+   entregado: la tabla hace scroll en horizontal antes que romperse. */
+.article table { display: block; width: 100%; margin: var(--sp-6) 0; border-collapse: collapse; font-size: var(--fs-md); overflow-x: auto; }
+.article th, .article td { padding: var(--sp-2) var(--sp-3); border: 1px solid var(--line); text-align: left; vertical-align: top; }
+.article th { background: var(--s2); color: var(--ink); font-weight: 600; }
+
+/* Un borrador se sirve solo en desarrollo, y lo dice por escrito. */
+.draft {
+  margin: 0 0 var(--sp-6);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--danger);
+  border-radius: var(--r-md);
+  color: var(--danger);
+  font-size: var(--fs-md);
+}
