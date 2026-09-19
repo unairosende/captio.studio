@@ -339,12 +339,24 @@ function Track({ playback }: { playback: Playback | null }) {
     }
   }, [cues, currentView, duration, quality])
 
-  // Redraw when the cues, the tab, the zoom or the available width change.
+  // Redraw when the cues, the tab, the zoom, the available width or the theme
+  // change. The palette is read on every draw, so a theme switch only needs a
+  // reason to draw: the attribute the toggle stamps on <html>, and the system
+  // preference for when nothing is stamped. Without these the wave kept the
+  // old theme's colours until the next scroll.
   useEffect(() => {
     draw()
-    const observer = new ResizeObserver(() => draw())
-    if (scrollRef.current) observer.observe(scrollRef.current)
-    return () => observer.disconnect()
+    const size = new ResizeObserver(() => draw())
+    if (scrollRef.current) size.observe(scrollRef.current)
+    const theme = new MutationObserver(() => draw())
+    theme.observe(document.documentElement, { attributeFilter: ['data-theme'] })
+    const system = window.matchMedia('(prefers-color-scheme: dark)')
+    system.addEventListener('change', draw)
+    return () => {
+      size.disconnect()
+      theme.disconnect()
+      system.removeEventListener('change', draw)
+    }
   }, [draw, zoom])
 
   const stop = useCallback(() => {
