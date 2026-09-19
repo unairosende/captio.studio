@@ -1,0 +1,26 @@
+/* El hilo de un cue, dentro del panel de diálogo. */
+
+.none { padding: var(--sp-2) 0; }
+
+.comment { padding: var(--sp-2) 0; border-bottom: 1px solid var(--line); }
+.comment:last-child { border-bottom: 0; }
+/* Resuelto se lee, pero apagado y tachado: sigue siendo parte de la conversación. */
+.comment[data-resolved] { opacity: .55; }
+.comment[data-resolved] .body { text-decoration: line-through; }
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-1);
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+}
+.author { font-weight: 500; color: var(--ink-2); }
+/* El primer botón empuja los demás a la derecha, como en la fila de lista. */
+.first { margin-left: auto; }
+
+.body { margin: 0; font-size: var(--fs-md); line-height: var(--lh); white-space: pre-wrap; word-break: break-word; }
+
+.error { margin: 0; padding: 0 var(--sp-4) var(--sp-2); }
+.draft { flex: 1; }

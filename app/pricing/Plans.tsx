@@ -85,7 +85,7 @@ export default function Plans() {
           </div>
         ))}
       </div>
-      {error && <p className="err" role="alert" style={{ marginTop: 'var(--sp-3)' }}>{error}</p>}
+      {error && <p className={`err ${m.refusal}`} role="alert">{error}</p>}
     </>
   )
 }

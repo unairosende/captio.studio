@@ -105,7 +105,7 @@ export default function Steps({ entitlement, step: open, onStep }: Props) {
                 </div>
                 <div>
                   <textarea className="field" rows={4} value={paste} onChange={e => setPaste(e.target.value)} placeholder="O pega aquí SRT, VTT, CSV o texto…" spellCheck={false} />
-                  <button className="btn" style={{ marginTop: 'var(--sp-2)' }} data-cmd="Leer el texto pegado" disabled={!paste.trim()}
+                  <button className={`btn ${s.follows}`} data-cmd="Leer el texto pegado" disabled={!paste.trim()}
                     onClick={() => { importJob.fromText(paste, hint); setPaste('') }}>Leer lo pegado</button>
                 </div>
                 <div>
@@ -180,8 +180,8 @@ export default function Steps({ entitlement, step: open, onStep }: Props) {
                       <option value="__custom__">Otro…</option>
                     </select>
                   </div>
-                  {showCustom && <input className="field" style={{ marginTop: 'var(--sp-1)' }} value={custom} onChange={e => setCustom(e.target.value)} placeholder="Escribe el idioma" />}
-                  <div className={s.chips} style={{ marginTop: 'var(--sp-2)' }}>
+                  {showCustom && <input className={`field ${s.follows}`} value={custom} onChange={e => setCustom(e.target.value)} placeholder="Escribe el idioma" />}
+                  <div className={`${s.chips} ${s.follows}`}>
                     {QUICK_LANGS.map(l => (
                       <button key={l} className="chip" aria-pressed={!showCustom && tgtLang === l} onClick={() => { setShowCustom(false); setTgtLang(l) }}>{langCode(l)}</button>
                     ))}
@@ -205,7 +205,7 @@ export default function Steps({ entitlement, step: open, onStep }: Props) {
                 {translateJob.running && (
                   <div>
                     <div className={s.jobMsg}>{translateJob.message}</div>
-                    <div className="meter" style={{ marginTop: 'var(--sp-1)' }}><div className="meter-fill" style={{ width: `${translateJob.progress}%` }} /></div>
+                    <div className={`meter ${s.follows}`}><div className="meter-fill" style={{ width: `${translateJob.progress}%` }} /></div>
                   </div>
                 )}
                 {!translateJob.running && translateJob.message && <div className={s.jobMsg} data-tone="ok">{translateJob.message}</div>}
@@ -225,7 +225,7 @@ export default function Steps({ entitlement, step: open, onStep }: Props) {
                       <option value="srt">SRT</option><option value="vtt">VTT</option><option value="txt">TXT</option><option value="csv">CSV</option>
                     </select>
                   </div>
-                  <button className="btn btn-primary" style={{ marginTop: 'var(--sp-2)' }} data-cmd="Exportar la pestaña en pantalla" disabled={!hasSubs} onClick={() => exporter.tab(exportFmt)}>
+                  <button className={`btn btn-primary ${s.follows}`} data-cmd="Exportar la pestaña en pantalla" disabled={!hasSubs} onClick={() => exporter.tab(exportFmt)}>
                     Exportar {activeTab === 'source' ? 'el original' : langCode(activeTab)} <span className="kbd">⌘E</span>
                   </button>
                 </div>
@@ -236,7 +236,7 @@ export default function Steps({ entitlement, step: open, onStep }: Props) {
                       <option value="xlsx">XLSX</option><option value="csv">CSV</option>
                     </select>
                   </div>
-                  <button className="btn" style={{ marginTop: 'var(--sp-2)' }} data-cmd="Exportar todos los idiomas en una hoja" data-cmd-hint="XLSX · CSV" disabled={!langs.length} onClick={() => exporter.all(allFmt)}>
+                  <button className={`btn ${s.follows}`} data-cmd="Exportar todos los idiomas en una hoja" data-cmd-hint="XLSX · CSV" disabled={!langs.length} onClick={() => exporter.all(allFmt)}>
                     {langs.length ? `${langs.length} ${langs.length > 1 ? 'idiomas' : 'idioma'} en una hoja` : 'Una hoja, todos los idiomas'}
                   </button>
                 </div>

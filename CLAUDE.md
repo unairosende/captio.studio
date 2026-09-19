@@ -93,16 +93,25 @@ claro y oscuro; bordes y lavados con `color-mix()` sobre la tinta), piezas en
 maquetación de cada pantalla en su `*.module.css`. **`/styleguide` es la
 verdad: si algo no está allí, no existe.** Reglas que evitan volver al desorden:
 
-- Ningún `style={{}}` nuevo con un valor que ya tenga nombre (color, tamaño,
-  radio, espacio). Un valor de un solo uso va en el módulo de la pantalla.
+- Ningún `style={{}}` con un valor que ya tenga nombre (color, tamaño, radio,
+  espacio). Un valor de un solo uso va en el módulo de la pantalla; en línea
+  solo cabe lo que se calcula (un ancho en %, la posición de un menú) o el
+  parámetro de una pieza (`--panel-w`, `--cols`).
 - Los estados no son clases: `:hover`, `:focus-visible`, `:disabled`,
   `aria-busy`, `aria-selected`, `aria-invalid`. Un botón ocupado lleva
   `aria-busy`, no otro texto.
-- Componente que aparece dos veces, componente que se extrae.
+- Componente que aparece dos veces, componente que se extrae. Un diálogo es
+  `components/Dialog.tsx`: velo, panel, Esc y foco de vuelta van dentro.
 - El acento cede dentro del editor: selección y foco neutros; ámbar, rojo y
   verde son del control de calidad y de nadie más.
 - La interfaz habla español. Los errores de Better Auth se traducen por su
   código, no por su mensaje.
+
+Tres de estas reglas no dependen de que alguien se acuerde: `tests/design/`
+mide el contraste de los tokens, comprueba que cada clase de `ui.css` sale en
+`/styleguide` y la usa el producto, y rechaza cualquier literal en un
+`style={{}}` fuera de la guía. Si `npm test` falla ahí, la regla se ha roto;
+no se afloja el test, se arregla la pantalla.
 
 ## Commits
 

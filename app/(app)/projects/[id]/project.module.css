@@ -71,6 +71,8 @@
 
 /* ── Revisión del cliente ───────────────────────────────────────────────── */
 
+/* Lo que la tarjeta apila —texto, formulario, aviso, enlaces— a un mismo paso. */
+.stack { display: grid; gap: var(--sp-3); }
 .newLink { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
 .newLink > :global(.field) { flex: 1; min-width: 200px; }
 .check { display: flex; align-items: center; gap: 6px; font-size: var(--fs-md); color: var(--ink-2); white-space: nowrap; cursor: pointer; }
@@ -96,7 +98,6 @@
   padding: var(--sp-3) 0;
   border-top: 1px solid var(--line);
 }
-.access:first-of-type { margin-top: var(--sp-3); }
 .access[data-off] .accessBody { opacity: .6; }
 .accessBody { flex: 1; min-width: 0; }
 .accessLine { display: flex; align-items: baseline; gap: var(--sp-2); flex-wrap: wrap; }
@@ -107,8 +108,10 @@
 
 /* ── Glosario ───────────────────────────────────────────────────────────── */
 
-.terms { display: grid; gap: var(--sp-1); margin: var(--sp-3) 0; }
+.terms { display: grid; gap: var(--sp-1); }
 .term { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-2); }
+/* Un botón dentro de la pila: a su ancho, no al de la tarjeta. */
+.add { justify-self: start; }
 
 @media (max-width: 680px) {
   .main { padding-top: var(--sp-6); }

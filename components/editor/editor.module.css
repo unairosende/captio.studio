@@ -190,7 +190,10 @@
 }
 .leftBody :global(.caps) { display: block; margin-bottom: var(--sp-1); }
 
-.chips { display: flex; flex-wrap: wrap; gap: var(--sp-1); }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-1); }
+/* Lo que sigue a un campo —el botón que lo lee, las fichas rápidas, el
+   medidor bajo el mensaje— a un paso de él. */
+.follows { margin-top: var(--sp-2); }
 
 /* La pequeña zona de soltar: un archivo que aún no está. */
 .drop {

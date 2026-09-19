@@ -7,6 +7,8 @@ import { api, send } from '@/lib/api'
 import { shortLang } from '@/lib/lang'
 import type { ProjectComment } from '@/types/comment'
 
+import s from './comments.module.css'
+
 /**
  * The thread on one cue.
  *
@@ -102,31 +104,18 @@ export default function CommentsPanel({
 
         <div className="panel-body">
           {thread.length === 0 && (
-            <div className="muted" style={{ padding: '10px 0' }}>
-              Todavía no hay comentarios en este cue.
-            </div>
+            <p className={`muted ${s.none}`}>Todavía no hay comentarios en este cue.</p>
           )}
           {thread.map(c => (
-            <div key={c.id} style={{
-              padding: '7px 0', borderBottom: '1px solid var(--line)',
-              opacity: c.resolved ? .55 : 1,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 3 }}>
-                <span style={{ fontSize: 11, fontWeight: 500, color: 'var(--ink-2)' }}>
-                  {c.author_name ?? 'Alguien'}
-                </span>
-                {c.guest_id && (
-                  <span className="muted" style={{ fontSize: 9 }}>cliente</span>
-                )}
-                {c.lang && (
-                  <span style={{ fontSize: 9, padding: '0 5px', borderRadius: 3, background: 'var(--select)', color: 'var(--accent)' }}>
-                    {shortLang(c.lang)}
-                  </span>
-                )}
-                <span style={{ fontSize: 10, color: 'var(--ink-3)' }}>
+            <div key={c.id} className={s.comment} data-resolved={c.resolved || undefined}>
+              <div className={s.meta}>
+                <span className={s.author}>{c.author_name ?? 'Alguien'}</span>
+                {c.guest_id && <span>cliente</span>}
+                {c.lang && <span className="badge">{shortLang(c.lang)}</span>}
+                <span>
                   {new Date(c.created_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </span>
-                <button className="btn" style={{ marginLeft: 'auto' }}
+                <button className={`btn ${s.first}`}
                   onClick={() => void toggleResolved(c)}
                   title={c.resolved
                     ? `Resuelto ${c.resolved_at ? new Date(c.resolved_at).toLocaleString('es-ES', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : ''} — reabrir`
@@ -142,23 +131,16 @@ export default function CommentsPanel({
                   </button>
                 )}
               </div>
-              <div style={{
-                fontSize: 12, color: 'var(--ink)', lineHeight: 1.5,
-                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
-                textDecoration: c.resolved ? 'line-through' : 'none',
-              }}>
-                {c.body}
-              </div>
+              <p className={s.body}>{c.body}</p>
             </div>
           ))}
         </div>
 
-        {error && <div className="err" style={{ padding: '0 13px 6px' }}>{error}</div>}
+        {error && <p className={`err ${s.error}`}>{error}</p>}
 
         <div className="panel-foot">
           <input
-            className="field"
-            style={{ flex: 1 }}
+            className={`field ${s.draft}`}
             ref={inputRef}
             value={draft}
             onChange={e => setDraft(e.target.value)}

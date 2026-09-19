@@ -230,12 +230,12 @@ export default function DashboardClient({
                     they were not watching had run out. */}
                 <div className={s.meterRow}>
                   <span className="muted">Material procesado</span>
-                  <span className="muted" style={{ fontFamily: 'var(--mono)' }}>
+                  <span className={`muted ${s.num}`}>
                     quedan {formatDuration(trial.mediaSeconds)}
                   </span>
                 </div>
                 <Meter used={TRIAL.mediaMinutes * 60 - trial.mediaSeconds} total={TRIAL.mediaMinutes * 60} />
-                <a href="/pricing" className="link" style={{ display: 'inline-block', marginTop: 12 }}>
+                <a href="/pricing" className={`link ${s.plans}`}>
                   Ver planes →
                 </a>
               </>
@@ -259,7 +259,7 @@ export default function DashboardClient({
                         thousand lines; the customer had no way to tell which. */}
                     <div className={s.meterRow}>
                       <span className="muted">Material procesado</span>
-                      <span className="muted" style={{ fontFamily: 'var(--mono)' }}>
+                      <span className={`muted ${s.num}`}>
                         quedan {formatDuration(entitlement.monthly.remaining * 60)}
                       </span>
                     </div>
@@ -290,7 +290,7 @@ export default function DashboardClient({
           <div className="card">
             <div className="card-head">
               <span className="caps">Equipo</span>
-              <span className="muted" style={{ marginLeft: 'auto' }}>
+              <span className={`muted ${s.end}`}>
                 {members.length} {members.length === 1 ? 'persona' : 'personas'}
               </span>
             </div>
@@ -370,7 +370,7 @@ export default function DashboardClient({
                 {portalError && <div className={`err ${s.actionErr}`}>{portalError}</div>}
               </>
             ) : !subscription ? (
-              <a href="/pricing" className={`btn ${s.action}`} style={{ display: 'inline-block' }}>
+              <a href="/pricing" className={`btn ${s.action}`}>
                 Suscribirse
               </a>
             ) : null}
@@ -446,10 +446,10 @@ export default function DashboardClient({
             {usage.map(m => (
               <div key={m.month} className="row">
                 <span className={s.historyMonth}>{formatMonth(m.month)}</span>
-                <span className="muted" style={{ fontFamily: 'var(--mono)' }}>
+                <span className={`muted ${s.num}`}>
                   {formatDuration(m.transcribeSeconds)} de audio
                 </span>
-                <span className="muted" style={{ fontFamily: 'var(--mono)', marginLeft: 'auto' }}>
+                <span className={`muted ${s.num} ${s.end}`}>
                   {m.translatedCues.toLocaleString('es-ES')} subtítulos
                 </span>
               </div>

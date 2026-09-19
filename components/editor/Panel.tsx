@@ -218,7 +218,7 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
               <span className="caps">Corregir con una nota</span>
               <textarea className="field" rows={5} maxLength={2000} value={reviseText} onChange={e => setReviseText(e.target.value)}
                 placeholder={'¿Qué hay que cambiar? Nombra los números de cue — el resto vuelve intacto.\n\np. ej. 18: quita el final repetido, ya está en el 19. 53: «Reserva de la Familia» con mayúsculas.'} />
-              <div className={s.chips} style={{ alignItems: 'center' }}>
+              <div className={s.chips}>
                 <button className="btn btn-primary" data-cmd="Corregir la traducción con una nota" disabled={!reviseText.trim() || translateJob.running} aria-busy={translateJob.running || undefined}
                   onClick={() => void passes.revise(reviseText)}>Aplicar a {langCode(activeTab)}</button>
                 <span className={s.counter}>{reviseText.length}/2000</span>

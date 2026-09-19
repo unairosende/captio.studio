@@ -191,7 +191,7 @@ export default function ProjectClient({ project, sequences, links }: Props) {
             {savingTerms ? 'Guardando…' : savedTerms ? 'Guardado' : `${terms.length} ${terms.length === 1 ? 'término' : 'términos'}`}
           </span>
         </div>
-        <div className="card">
+        <div className={`card ${s.stack}`}>
           <div className={s.hint}>
             Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual.
           </div>
@@ -222,7 +222,7 @@ export default function ProjectClient({ project, sequences, links }: Props) {
               ))}
             </div>
           )}
-          <button className="btn" style={{ marginTop: terms.length ? 0 : 'var(--sp-3)' }} onClick={() => setTerms([...terms, { term: '', translation: '' }])}>Añadir término</button>
+          <button className={`btn ${s.add}`} onClick={() => setTerms([...terms, { term: '', translation: '' }])}>Añadir término</button>
         </div>
       </main>
     </div>

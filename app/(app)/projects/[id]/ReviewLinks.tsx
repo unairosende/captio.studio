@@ -95,8 +95,8 @@ export default function ReviewLinks({ projectId, initial }: Props) {
       <div className={s.sectionHead}>
         <h2>Revisión del cliente</h2>
       </div>
-      <div className="card">
-        <div className={s.hint} style={{ marginBottom: 'var(--sp-3)' }}>
+      <div className={`card ${s.stack}`}>
+        <div className={s.hint}>
           Un enlace abre todas las secuencias de este proyecto a quien lo tenga. Caduca a los {REVIEW_LINK_EXPIRY_DAYS} días.
         </div>
 
@@ -117,20 +117,20 @@ export default function ReviewLinks({ projectId, initial }: Props) {
           <button className="btn btn-primary" onClick={() => void create()} disabled={busy} aria-busy={busy || undefined}>Nuevo enlace</button>
         </div>
 
-        {error && <div className="err" style={{ marginTop: 'var(--sp-2)' }}>{error}</div>}
+        {error && <div className="err">{error}</div>}
 
         {urlToCopy && (
           <div>
-            <div className={s.hint} style={{ marginTop: 'var(--sp-2)' }}>El navegador no deja llegar al portapapeles. Copia esto:</div>
+            <div className={s.hint}>El navegador no deja llegar al portapapeles. Copia esto:</div>
             <div className={s.url}>{urlToCopy}</div>
           </div>
         )}
 
         {links.length === 0 && (
-          <div className={s.hint} style={{ marginTop: 'var(--sp-3)' }}>Ningún enlace todavía. Crea uno y mándaselo al cliente.</div>
+          <div className={s.hint}>Ningún enlace todavía. Crea uno y mándaselo al cliente.</div>
         )}
 
-        {links.map(link => {
+        {links.length > 0 && <div>{links.map(link => {
           const status = statusOf(link)
           return (
             <div key={link.id} className={s.access} data-off={status === 'active' ? undefined : ''}>
@@ -158,7 +158,7 @@ export default function ReviewLinks({ projectId, initial }: Props) {
               )}
             </div>
           )
-        })}
+        })}</div>}
       </div>
     </>
   )

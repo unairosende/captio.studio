@@ -46,6 +46,11 @@
 /* ── Las tres tarjetas ──────────────────────────────────────────────────── */
 
 .meterRow { display: flex; justify-content: space-between; margin-bottom: var(--sp-2); }
+/* Una cifra pequeña, en mono, para que las columnas de cifras cuadren. */
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+/* Lo que va al final de una cabecera o de una fila. */
+.end { margin-left: auto; }
+.plans { display: inline-block; margin-top: var(--sp-3); }
 
 .figure {
   font-family: var(--mono);
