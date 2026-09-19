@@ -201,7 +201,7 @@ function casingMismatches(
 export function glossaryIssues(text: string, terms: readonly GlossaryPattern[]): QcIssue[] {
   return casingMismatches(text, terms).map(({ found, expected }) => ({
     level: 'warn' as const,
-    msg: `Glossary term written as "${found}" — should be "${expected}"`,
+    msg: `Término del glosario escrito «${found}»: debería ser «${expected}»`,
   }))
 }
 
@@ -348,7 +348,7 @@ export function nameCasingTerms(
 export function nameCasingIssues(text: string, names: readonly GlossaryPattern[]): QcIssue[] {
   return casingMismatches(text, names).map(({ found, expected }) => ({
     level: 'warn' as const,
-    msg: `"${found}" is written "${expected}" elsewhere`,
+    msg: `«${found}» está escrito «${expected}» en otros cues`,
   }))
 }
 
@@ -372,38 +372,38 @@ export function qcIssues(
   const maxLines = Math.min(2, cfg.maxLines)
 
   if (longest > cfg.maxChars) {
-    issues.push({ level: 'error', msg: `Line too long — ${longest}/${cfg.maxChars} chars` })
+    issues.push({ level: 'error', msg: `Línea demasiado larga: ${longest}/${cfg.maxChars} caracteres` })
   } else if (longest > Math.floor(cfg.maxChars * 0.85)) {
-    issues.push({ level: 'warn', msg: `Line near limit — ${longest}/${cfg.maxChars} chars` })
+    issues.push({ level: 'warn', msg: `Línea al límite: ${longest}/${cfg.maxChars} caracteres` })
   }
   if (lines.length > maxLines) {
-    issues.push({ level: 'error', msg: `${lines.length} lines (max ${maxLines})` })
+    issues.push({ level: 'error', msg: `${lines.length} líneas (máximo ${maxLines})` })
   }
 
   const dur = cueSeconds(sub)
   if (dur <= 0) {
-    issues.push({ level: 'error', msg: 'End time is not after start time' })
+    issues.push({ level: 'error', msg: 'El tiempo de salida no va después del de entrada' })
   } else {
     const cps = cueCps(sub)!
     if (cps > cfg.cpsError) {
-      issues.push({ level: 'error', msg: `Reading speed ${cps.toFixed(1)} cps (max ${cfg.cpsError})` })
+      issues.push({ level: 'error', msg: `Velocidad de lectura ${cps.toFixed(1)} cps (máximo ${cfg.cpsError})` })
     } else if (cps > cfg.cpsWarn) {
-      issues.push({ level: 'warn', msg: `Reading speed ${cps.toFixed(1)} cps (over ${cfg.cpsWarn})` })
+      issues.push({ level: 'warn', msg: `Velocidad de lectura ${cps.toFixed(1)} cps (por encima de ${cfg.cpsWarn})` })
     }
     if (dur < cfg.minDur) {
-      issues.push({ level: 'warn', msg: `Too short — ${dur.toFixed(2)}s (min ${cfg.minDur}s)` })
+      issues.push({ level: 'warn', msg: `Demasiado corto: ${dur.toFixed(2)} s (mínimo ${cfg.minDur} s)` })
     }
     if (dur > cfg.maxDur) {
-      issues.push({ level: 'warn', msg: `Too long — ${dur.toFixed(1)}s (max ${cfg.maxDur}s)` })
+      issues.push({ level: 'warn', msg: `Demasiado largo: ${dur.toFixed(1)} s (máximo ${cfg.maxDur} s)` })
     }
   }
 
   if (prev) {
     const gap = (tcToMs(sub.start) - tcToMs(prev.end)) / 1000
     if (gap < 0) {
-      issues.push({ level: 'error', msg: `Overlaps cue #${prev.index} by ${Math.abs(gap).toFixed(2)}s` })
+      issues.push({ level: 'error', msg: `Se solapa ${Math.abs(gap).toFixed(2)} s con el cue #${prev.index}` })
     } else if (gap < cfg.minGap) {
-      issues.push({ level: 'warn', msg: `Gap ${gap.toFixed(2)}s after cue #${prev.index} (min ${cfg.minGap}s)` })
+      issues.push({ level: 'warn', msg: `Hueco de ${gap.toFixed(2)} s tras el cue #${prev.index} (mínimo ${cfg.minGap} s)` })
     }
 
     // A warning, never an error: everything above this line is a measurement
@@ -414,7 +414,8 @@ export function qcIssues(
     if (repeated) {
       issues.push({
         level: 'warn',
-        msg: `Opens with ${repeated} words already in cue #${prev.index}`,
+        msg: `Empieza con ${repeated} palabras que ya estaban en el cue #${prev.index}`,
+
       })
     }
   }

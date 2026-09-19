@@ -470,6 +470,21 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
 .cue-text > .skeleton { margin: 3px 0; }
 .cue-text mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 2px; }
 .cue-text mark[data-current] { background: var(--warn); color: var(--on-accent); }
+/* Lo que no cabe en las dos líneas de la fila se cuenta en su esquina, en el
+   rojo del control de calidad: la fila no crece, pero tampoco calla. */
+.cue-text[data-over]::after {
+  content: attr(data-over);
+  position: absolute;
+  right: var(--sp-1);
+  bottom: 0;
+  padding-left: var(--sp-2);
+  background: inherit;
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  line-height: 18px;
+  color: var(--danger);
+}
+
  /* La fila de pestañas es la cabecera de la tabla: va dentro de la rejilla,
    con las mismas columnas que las filas, y pegada arriba al hacer scroll.
    Con un idioma a la vista, las pestañas se alinean en la columna del texto;

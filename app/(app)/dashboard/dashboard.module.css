@@ -16,7 +16,8 @@
 
 .head { background: var(--s1); }
 
-.org { font-size: var(--fs-md); color: var(--ink-2); }
+.org { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); color: var(--ink-2); }
+
 
 /* El nombre del plan lleva el acento: fuera del editor no hay nada con lo que
    pueda confundirse, y es la única insignia de marca en toda la pantalla. */

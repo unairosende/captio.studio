@@ -449,12 +449,20 @@ function Cell({ text, query, qc, active, editing, onEdit, onCommit, onDone }: {
     )
   }
 
+  // Two lines is what the row shows and what a subtitle may have. A third is
+  // not drawn — the row does not grow — but it is not hidden either: the cell
+  // says how many more there are, in the check's red, so the error is read
+  // from the row and not only from the dot.
+  const lines = text.split('\n')
+  const over = lines.length - 2
   return (
     <div className="cue-text" data-qc={qc} data-active={active || undefined}
+      data-over={over > 0 ? `+${over} ${over === 1 ? 'línea' : 'líneas'}` : undefined}
       onMouseDown={e => { if (e.button === 0) { e.preventDefault(); onEdit(caretAt(e, e.currentTarget)) } }}>
-      {text.split('\n').slice(0, 2).map((l, i) => <div key={i}>{highlight(l, query)}</div>)}
+      {lines.slice(0, 2).map((l, i) => <div key={i}>{highlight(l, query)}</div>)}
     </div>
   )
+
 }
 
 /** The text with what the search found wrapped in <mark>. */

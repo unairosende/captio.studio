@@ -22,7 +22,8 @@
 
 /* ── La lista de secuencias ─────────────────────────────────────────────── */
 
-.org { font-size: var(--fs-md); color: var(--ink-2); }
+.org { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--fs-md); color: var(--ink-2); }
+
 .headEnd { margin-left: auto; display: flex; align-items: center; gap: var(--sp-3); min-width: 0; }
 .guest { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-md); color: var(--ink-2); white-space: nowrap; }
 

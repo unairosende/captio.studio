@@ -205,7 +205,7 @@ describe('glossary consistency', () => {
       { term: 'Reserva de la Familia' },
     ])
     assert.equal(msgs.length, 1)
-    assert.match(msgs[0], /written as "reserva de la familia" — should be "Reserva de la Familia"/)
+    assert.match(msgs[0], /escrito «reserva de la familia»: debería ser «Reserva de la Familia»/)
   })
 
   it('says nothing when the term is written as agreed', () => {
@@ -217,7 +217,7 @@ describe('glossary consistency', () => {
   it('checks the agreed translation, not the source term', () => {
     assert.deepEqual(check('La hacienda lo aprobó.', [
       { term: 'Tax Office', translation: 'Hacienda' },
-    ]), ['Glossary term written as "hacienda" — should be "Hacienda"'])
+    ]), ['Término del glosario escrito «hacienda»: debería ser «Hacienda»'])
     // The English side is not what the translation is measured against.
     assert.deepEqual(check('The tax office approved it.', [
       { term: 'Tax Office', translation: 'Hacienda' },
@@ -231,24 +231,24 @@ describe('glossary consistency', () => {
     assert.deepEqual(check('Es un vino. Terroir, dicen.', [{ term: 'terroir' }]), [])
     // Mid-sentence it is a real inconsistency.
     assert.deepEqual(check('We sell Terroir here.', [{ term: 'terroir' }]),
-      ['Glossary term written as "Terroir" — should be "terroir"'])
+      ['Término del glosario escrito «Terroir»: debería ser «terroir»'])
   })
 
   it('matches whole words only', () => {
     assert.deepEqual(check('Solo vino, sin sol.', [{ term: 'Sol' }]),
-      ['Glossary term written as "sol" — should be "Sol"'])
+      ['Término del glosario escrito «sol»: debería ser «Sol»'])
   })
 
   it('finds a term that begins with a letter outside ASCII', () => {
     // `\bÑoño\b` does not match: JavaScript's \b is defined on ASCII and
     // finds no boundary in front of "Ñ".
     assert.deepEqual(check('Pregunta por ñoño, el de siempre.', [{ term: 'Ñoño' }]),
-      ['Glossary term written as "ñoño" — should be "Ñoño"'])
+      ['Término del glosario escrito «ñoño»: debería ser «Ñoño»'])
   })
 
   it('survives a term containing regex punctuation', () => {
     assert.deepEqual(check('Compramos c++ ayer.', [{ term: 'C++' }]),
-      ['Glossary term written as "c++" — should be "C++"'])
+      ['Término del glosario escrito «c++»: debería ser «C++»'])
   })
 
   it('reports one term once however often the cue repeats it', () => {
@@ -272,7 +272,7 @@ describe('glossary consistency', () => {
     // nothing — correct or not — on exactly the long names this is for.
     assert.deepEqual(check('el reserva de la\nfamilia es el que guardamos.', [
       { term: 'Reserva de la Familia' },
-    ]), ['Glossary term written as "reserva de la familia" — should be "Reserva de la Familia"'])
+    ]), ['Término del glosario escrito «reserva de la familia»: debería ser «Reserva de la Familia»'])
 
     // And stays quiet when the wrapped term is written correctly.
     assert.deepEqual(check('el Reserva de la\nFamilia es el que guardamos.', [
@@ -296,7 +296,7 @@ describe('proper-name casing', () => {
 
   const casing = (texts: string[], glossary: { term?: string }[] = []): string[] =>
     [...qcTrack(track(texts), DEFAULT_QC, glossary)]
-      .flatMap(([n, v]) => v.issues.filter(i => /is written/.test(i.msg)).map(i => `#${n} ${i.msg}`))
+      .flatMap(([n, v]) => v.issues.filter(i => /está escrito/.test(i.msg)).map(i => `#${n} ${i.msg}`))
 
   it('reports a name the track spells one way once and another way the rest of the time', () => {
     assert.deepEqual(
@@ -306,7 +306,7 @@ describe('proper-name casing', () => {
         'Nadie toca el Reserva de la Familia.',
         'Sacamos el reserva de la familia\nsolo en fiestas.',
       ]),
-      ['#4 "reserva de la familia" is written "Reserva de la Familia" elsewhere'],
+      ['#4 «reserva de la familia» está escrito «Reserva de la Familia» en otros cues'],
     )
   })
 
@@ -373,7 +373,7 @@ describe('quality checks', () => {
     const s = cue({ text: 'x'.repeat(40), start: '00:00:00,000', end: '00:00:02,000' })
     const issues = qcIssues(s, null, cfg)
     assert.equal(issues.some(i => i.level === 'error'), false)
-    assert.equal(issues.some(i => /Reading speed/.test(i.msg)), true)
+    assert.equal(issues.some(i => /Velocidad de lectura/.test(i.msg)), true)
   })
 
   it('rejects an end time at or before the start', () => {
@@ -392,7 +392,7 @@ describe('quality checks', () => {
     const tight = cue({ index: 2, start: '00:00:02,040', end: '00:00:04,000' })
     const issues = qcIssues(tight, prev, cfg)
     assert.equal(issues.some(i => i.level === 'error'), false)
-    assert.equal(issues.some(i => /Gap/.test(i.msg)), true)
+    assert.equal(issues.some(i => /Hueco/.test(i.msg)), true)
   })
 
   it('measures how much of a cue repeats the text of the one before it', () => {
@@ -443,7 +443,8 @@ describe('quality checks', () => {
     const issues = qcIssues(next, prev, cfg)
     // A guess about content never blocks the work.
     assert.equal(issues.some(i => i.level === 'error'), false)
-    assert.equal(issues.some(i => /Opens with 3 words already in cue #18/.test(i.msg)), true)
+    assert.equal(issues.some(i => /Empieza con 3 palabras que ya estaban en el cue #18/.test(i.msg)), true)
+
     assert.equal(qcStatus(next, prev, cfg), 'warn')
   })
 
