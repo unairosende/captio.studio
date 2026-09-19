@@ -19,9 +19,27 @@ button, input, select, textarea { font-family: inherit; }
   outline-offset: 1px;
 }
 
+/* ── Movimiento ──────────────────────────────────────────────────────────── */
+
+/* En una herramienta el movimiento informa, no entretiene: quien la usa ocho
+   horas verá cada animación mil veces. Se mueve solo lo que aparece encima
+   (diálogo, paleta, menú, aviso), lo que cambia de sitio (la fila que nace al
+   partir un cue, la que sube al borrar el de arriba) y lo que hace esperar
+   (el punto que gira, el esqueleto, el medidor). 120 y 180 ms, saliendo
+   rápido; y nada de esto cuando el sistema pide menos movimiento. */
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes shimmer { to { background-position: -200% 0; } }
 @keyframes slide { to { background-position: 40px 0; } }
+@keyframes fade { from { opacity: 0; } }
+@keyframes rise { from { opacity: 0; translate: 0 4px; } }
+@keyframes settle { from { background: var(--select); } }
+
+/* Lo que aparece encima entra en su sitio; lo que desaparece, desaparece. */
+.overlay { animation: fade var(--t-fast) var(--ease-out); }
+.panel, .palette, .menu, .toast { animation: rise var(--t-base) var(--ease-out); }
+/* La fila que acaba de ocupar un sitio — nacida de un corte, o subida por un
+   borrado — lo dice un momento con el lavado de selección, y se apaga sola. */
+.cue[data-born] { animation: settle .6s var(--ease-out); }
 
 /* ── Etiquetas y atajos ──────────────────────────────────────────────────── */
 
@@ -805,7 +823,11 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
 }
 .skeleton-circle { width: 24px; height: 24px; border-radius: 50%; }
 
+/* Menos movimiento: nada entra ni se apaga; lo que espera sigue diciendo
+   que espera, porque un punto que gira es un dato, no un adorno. */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
-  .skeleton, .meter[aria-busy="true"] .meter-fill { animation: none; }
+  .skeleton, .meter[aria-busy="true"] .meter-fill,
+  .overlay, .panel, .palette, .menu, .toast, .cue[data-born] { animation: none; }
 }
+

@@ -84,6 +84,10 @@
 
   --t-fast: 120ms;
   --t-base: 180ms;
+  /* Sale rápido y llega despacio: lo que aparece está ya casi en su sitio
+     desde el primer fotograma, y el ojo no lo sigue, lo encuentra. */
+  --ease-out: cubic-bezier(.2, 0, 0, 1);
+
 
   /* La fila de cue: altura fija, decidida en B. Una lista que se recorre con
      el ojo no puede tener filas de altura impredecible. */

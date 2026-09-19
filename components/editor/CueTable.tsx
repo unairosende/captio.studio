@@ -178,9 +178,25 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
   }, [ctx])
 
   function comment(index: number) { if (sequenceId) setThread(index) }
-  function split(index: number) { splitSubtitle(index, playheadSeconds() ?? undefined) }
+  /**
+   * The row that has just taken a place: the one born of a split, or the one
+   * that moved up when the cue above it was deleted. Every row below either
+   * is renumbered, and a list that jumps without saying where is a list the
+   * eye has to re-read. The row says it for six tenths of a second and then
+   * looks like any other.
+   */
+  const [born, setBorn] = useState<number | null>(null)
+  const bornTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  function settle(index: number) {
+    if (bornTimer.current) clearTimeout(bornTimer.current)
+    setBorn(index)
+    bornTimer.current = setTimeout(() => setBorn(null), 700)
+  }
+  useEffect(() => () => { if (bornTimer.current) clearTimeout(bornTimer.current) }, [])
+
+  function split(index: number) { splitSubtitle(index, playheadSeconds() ?? undefined); settle(index + 1) }
   function remove(index: number) {
-    if (confirm(`¿Borrar el cue ${index} en todos los idiomas?`)) { deleteSubtitle(index); select(null) }
+    if (confirm(`¿Borrar el cue ${index} en todos los idiomas?`)) { deleteSubtitle(index); select(null); settle(index) }
   }
 
   function choose(c: Subtitle) {
@@ -328,7 +344,9 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
             const open = openOn.get(c.index)
             return (
               <div key={c.index} className="cue" data-cue={c.index} data-qc={tone(quality?.get(c.index)?.status)}
+                data-born={born === c.index || undefined}
                 aria-selected={selected === c.index} tabIndex={0}
+
                 onClick={e => { if ((e.target as HTMLElement).tagName !== 'TEXTAREA') choose(c) }}
                 onContextMenu={e => { e.preventDefault(); choose(c); setCtx({ x: e.clientX, y: Math.min(e.clientY, window.innerHeight - 180), index: c.index }) }}>
                 <span className="cue-n" title={open ? `${open} comentarios abiertos` : undefined}>{c.index}{open ? <b className={s.dot} /> : null}</span>

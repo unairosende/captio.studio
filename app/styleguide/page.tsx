@@ -159,7 +159,11 @@ export default function StyleguidePage() {
           <div>
             <h2>Espacio y forma</h2>
             <p>Rejilla de 4. Tres radios que se distinguen a simple vista: fichas, controles,
-            paneles. Una sombra, solo para lo que flota. Dos duraciones: 120 y 180 ms.</p>
+            paneles. Una sombra, solo para lo que flota. Dos duraciones, 120 y 180 ms, saliendo
+            rápido: lo que aparece encima entra en su sitio, la fila que acaba de ocupar uno lo
+            dice un momento, y lo que espera gira. Nada más se mueve; y nada de esto si el
+            sistema pide menos movimiento.</p>
+
           </div>
           <div>
             <div className={s.spaces}>
