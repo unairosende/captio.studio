@@ -15,7 +15,7 @@ import s from './editor.module.css'
  */
 export default function Shortcuts({ onClose }: { onClose: () => void }) {
   return (
-    <Dialog label="Atajos de teclado" className={s.keys} onClose={onClose}>
+    <Dialog label="Atajos de teclado" className={s.shortcuts} onClose={onClose}>
         <div className="panel-head">
           <span className="panel-title">Atajos de teclado</span>
           <span className="muted">⌘ es Ctrl en Windows y Linux</span>
