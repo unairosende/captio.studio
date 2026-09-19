@@ -1,8 +1,8 @@
 'use client'
 
-import { type CSSProperties, useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
-import { useRestoreFocus } from '@/components/useRestoreFocus'
+import Dialog from '@/components/Dialog'
 import { organization } from '@/lib/auth/client'
 import { INVITATION_EXPIRY_DAYS } from '@/lib/auth/expiry'
 import { ROLES, type Role, roleLabel } from '@/lib/roles'
@@ -83,8 +83,6 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
   const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
 
   const canManage = role === 'owner' || role === 'admin'
-  useRestoreFocus()
-
 
   const refresh = useCallback(async () => {
     const [m, i] = await Promise.all([
@@ -104,12 +102,6 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh()
   }, [refresh])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   async function invite() {
     const address = email.trim()
@@ -200,14 +192,7 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
     new Date(at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 
   return (
-    <div
-      className="overlay"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Equipo"
-    >
-      <div className="panel" style={{ '--panel-w': '520px', '--panel-h': '72vh' } as CSSProperties}>
+    <Dialog label="Equipo" width="520px" height="72vh" onClose={onClose}>
         <div className="panel-head">
           <span className="panel-title">Equipo</span>
           <span className="muted">{members.length} {members.length === 1 ? 'persona' : 'personas'}</span>
@@ -320,7 +305,6 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
             <p className={`muted ${s.note}`}>Pide a un administrador que invite a alguien o cambie un rol.</p>
           )}
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

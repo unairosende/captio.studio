@@ -1,8 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
-
-import { useRestoreFocus } from '@/components/useRestoreFocus'
+import Dialog from '@/components/Dialog'
 import { SHORTCUTS } from '@/lib/shortcuts'
 
 import s from './editor.module.css'
@@ -16,17 +14,8 @@ import s from './editor.module.css'
  * editor is reached.
  */
 export default function Shortcuts({ onClose }: { onClose: () => void }) {
-  useRestoreFocus()
-  useEffect(() => {
-
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
-
   return (
-    <div className="overlay" role="dialog" aria-modal="true" aria-label="Atajos de teclado" onClick={e => { if (e.target === e.currentTarget) onClose() }}>
-      <div className={`panel ${s.keys}`}>
+    <Dialog label="Atajos de teclado" className={s.keys} onClose={onClose}>
         <div className="panel-head">
           <span className="panel-title">Atajos de teclado</span>
           <span className="muted">⌘ es Ctrl en Windows y Linux</span>
@@ -45,7 +34,6 @@ export default function Shortcuts({ onClose }: { onClose: () => void }) {
             </section>
           ))}
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }

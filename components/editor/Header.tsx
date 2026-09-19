@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
+import Dialog from '@/components/Dialog'
 import { signOut as endSession } from '@/lib/auth/client'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 
@@ -162,8 +163,7 @@ export default function Header({ user, project, onPalette, onTeam, onShortcuts }
       </span>
 
       {save.conflict && save.sequenceId && (
-        <div className="overlay" role="dialog" aria-modal="true" aria-label="Conflicto al guardar">
-          <div className="panel">
+        <Dialog label="Conflicto al guardar" onClose={() => save.setConflict(false)}>
             <div className="panel-head"><span className="panel-title">Alguien guardó antes que tú</span></div>
             <div className="panel-body">
               Otra persona guardó esta secuencia después de que la abrieras. Si guardas ahora, su trabajo se pierde.
@@ -173,8 +173,7 @@ export default function Header({ user, project, onPalette, onTeam, onShortcuts }
               <button className="btn btn-danger" onClick={() => void save.save(true)}>Sobrescribir</button>
               <button className="btn btn-primary" onClick={() => void save.load(save.sequenceId!)}>Cargar la suya</button>
             </div>
-          </div>
-        </div>
+        </Dialog>
       )}
     </header>
   )

@@ -1,8 +1,8 @@
 'use client'
 
-import { type CSSProperties, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
-import { useRestoreFocus } from '@/components/useRestoreFocus'
+import Dialog from '@/components/Dialog'
 import { api, send } from '@/lib/api'
 import { shortLang } from '@/lib/lang'
 import type { ProjectComment } from '@/types/comment'
@@ -46,19 +46,11 @@ export default function CommentsPanel({
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  useRestoreFocus()
   const thread = comments.filter(c => c.cue_index === cueIndex)
-
 
   useEffect(() => {
     inputRef.current?.focus()
   }, [])
-
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   async function post() {
     const body = draft.trim()
@@ -102,14 +94,7 @@ export default function CommentsPanel({
   }
 
   return (
-    <div
-      className="overlay"
-      onClick={e => { if (e.target === e.currentTarget) onClose() }}
-      role="dialog"
-      aria-modal="true"
-      aria-label={`Comentarios del cue ${cueIndex}`}
-    >
-      <div className="panel" style={{ '--panel-w': '420px', '--panel-h': '64vh' } as CSSProperties}>
+    <Dialog label={`Comentarios del cue ${cueIndex}`} width="420px" height="64vh" onClose={onClose}>
         <div className="panel-head">
           <span className="panel-title">Comentarios del #{cueIndex}</span>
           <button className="btn btn-quiet btn-icon panel-close" onClick={onClose} aria-label="Cerrar los comentarios">×</button>
@@ -185,7 +170,6 @@ export default function CommentsPanel({
             {busy ? 'Enviando…' : 'Enviar'}
           </button>
         </div>
-      </div>
-    </div>
+    </Dialog>
   )
 }
