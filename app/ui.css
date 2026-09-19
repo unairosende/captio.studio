@@ -121,7 +121,7 @@
 .v2 .btn-primary .kbd { background: rgb(27 27 29 / .12); color: var(--on-accent); }
 
 .v2 .btn-danger { color: var(--danger); }
-.v2 .btn-danger:hover,  .v2 .btn-danger[data-state="hover"]  { background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+.v2 .btn-danger:hover,  .v2 .btn-danger[data-state="hover"]  { color: var(--danger); background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
 .v2 .btn-danger:active, .v2 .btn-danger[data-state="active"] { background: color-mix(in srgb, var(--danger) 20%, transparent); }
 
 /* Un botón que es solo un icono: cuadrado, sin texto, con su nombre en aria-label. */
@@ -168,7 +168,10 @@
 .v2 textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--sp-2); line-height: var(--lh); resize: vertical; }
 .v2 .field::placeholder { color: var(--ink-3); }
 .v2 .field:hover, .v2 .field[data-state="hover"] { border-color: color-mix(in srgb, var(--ink) 32%, transparent); }
-.v2 .field:focus-visible, .v2 .field[data-state="focus"] { border-color: transparent; outline-offset: 0; }
+/* Con el ratón, el campo en el que se escribe se afirma como al pasar por encima;
+   el anillo es solo del teclado. */
+.v2 .field:focus { border-color: color-mix(in srgb, var(--ink) 32%, transparent); outline: 0; }
+.v2 .field:focus-visible, .v2 .field[data-state="focus"] { border-color: transparent; outline: 2px solid var(--ring); outline-offset: 0; }
 .v2 .field:disabled, .v2 .field[aria-disabled="true"] { opacity: .45; background: var(--s2); }
 .v2 .field[aria-invalid="true"] { border-color: var(--danger); }
 
@@ -348,6 +351,7 @@
   gap: var(--sp-2);
   min-height: 36px;
   padding: 0 var(--sp-2);
+  border: 0;
   border-radius: var(--r-md);
   color: var(--ink);
   font-size: var(--fs-md);
@@ -571,7 +575,7 @@
   color: var(--ink);
 }
 .v2 .panel-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
-.v2 .panel-title { font-size: var(--fs-md); font-weight: 600; }
+.v2 .panel-title { font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
 .v2 .panel-close { margin-left: auto; }
 .v2 .panel-body { flex: 1; overflow-y: auto; padding: var(--sp-3) var(--sp-4); font-size: var(--fs-md); }
 .v2 .panel-foot { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line); }

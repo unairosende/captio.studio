@@ -121,7 +121,7 @@ export default function CommentsPanel({
       <div className="panel" style={{ '--panel-w': '420px', '--panel-h': '64vh' } as CSSProperties}>
         <div className="panel-head">
           <span className="panel-title">Comentarios del #{cueIndex}</span>
-          <button className="panel-close" onClick={onClose} aria-label="Cerrar los comentarios">×</button>
+          <button className="btn btn-quiet btn-icon panel-close" onClick={onClose} aria-label="Cerrar los comentarios">×</button>
         </div>
 
         <div className="panel-body">

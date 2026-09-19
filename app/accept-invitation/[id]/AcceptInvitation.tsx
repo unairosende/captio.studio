@@ -5,9 +5,7 @@ import { useState } from 'react'
 
 import { Actions, AuthCard, FormError } from '@/components/auth/AuthCard'
 import { organization } from '@/lib/auth/client'
-
-/** The role as the reader says it. Better Auth keeps the English key. */
-const ROLE: Record<string, string> = { owner: 'propietario', admin: 'administrador', member: 'miembro' }
+import { roleLabel } from '@/lib/roles'
 
 export function AcceptInvitation({
   invitationId,
@@ -53,7 +51,7 @@ export function AcceptInvitation({
   return (
     <AuthCard title={`Únete a ${organizationName}`} subtitle="Tienes una invitación">
       <p>
-        Te han invitado a <strong>{organizationName}</strong> como <strong>{ROLE[role] ?? role}</strong>.
+        Te han invitado a <strong>{organizationName}</strong> como <strong>{roleLabel(role)}</strong>.
         Verás los proyectos de la organización y podrás trabajar en ellos.
       </p>
 

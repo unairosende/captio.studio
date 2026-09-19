@@ -1,0 +1,40 @@
+/* El diálogo de equipo: quién está y qué puede hacer. Un panel de la
+   biblioteca con el formulario de invitar arriba, las personas debajo y las
+   invitaciones pendientes al final. Solo maquetación de este diálogo. */
+
+.invite { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.inviteRow { display: flex; gap: var(--sp-2); }
+.inviteRow > :global(.field) { flex: 1; min-width: 0; }
+.inviteRow :global(.select-wrap) { flex: none; }
+
+.line { padding: var(--sp-2) var(--sp-4) 0; }
+
+/* El enlace escrito, para cuando el portapapeles no se deja. */
+.url {
+  margin-top: var(--sp-1);
+  padding: 5px 7px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--s2);
+  font-family: var(--mono);
+  font-size: var(--fs-xs);
+  color: var(--ink-2);
+  user-select: all;
+  word-break: break-all;
+}
+
+.body { padding: var(--sp-2) var(--sp-3) var(--sp-3); }
+
+.who { min-width: 0; }
+.name { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.email { font-size: var(--fs-sm); color: var(--ink-3); word-break: break-all; }
+.tools { display: flex; align-items: center; gap: var(--sp-1); margin-left: auto; }
+.role { margin-left: auto; font-size: var(--fs-sm); color: var(--ink-3); }
+
+.pending { display: block; margin: var(--sp-3) var(--sp-2) var(--sp-1); }
+.invEmail { min-width: 0; color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.invRole { font-size: var(--fs-sm); color: var(--ink-3); flex: none; }
+.invWhen { margin-left: auto; font-size: var(--fs-sm); color: var(--ink-3); white-space: nowrap; }
+.invWhen + :global(.btn) { margin-left: 0; }
+
+.note { margin: var(--sp-2) var(--sp-2) 0; }

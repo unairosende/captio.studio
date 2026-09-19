@@ -12,6 +12,7 @@ import type { ProjectSummary } from '@/lib/db/projects'
 import type { Entitlement } from '@/lib/entitlement'
 import { TRIAL } from '@/lib/plans'
 import { LANG_CODES } from '@/lib/providers'
+import { roleLabel } from '@/lib/roles'
 import { formatDuration, formatMonth, type MonthUsage } from '@/lib/usage'
 
 import s from './dashboard.module.css'
@@ -35,10 +36,6 @@ interface Props {
 
 /** `Spanish` as `ES`, and anything unrecognised as itself. */
 const short = (lang: string | null): string => (lang ? (LANG_CODES[lang] ?? lang) : '—')
-
-/** The role as the reader says it. The database keeps the English key. */
-const ROLE: Record<string, string> = { owner: 'propietario', admin: 'administrador', member: 'miembro' }
-const roleLabel = (role: string): string => ROLE[role] ?? role
 
 /**
  * The first thing a customer sees after signing in.

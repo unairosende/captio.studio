@@ -4,6 +4,9 @@ import { type CSSProperties, useCallback, useEffect, useState } from 'react'
 
 import { organization } from '@/lib/auth/client'
 import { INVITATION_EXPIRY_DAYS } from '@/lib/auth/expiry'
+import { ROLES, type Role, roleLabel } from '@/lib/roles'
+
+import s from './team.module.css'
 
 /**
  * Who is in the organisation, and what they may do.
@@ -22,14 +25,25 @@ import { INVITATION_EXPIRY_DAYS } from '@/lib/auth/expiry'
  * set of rules to keep in step.
  */
 
-const ROLES = ['member', 'admin', 'owner'] as const
-type Role = typeof ROLES[number]
-
 const ROLE_HELP: Record<Role, string> = {
-  member: 'Edits subtitles and comments',
-  admin: 'Also invites people and handles billing',
-  owner: 'The same, and cannot be removed by an admin',
+  member: 'Edita subtítulos y comenta',
+  admin: 'Además invita a gente y lleva la facturación',
+  owner: 'Lo mismo, y un administrador no puede quitarle',
 }
+
+/**
+ * The two refusals a person is likely to meet, in their language. Better Auth
+ * answers in English; anything else falls through as it came, which beats a
+ * translation that hides what actually happened.
+ */
+const REFUSAL: Record<string, string> = {
+  USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION: 'Esa persona ya está en la organización.',
+  USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION: 'Esa persona ya tiene una invitación pendiente.',
+}
+const said = (err: { code?: string; message?: string }, fallback: string): string =>
+  (err.code && REFUSAL[err.code]) || err.message || fallback
+
+const isRole = (r: string): r is Role => (ROLES as readonly string[]).includes(r)
 
 interface Member {
   id: string
@@ -111,7 +125,7 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
     await refresh()
 
     if (res.error) {
-      setError(res.error.message ?? 'Could not send that invitation')
+      setError(said(res.error, 'No se pudo enviar la invitación'))
       return
     }
     // Deliberately not "sent". Whether the email left is decided in a background
@@ -150,18 +164,18 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
     setError(null)
     const res = await organization.updateMemberRole({ memberId: m.id, role: next })
     if (res.error) {
-      setError(res.error.message ?? 'Could not change that role')
+      setError(said(res.error, 'No se pudo cambiar el rol'))
       return
     }
     await refresh()
   }
 
   async function remove(m: Member) {
-    if (!confirm(`Remove ${m.user.email} from the organisation?`)) return
+    if (!confirm(`¿Quitar a ${m.user.email} de la organización?`)) return
     setError(null)
     const res = await organization.removeMember({ memberIdOrEmail: m.id })
     if (res.error) {
-      setError(res.error.message ?? 'Could not remove them')
+      setError(said(res.error, 'No se pudo quitar a esa persona'))
       return
     }
     await refresh()
@@ -173,11 +187,14 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
     setSent(null)
     const res = await organization.cancelInvitation({ invitationId: inv.id })
     if (res.error) {
-      setError(res.error.message ?? 'Could not cancel that invitation')
+      setError(said(res.error, 'No se pudo cancelar la invitación'))
       return
     }
     await refresh()
   }
+
+  const expires = (at: string | Date) =>
+    new Date(at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 
   return (
     <div
@@ -185,146 +202,119 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
       role="dialog"
       aria-modal="true"
-      aria-label="Team"
+      aria-label="Equipo"
     >
-      <div className="panel" style={{ '--panel-w': '480px', '--panel-h': '70vh' } as CSSProperties}>
+      <div className="panel" style={{ '--panel-w': '520px', '--panel-h': '72vh' } as CSSProperties}>
         <div className="panel-head">
-          <span className="panel-title">Team</span>
-          <span className="muted">
-            {members.length} {members.length === 1 ? 'person' : 'people'}
-          </span>
-          <button className="panel-close" onClick={onClose} aria-label="Close team">×</button>
+          <span className="panel-title">Equipo</span>
+          <span className="muted">{members.length} {members.length === 1 ? 'persona' : 'personas'}</span>
+          <button className="btn btn-quiet btn-icon panel-close" onClick={onClose} aria-label="Cerrar el equipo">×</button>
         </div>
 
         {canManage && (
-          <div style={{ padding: '10px 13px', borderBottom: '1px solid var(--line)' }}>
-            <div style={{ display: 'flex', gap: 7 }}>
+          <div className={s.invite}>
+            <div className={s.inviteRow}>
               <input
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void invite() } }}
                 type="email"
-                placeholder="colleague@example.com"
+                placeholder="colega@productora.com"
                 spellCheck={false}
-                aria-label="Email to invite"
+                aria-label="Correo de la persona a invitar"
                 className="field"
-                style={{ flex: 1 }}
               />
-              <select
-                value={inviteRole}
-                onChange={e => setInviteRole(e.target.value as Role)}
-                aria-label="Role"
-                className="field"
-                style={{ cursor: 'pointer' }}
-              >
-                {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-              </select>
-              <button className="btn btn-primary btn-lg" onClick={() => void invite()}
-                disabled={busy || !email.trim()}>
-                {busy ? 'Sending…' : 'Invite'}
+              <div className="select-wrap">
+                <select
+                  value={inviteRole}
+                  onChange={e => setInviteRole(e.target.value as Role)}
+                  aria-label="Rol"
+                  className="field"
+                >
+                  {ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
+                </select>
+              </div>
+              <button className="btn btn-primary" onClick={() => void invite()} disabled={!email.trim()} aria-busy={busy || undefined}>
+                Invitar
               </button>
             </div>
-            <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginTop: 5 }}>
-              {ROLE_HELP[inviteRole]}. The link expires in {INVITATION_EXPIRY_DAYS} days.
+            <div className="field-msg">
+              {ROLE_HELP[inviteRole]}. El enlace caduca en {INVITATION_EXPIRY_DAYS} días.
             </div>
             {sent && (
-              <div className="ok" style={{ marginTop: 5 }}>
-                {sent} is invited. If the email does not arrive, copy the link below.
+              <div className="ok">
+                {sent} tiene su invitación. Si el correo no llega, copia el enlace de abajo.
               </div>
             )}
           </div>
         )}
 
-        {error && <div className="err" style={{ padding: '8px 13px 0' }}>{error}</div>}
+        {error && <p className={`err ${s.line}`} role="alert">{error}</p>}
 
         {linkToCopy && (
-          <div style={{ padding: '8px 13px 0' }}>
-            <div className="muted" style={{ fontSize: 'var(--fs-xs)', marginBottom: 3 }}>
-              Your browser would not let the page reach the clipboard. Copy this:
-            </div>
-            <div style={{
-              userSelect: 'all', wordBreak: 'break-all',
-              fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--ink-2)',
-              background: 'var(--s2)', border: '1px solid var(--line)',
-              borderRadius: 'var(--r-sm)', padding: '5px 7px',
-            }}>
-              {linkToCopy}
-            </div>
+          <div className={s.line}>
+            <div className="muted">El navegador no ha dejado llegar al portapapeles. Copia esto:</div>
+            <div className={s.url}>{linkToCopy}</div>
           </div>
         )}
 
-        <div className="panel-body" style={{ padding: '6px 13px 12px' }}>
+        <div className={`panel-body ${s.body}`}>
           {members.map(m => (
             <div key={m.id} className="row">
-              <div style={{ minWidth: 0 }}>
-                <div style={{ fontSize: 'var(--fs-md)', color: 'var(--ink)' }}>
+              <div className={s.who}>
+                <div className={s.name}>
                   {m.user.name || m.user.email}
-                  {m.userId === currentUserId && (
-                    <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}> · you</span>
-                  )}
+                  {m.userId === currentUserId && <span className="muted"> · tú</span>}
                 </div>
-                <div className="muted" style={{ fontSize: 'var(--fs-xs)', wordBreak: 'break-all' }}>
-                  {m.user.email}
-                </div>
+                <div className={s.email}>{m.user.email}</div>
               </div>
 
               {/* Nobody edits their own role or shows themselves the door. An
                   owner who demoted themselves by accident has no way back, and
                   the last one out would leave the organisation unadministrable. */}
               {canManage && m.userId !== currentUserId ? (
-                <div style={{ display: 'flex', gap: 5, marginLeft: 'auto' }}>
-                  <select
-                    value={(ROLES as readonly string[]).includes(m.role) ? m.role : 'member'}
-                    onChange={e => void changeRole(m, e.target.value as Role)}
-                    aria-label={`Role for ${m.user.email}`}
-                    className="field"
-                    style={{ fontSize: 'var(--fs-sm)', padding: '3px 6px', cursor: 'pointer' }}
-                  >
-                    {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
-                  </select>
-                  <button className="btn btn-danger" onClick={() => void remove(m)}
-                    title="Remove from the organisation">
-                    Remove
+                <div className={s.tools}>
+                  <div className="select-wrap">
+                    <select
+                      value={isRole(m.role) ? m.role : 'member'}
+                      onChange={e => void changeRole(m, e.target.value as Role)}
+                      aria-label={`Rol de ${m.user.email}`}
+                      className="field"
+                    >
+                      {ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
+                    </select>
+                  </div>
+                  <button className="btn btn-danger" onClick={() => void remove(m)} title="Quitar de la organización">
+                    Quitar
                   </button>
                 </div>
               ) : (
-                <span className="muted" style={{ marginLeft: 'auto' }}>{m.role}</span>
+                <span className={s.role}>{roleLabel(m.role)}</span>
               )}
             </div>
           ))}
 
           {invites.length > 0 && (
             <>
-              <div className="caps" style={{ margin: '12px 0 4px' }}>
-                Invited, not yet accepted
-              </div>
+              <span className={`caps ${s.pending}`}>Invitadas, sin aceptar</span>
               {invites.map(inv => (
-                <div key={inv.id} className="row" style={{ padding: '6px 0' }}>
-                  <div style={{ fontSize: 'var(--fs-md)', color: 'var(--ink-2)', wordBreak: 'break-all' }}>
-                    {inv.email}
-                  </div>
-                  <span className="muted" style={{ fontSize: 'var(--fs-xs)' }}>
-                    {inv.role ?? 'member'}
-                  </span>
-                  <span className="muted" style={{ fontSize: 'var(--fs-xs)', marginLeft: 'auto' }}>
-                    expires {new Date(inv.expiresAt).toLocaleDateString()}
-                  </span>
+                <div key={inv.id} className="row">
+                  <span className={s.invEmail}>{inv.email}</span>
+                  <span className={s.invRole}>{roleLabel(inv.role ?? 'member')}</span>
+                  <span className={s.invWhen}>caduca el {expires(inv.expiresAt)}</span>
                   {/* Always offered, not only after a failure: the email is one
                       way to deliver a link, and not always the one that works. */}
-                  <button className="btn" onClick={() => void copyLink(inv)}
-                    title="Copy the invitation link">
-                    {copied === inv.id ? 'Copied' : 'Copy link'}
+                  <button className="btn" onClick={() => void copyLink(inv)} title="Copiar el enlace de la invitación">
+                    {copied === inv.id ? 'Copiado' : 'Copiar enlace'}
                   </button>
-                  <button className="btn" onClick={() => void cancel(inv)}>Cancel</button>
+                  <button className="btn" onClick={() => void cancel(inv)}>Cancelar</button>
                 </div>
               ))}
             </>
           )}
 
           {!canManage && (
-            <div className="muted" style={{ marginTop: 10 }}>
-              Ask an admin to invite somebody or change a role.
-            </div>
+            <p className={`muted ${s.note}`}>Pide a un administrador que invite a alguien o cambie un rol.</p>
           )}
         </div>
       </div>
