@@ -28,7 +28,7 @@ export interface Reply<T> {
 export const OFFLINE = 'Sin conexión con el servidor. Comprueba la red y vuelve a intentarlo.'
 
 const BY_STATUS: Record<number, string> = {
-  401: 'Tu sesión ha caducado. Recarga la página y vuelve a entrar.',
+  401: 'Tu sesión ha caducado. Entra de nuevo en otra pestaña y vuelve a intentarlo: lo que tienes en pantalla no se pierde.',
   403: 'No tienes permiso para hacer esto. Pídeselo a un propietario o administrador.',
   404: 'Eso ya no existe. Recarga la página.',
 }
