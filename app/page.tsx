@@ -2,7 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import type { CSSProperties } from 'react'
 
-import { LEGAL_DOCS, publishedLegalSlugs } from '@/lib/legal'
+import Shell from '@/components/marketing/Shell'
+import m from '@/components/marketing/marketing.module.css'
 import { PLANS, TRIAL } from '@/lib/plans'
 
 import s from './landing.module.css'
@@ -26,14 +27,6 @@ export const metadata: Metadata = {
  * Every figure is read from lib/plans.ts, so the promise on this page cannot
  * drift from the limit the API enforces.
  */
-
-/** The legal documents as a Spanish reader names them; the files keep their English titles. */
-const LEGAL_LABEL: Record<keyof typeof LEGAL_DOCS, string> = {
-  terms: 'Términos',
-  privacy: 'Privacidad',
-  dpa: 'Encargo de datos',
-  subprocessors: 'Subencargados',
-}
 
 /** Four cues of one job, with the two states the quality checks paint. */
 const SAMPLE: { n: number; tin: string; tout: string; es: string[]; en: string[]; qc?: 'warn' | 'danger' }[] = [
@@ -70,129 +63,107 @@ const STEPS = [
   },
 ]
 
-export default async function LandingPage() {
-  const legal = await publishedLegalSlugs()
+export default function LandingPage() {
   const cheapest = Math.min(...PLANS.map(p => p.price))
 
   return (
-    <div className={`v2 ${s.page}`}>
-      <header className={`topbar ${s.head}`}>
-        <Link href="/" className="brand">captio</Link>
-        <nav className={s.nav} aria-label="Principal">
-          <Link href="/pricing" className="btn btn-quiet">Precios</Link>
-          <Link href="/login" className="btn btn-quiet">Entrar</Link>
-          <Link href="/signup" className="btn btn-primary">Empezar gratis</Link>
-        </nav>
-      </header>
+    <Shell>
+      <section className={s.hero}>
+        <span className="caps">Para traductores y productoras</span>
+        <h1>El subtitulado entero, en una sola ventana.</h1>
+        <p className={s.lede}>
+          Transcribe el vídeo, traduce a los idiomas que haga falta con el glosario del proyecto,
+          comprueba la calidad, revísalo con tu cliente y devuelve el archivo a Premiere. Sin Excel,
+          sin traductor online, sin pasar cuatro veces por lo mismo.
+        </p>
+        <div className={s.cta}>
+          <Link href="/signup" className="btn btn-primary btn-lg">Empezar gratis</Link>
+          <Link href="/pricing" className="btn btn-lg">Ver precios</Link>
+        </div>
+        <p className={s.fine}>
+          {TRIAL.mediaMinutes} minutos de material gratis, sin tarjeta · desde {cheapest} €/mes
+        </p>
+      </section>
 
-      <main className={s.main}>
-        <section className={s.hero}>
-          <span className="caps">Para traductores y productoras</span>
-          <h1>El subtitulado entero, en una sola ventana.</h1>
-          <p className={s.lede}>
-            Transcribe el vídeo, traduce a los idiomas que haga falta con el glosario del proyecto,
-            comprueba la calidad, revísalo con tu cliente y devuelve el archivo a Premiere. Sin Excel,
-            sin traductor online, sin pasar cuatro veces por lo mismo.
-          </p>
-          <div className={s.cta}>
-            <Link href="/signup" className="btn btn-primary btn-lg">Empezar gratis</Link>
-            <Link href="/pricing" className="btn btn-lg">Ver precios</Link>
-          </div>
-          <p className={s.fine}>
-            {TRIAL.mediaMinutes} minutos de material gratis, sin tarjeta · desde {cheapest} €/mes
-          </p>
-        </section>
-
-        {/* The editor, as it is: a documentary's reel with the original beside
-            the translation, one line over the reading speed and one over the
-            limit. Decorative to a screen reader — the page says the same in
-            words. */}
-        <div className={s.shot} aria-hidden="true">
-          <div className={s.shotBar}>
-            <span className="brand">captio</span>
-            <span className="topbar-sep" />
-            <span className="crumbs">
-              <span>Proyectos</span>
-              <span>/</span>
-              <span>Documental Groenlandia — EP03</span>
-              <span>/</span>
-              <span>Rollo 2</span>
-            </span>
-            <div className={s.shotEnd}>
-              <span className="btn">Guardar <span className="kbd">⌘S</span></span>
-              <span className={s.shotSaved}>guardado 12:04</span>
-            </div>
-          </div>
-          <div className="cues" data-view="compare" style={{ '--cols': '36px 116px minmax(0, 1fr) minmax(0, 1fr)' } as CSSProperties}>
-            <div className="cue-tabs">
-              <span className="cue-n">#</span>
-              <span>in · out</span>
-              <span className="tab" aria-selected="true"><span>ES · original</span></span>
-              <span className="tab"><span>EN</span></span>
-            </div>
-            {SAMPLE.map(c => (
-              <div key={c.n} className="cue" data-qc={c.qc}>
-                <span className="cue-n">{c.n}</span>
-                <span className="cue-tc">{c.tin}<br />{c.tout}</span>
-                <div className="cue-text" data-active="">{c.es.map(l => <div key={l}>{l}</div>)}</div>
-                <div className="cue-text" data-qc={c.qc}>{c.en.map(l => <div key={l}>{l}</div>)}</div>
-              </div>
-            ))}
+      {/* The editor, as it is: a documentary's reel with the original beside
+          the translation, one line over the reading speed and one over the
+          limit. Decorative to a screen reader — the page says the same in
+          words. */}
+      <div className={s.shot} aria-hidden="true">
+        <div className={s.shotBar}>
+          <span className="brand">captio</span>
+          <span className="topbar-sep" />
+          <span className="crumbs">
+            <span>Proyectos</span>
+            <span>/</span>
+            <span>Documental Groenlandia — EP03</span>
+            <span>/</span>
+            <span>Rollo 2</span>
+          </span>
+          <div className={s.shotEnd}>
+            <span className="btn">Guardar <span className="kbd">⌘S</span></span>
+            <span className={s.shotSaved}>guardado 12:04</span>
           </div>
         </div>
+        <div className="cues" data-view="compare" style={{ '--cols': '36px 116px minmax(0, 1fr) minmax(0, 1fr)' } as CSSProperties}>
+          <div className="cue-tabs">
+            <span className="cue-n">#</span>
+            <span>in · out</span>
+            <span className="tab" aria-selected="true"><span>ES · original</span></span>
+            <span className="tab"><span>EN</span></span>
+          </div>
+          {SAMPLE.map(c => (
+            <div key={c.n} className="cue" data-qc={c.qc}>
+              <span className="cue-n">{c.n}</span>
+              <span className="cue-tc">{c.tin}<br />{c.tout}</span>
+              <div className="cue-text" data-active="">{c.es.map(l => <div key={l}>{l}</div>)}</div>
+              <div className="cue-text" data-qc={c.qc}>{c.en.map(l => <div key={l}>{l}</div>)}</div>
+            </div>
+          ))}
+        </div>
+      </div>
 
-        <section className={s.section}>
-          <div className={s.sectionHead}>
-            <h2>De la transcripción a la entrega, sin cambiar de sitio</h2>
-            <p>Lo que hoy se reparte entre Premiere, un Excel, un traductor online y una herramienta de control de calidad.</p>
-          </div>
-          <div className={s.grid}>
-            {STEPS.map((step, i) => (
-              <div key={step.title} className={`card ${s.feature}`}>
-                <span className="caps">{String(i + 1).padStart(2, '0')}</span>
-                <h3>{step.title}</h3>
-                <p>{step.body}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+      <section className={m.section}>
+        <div className={m.sectionHead}>
+          <h2>De la transcripción a la entrega, sin cambiar de sitio</h2>
+          <p>Lo que hoy se reparte entre Premiere, un Excel, un traductor online y una herramienta de control de calidad.</p>
+        </div>
+        <div className={s.grid}>
+          {STEPS.map((step, i) => (
+            <div key={step.title} className={`card ${s.feature}`}>
+              <span className="caps">{String(i + 1).padStart(2, '0')}</span>
+              <h3>{step.title}</h3>
+              <p>{step.body}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
-        <section className={s.section}>
-          <div className={s.sectionHead}>
-            <h2>Un precio al mes, y todos los idiomas dentro</h2>
-            <p>Se paga por el material que se procesa, no por idioma ni por subtítulo. Cuando la cuota se acaba, lo que ya está hecho sigue ahí y sigue exportándose.</p>
+      <section className={m.section}>
+        <div className={m.sectionHead}>
+          <h2>Un precio al mes, y todos los idiomas dentro</h2>
+          <p>Se paga por el material que se procesa, no por idioma ni por subtítulo. Cuando la cuota se acaba, lo que ya está hecho sigue ahí y sigue exportándose.</p>
+        </div>
+        <div className={m.plans}>
+          <div className="card">
+            <span className="caps">Prueba</span>
+            <div className={m.price}>0 €</div>
+            <p className={m.planLine}>
+              {TRIAL.mediaMinutes} minutos de material, sin tarjeta y sin caducidad: una cantidad, no una quincena.
+            </p>
           </div>
-          <div className={s.plans}>
-            <div className="card">
-              <span className="caps">Prueba</span>
-              <div className={s.price}>0 €</div>
-              <p className={s.planLine}>
-                {TRIAL.mediaMinutes} minutos de material, sin tarjeta y sin caducidad: una cantidad, no una quincena.
+          {PLANS.map(plan => (
+            <div key={plan.id} className="card">
+              <span className="caps">{plan.name}</span>
+              <div className={m.price}>{plan.price} €<span className={m.per}>/mes</span></div>
+              <p className={m.planLine}>
+                {plan.monthlyMediaMinutes / 60} horas de material al mes · {plan.seats} {plan.seats === 1 ? 'plaza' : 'plazas'}
               </p>
             </div>
-            {PLANS.map(plan => (
-              <div key={plan.id} className="card">
-                <span className="caps">{plan.name}</span>
-                <div className={s.price}>{plan.price} €<span className={s.per}>/mes</span></div>
-                <p className={s.planLine}>
-                  {plan.monthlyMediaMinutes / 60} horas de material al mes · {plan.seats} {plan.seats === 1 ? 'plaza' : 'plazas'}
-                </p>
-              </div>
-            ))}
-          </div>
-          <Link href="/pricing" className="link">Ver los planes con detalle</Link>
-        </section>
-      </main>
-
-      <footer className={`${s.main} ${s.foot}`}>
-        <span className="brand">captio</span>
-        <nav className={s.footNav} aria-label="Pie">
-          <Link href="/pricing">Precios</Link>
-          <Link href="/login">Entrar</Link>
-          {legal.map(slug => <Link key={slug} href={`/${slug}`}>{LEGAL_LABEL[slug]}</Link>)}
-          <a href="mailto:hello@captio.studio">hello@captio.studio</a>
-        </nav>
-      </footer>
-    </div>
+          ))}
+        </div>
+        <Link href="/pricing" className="link">Ver los planes con detalle</Link>
+      </section>
+    </Shell>
   )
 }

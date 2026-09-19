@@ -23,10 +23,9 @@ npm run migrate  # runner propio, tabla schema_migrations
 El servidor de desarrollo se arranca con la herramienta de vista previa, no con
 `npm run dev` a mano: `.claude/launch.json` define `captio-dev` en el puerto 3000.
 
-**Base del lint: 1 aviso.** Es previo y conocido (`app/pricing/page.tsx`).
-Si tras un cambio salen 2, el segundo es tuyo. Eran 5 hasta que el rediseño
-del editor se llevó por delante `EditorArea` y `SequenceBar`, donde vivían los
-otros cuatro.
+**Base del lint: 0 avisos.** Si tras un cambio sale uno, es tuyo. Eran 5
+hasta que el rediseño del editor se llevó por delante `EditorArea` y
+`SequenceBar`, y el último vivía en la página de precios vieja.
 
 ## Estructura
 

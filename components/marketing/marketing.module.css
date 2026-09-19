@@ -1,0 +1,82 @@
+/* Las pantallas que ve un desconocido: la landing, los precios y las legales.
+   Marketing, así que se permite la escala que dentro del editor sería un
+   grito — un titular grande, aire, el acento en el botón primario — con las
+   mismas piezas. Aquí vive lo que las tres comparten: el armazón, la cabecera
+   de sección y las tarjetas de plan. Lo propio de cada una va en su módulo. */
+
+.page {
+  min-height: 100vh;
+  background: var(--s1);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-lg);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+.head { background: var(--s1); }
+.nav { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); }
+.nav a { text-decoration: none; }
+
+.main { max-width: 1080px; margin: 0 auto; padding: 0 var(--sp-4) 72px; }
+
+/* ── Cabeceras ──────────────────────────────────────────────────────────── */
+
+/* La de una página: la etiqueta, el titular y la línea que lo explica. */
+.intro { max-width: 720px; padding: 72px 0 var(--sp-8); }
+.intro h1 {
+  margin: var(--sp-3) 0 var(--sp-3);
+  font-size: clamp(30px, 4.2vw, 44px);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -.025em;
+  text-wrap: balance;
+}
+.intro p { margin: 0; max-width: 60ch; font-size: var(--fs-xl); color: var(--ink-2); text-wrap: pretty; }
+
+/* La de una sección dentro de la página. */
+.section { margin-top: 96px; }
+.sectionHead { max-width: 640px; margin-bottom: var(--sp-6); }
+.sectionHead h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -.015em; text-wrap: balance; }
+.sectionHead p { margin: 0; color: var(--ink-2); }
+
+/* ── Planes ─────────────────────────────────────────────────────────────── */
+
+.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-4); }
+.plan { display: flex; flex-direction: column; }
+.price { margin-top: var(--sp-2); font-family: var(--mono); font-size: var(--fs-2xl); font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.per { margin-left: 2px; font-size: var(--fs-md); color: var(--ink-3); }
+.planLine { margin: var(--sp-1) 0 0; font-size: var(--fs-md); color: var(--ink-2); }
+
+/* Lo que incluye: una línea por cosa, con una raya delante y sin iconos. */
+.features { flex: 1; margin: var(--sp-4) 0; padding: 0; list-style: none; font-size: var(--fs-md); color: var(--ink-2); }
+.features li { position: relative; padding: 3px 0 3px var(--sp-4); }
+.features li::before { content: "—"; position: absolute; left: 0; color: var(--ink-3); font-family: var(--mono); }
+.features strong { color: var(--ink); font-weight: 500; }
+
+/* Lo que se dice al pie de una lista de precios: cuándo se cobra, qué pasa
+   al agotar la cuota, a quién preguntar. */
+.note { max-width: 62ch; margin: var(--sp-8) 0 0; font-size: var(--fs-md); color: var(--ink-3); }
+.note p { margin: 0 0 var(--sp-2); }
+
+/* ── Pie ────────────────────────────────────────────────────────────────── */
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-4) var(--sp-6);
+  margin-top: 96px;
+  padding-top: var(--sp-6);
+  border-top: 1px solid var(--line);
+  font-size: var(--fs-md);
+  color: var(--ink-3);
+}
+.footNav { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
+.footNav a { color: var(--ink-3); text-decoration: none; }
+.footNav a:hover { color: var(--ink); text-decoration: underline; }
+
+@media (max-width: 680px) {
+  .intro { padding-top: 40px; }
+  .section, .foot { margin-top: 64px; }
+}

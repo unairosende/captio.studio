@@ -1,25 +1,6 @@
-/* La landing: marketing, así que se permite la escala que dentro del editor
-   sería un grito — un titular grande, aire, el acento en el botón primario.
-   Las piezas son las mismas, y el producto se enseña a sí mismo con su propia
-   tabla en lugar de con una ilustración. Solo maquetación de esta pantalla. */
-
-.page {
-  min-height: 100vh;
-  background: var(--s1);
-  color: var(--ink);
-  font-family: var(--sans);
-  font-size: var(--fs-lg);
-  line-height: var(--lh);
-  -webkit-font-smoothing: antialiased;
-}
-
-.head { background: var(--s1); }
-.nav { margin-left: auto; display: flex; align-items: center; gap: var(--sp-2); }
-.nav a { text-decoration: none; }
-
-.main { max-width: 1080px; margin: 0 auto; padding: 0 var(--sp-4) 72px; }
-
-/* ── Portada ────────────────────────────────────────────────────────────── */
+/* Lo propio de la landing: la portada y el producto enseñándose a sí mismo
+   con su propia tabla en lugar de con una ilustración. El armazón y las
+   tarjetas de plan son de components/marketing. */
 
 .hero { max-width: 780px; padding: 88px 0 56px; }
 .hero h1 {
@@ -60,40 +41,12 @@
 .shotSaved { font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
 .shot :global(.cues) { min-width: 760px; border: 0; border-radius: 0; }
 
-/* ── Secciones ──────────────────────────────────────────────────────────── */
-
-.section { margin-top: 96px; }
-.sectionHead { max-width: 640px; margin-bottom: var(--sp-6); }
-.sectionHead h2 { margin: 0 0 var(--sp-2); font-size: var(--fs-2xl); font-weight: 600; letter-spacing: -.015em; text-wrap: balance; }
-.sectionHead p { margin: 0; color: var(--ink-2); }
+/* ── Los pasos ──────────────────────────────────────────────────────────── */
 
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: var(--sp-4); }
 .feature h3 { margin: var(--sp-2) 0; font-size: var(--fs-lg); font-weight: 600; }
 .feature p { margin: 0; font-size: var(--fs-md); color: var(--ink-2); }
 
-.plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--sp-4); margin-bottom: var(--sp-4); }
-.price { margin-top: var(--sp-2); font-family: var(--mono); font-size: var(--fs-2xl); font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-.per { margin-left: 2px; font-size: var(--fs-md); color: var(--ink-3); }
-.planLine { margin: var(--sp-1) 0 0; font-size: var(--fs-md); color: var(--ink-2); }
-
-/* ── Pie ────────────────────────────────────────────────────────────────── */
-
-.foot {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-4) var(--sp-6);
-  margin-top: 96px;
-  padding-top: var(--sp-6);
-  border-top: 1px solid var(--line);
-  font-size: var(--fs-md);
-  color: var(--ink-3);
-}
-.footNav { display: flex; flex-wrap: wrap; gap: var(--sp-4); }
-.footNav a { color: var(--ink-3); text-decoration: none; }
-.footNav a:hover { color: var(--ink); text-decoration: underline; }
-
 @media (max-width: 680px) {
   .hero { padding: 48px 0 40px; }
-  .section, .foot { margin-top: 64px; }
 }
