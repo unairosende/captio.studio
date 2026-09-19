@@ -61,14 +61,13 @@ export default function Player({ playback, cues, videoRef, onActive }: Props) {
   const active = activeIndex === null ? null : (cues.find(c => c.index === activeIndex) ?? null)
 
   return (
-    <div style={{ position: 'relative', background: '#000', containerType: 'inline-size' }}>
+    <div className="picture player">
       <video
         ref={videoRef}
         src={playback.url}
         controls
         playsInline
         preload="metadata"
-        style={{ display: 'block', width: '100%', aspectRatio: '16 / 9', objectFit: 'contain' }}
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => setPlaying(false)}
@@ -76,7 +75,7 @@ export default function Player({ playback, cues, videoRef, onActive }: Props) {
         onSeeked={e => show(e.currentTarget.currentTime)}
       />
       {/* Above the native controls' strip — a fixed height, not a share of a player that may be small. */}
-      <div style={{ position: 'absolute', inset: '0 0 56px 0', pointerEvents: 'none' }}>
+      <div className="player-caption">
         <Caption text={active?.text} />
       </div>
     </div>

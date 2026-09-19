@@ -1,6 +1,7 @@
 /* ── Piezas ────────────────────────────────────────────────────────────────
-   Catorce piezas en sus siete estados, pintadas en /styleguide: si algo no
-   está allí, no existe. Los nombres son los buenos del CSS antiguo (.btn,
+   Las piezas en sus siete estados, pintadas en /styleguide: si algo no está
+   allí, no existe — y tests/design/styleguide.test.ts lo comprueba en las dos
+   direcciones: cada clase de aquí sale en la guía, y la usa el producto. Los nombres son los buenos del CSS antiguo (.btn,
    .field, .panel, .row, .caps, .meter); vivieron bajo un prefijo .v2 mientras
    las pantallas migraban, y el prefijo se cayó con la última.
 
@@ -39,7 +40,7 @@ button, input, select, textarea { font-family: inherit; }
 
 /* Lo que aparece encima entra en su sitio; lo que desaparece, desaparece. */
 .overlay { animation: fade var(--t-fast) var(--ease-out); }
-.panel, .palette, .menu, .toast { animation: rise var(--t-base) var(--ease-out); }
+.panel, .palette, .menu { animation: rise var(--t-base) var(--ease-out); }
 /* La fila que acaba de ocupar un sitio — nacida de un corte, o subida por un
    borrado — lo dice un momento con el lavado de selección, y se apaga sola. */
 .cue[data-born] { animation: settle .6s var(--ease-out); }
@@ -249,7 +250,10 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
 }
 .crumbs a { color: var(--ink-3); text-decoration: none; }
 .crumbs a:hover { color: var(--ink); text-decoration: underline; }
-.crumbs > span:last-child { color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+/* Cada miga puede encoger: un nombre de proyecto largo se corta con puntos
+   en vez de empujar lo que la barra lleva a la derecha fuera de la pantalla. */
+.crumbs > a, .crumbs > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.crumbs > span:last-child { color: var(--ink); }
 
 /* ── Pestañas de idioma ──────────────────────────────────────────────────── */
 
@@ -418,30 +422,12 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
   font-size: var(--fs-md);
 }
 
-.cue-head, .cue {
+.cue {
   display: grid;
   grid-template-columns: var(--cols);
   align-items: center;
   column-gap: var(--sp-3);
   padding-right: var(--sp-3);
-}
-
-.cue-head {
-  height: 28px;
-  border-bottom: 1px solid var(--line-2);
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
-  letter-spacing: .06em;
-  text-transform: uppercase;
-  color: var(--ink-3);
-}
-.cue-head .cue-stat { color: var(--ink-3); }
-/* Una cabecera de columna que es un botón elige ese idioma. */
-.cue-head > button { border: 0; background: none; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; cursor: pointer; }
-.cue-head > button:hover { color: var(--ink); }
-.cue-head > button[aria-pressed="true"] { color: var(--ink); }
-
-.cue {
   height: var(--row);
   border-bottom: 1px solid var(--line);
   transition: background var(--t-fast);
@@ -716,35 +702,6 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
   animation: slide .8s linear infinite;
 }
 
-/* ── Aviso emergente ─────────────────────────────────────────────────────── */
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-3);
-  max-width: 440px;
-  padding: var(--sp-2) var(--sp-3);
-  border: 1px solid var(--line);
-  border-radius: var(--r-lg);
-  background: var(--raised);
-  box-shadow: var(--lift);
-  color: var(--ink);
-  font-size: var(--fs-md);
-}
-.toast::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
-.toast[data-kind="ok"]::before     { background: var(--ok); }
-.toast[data-kind="warn"]::before   { background: var(--warn); }
-.toast[data-kind="danger"]::before { background: var(--danger); }
-.toast[aria-busy="true"]::before {
-  width: 10px; height: 10px;
-  background: none;
-  border: 1.5px solid var(--line-2);
-  border-top-color: var(--ink);
-  animation: spin .6s linear infinite;
-}
-.toast .muted { color: var(--ink-3); font-size: var(--fs-sm); }
-.toast > .btn { margin-left: auto; }
-
 /* ── Menú ────────────────────────────────────────────────────────────────── */
 
 .menu {
@@ -807,13 +764,41 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
 
 /* La barra sobre la forma de onda: reproducir, el reloj, el zoom, el audio.
    La onda es el instrumento; esto son sus mandos, y pesan poco a propósito. */
-.transport { background: var(--s1); }
+.transport { display: flex; align-items: stretch; background: var(--s1); }
+.transport-main { flex: 1; min-width: 0; }
 .transport-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); }
 .transport-clock { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
 .transport-tools { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); }
 .transport-zoom { min-width: 40px; text-align: center; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
-.transport-video { position: relative; flex: 0 0 clamp(280px, 28vw, 420px); background: #000; border-right: 1px solid var(--line); container-type: inline-size; }
-.transport-video video { display: block; width: 100%; height: 100%; object-fit: contain; }
+.transport-video { flex: 0 0 clamp(280px, 28vw, 420px); border-right: 1px solid var(--line); }
+.transport-video video { height: 100%; }
+
+/* ── La imagen ───────────────────────────────────────────────────────────── */
+
+/* El vídeo y la cue encima, como la quemaría una emisora: abajo, centrada,
+   blanca sobre sombra. No lee el tema a propósito: un subtítulo sobre imagen
+   se lee contra la imagen, no contra la app. La misma pieza en el panel del
+   editor y en el visor del cliente; el visor lleva los controles nativos y
+   la cue sube por encima de su franja. */
+.picture { position: relative; background: #000; container-type: inline-size; }
+.picture video { display: block; width: 100%; object-fit: contain; }
+.player video { aspect-ratio: 16 / 9; }
+.player-caption { position: absolute; inset: 0 0 56px 0; pointer-events: none; }
+.caption {
+  position: absolute;
+  left: 4%;
+  right: 4%;
+  bottom: 6%;
+  text-align: center;
+  pointer-events: none;
+  color: #fff;
+  font-size: clamp(12px, 2.4cqw, 22px);
+  font-weight: 500;
+  line-height: 1.3;
+  text-shadow: 0 0 4px #000, 0 1px 2px #000, 0 0 12px rgb(0 0 0 / .8);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 
 /* ── Esqueleto ───────────────────────────────────────────────────────────── */
 
@@ -827,13 +812,12 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
   background-size: 200% 100%;
   animation: shimmer 1.2s linear infinite;
 }
-.skeleton-circle { width: 24px; height: 24px; border-radius: 50%; }
 
 /* Menos movimiento: nada entra ni se apaga; lo que espera sigue diciendo
    que espera, porque un punto que gira es un dato, no un adorno. */
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; }
   .skeleton, .meter[aria-busy="true"] .meter-fill,
-  .overlay, .panel, .palette, .menu, .toast, .cue[data-born] { animation: none; }
+  .overlay, .panel, .palette, .menu, .cue[data-born] { animation: none; }
 }
 

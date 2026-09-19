@@ -1,0 +1,17 @@
+/* La onda: lo que solo la línea de tiempo maqueta. Las piezas compartidas
+   (.transport, .picture, .caption) viven en app/ui.css. */
+
+/* La altura la pone el componente, que la necesita también para dibujar. */
+.scroll {
+  height: var(--wave-h);
+  overflow-x: auto;
+  overflow-y: hidden;
+  cursor: default;
+  touch-action: none;
+}
+.scroll[data-ready] { cursor: pointer; }
+
+/* Vacía, y solo para darle a la barra de scroll algo que medir. */
+.track { position: relative; height: var(--wave-h); }
+
+.canvas { display: block; position: sticky; left: 0; top: 0; }

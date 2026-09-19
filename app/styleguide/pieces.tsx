@@ -88,28 +88,35 @@ export const CUES: {
 
 type Cue = (typeof CUES)[number]
 
-function CueRow({ c, selected = false, busy = false, ...rest }: { c: Cue; selected?: boolean; busy?: boolean } & StateAttrs) {
+/** One language at a time, the one whose tab is open: the same table the
+ *  editor draws. Editing happens in the cell, and that is the row's active
+ *  state — a cue is selected or it is being corrected, nothing in between. */
+function CueRow({ c, selected = false, editing = false, busy = false, ...rest }: { c: Cue; selected?: boolean; editing?: boolean; busy?: boolean } & StateAttrs) {
   return (
     <div className="cue" data-qc={c.qc === 'ok' ? undefined : c.qc} aria-selected={selected || undefined} aria-busy={busy || undefined} tabIndex={0} {...rest}>
       <span className="cue-n">{c.n}</span>
       <span className="cue-tc">{c.tin}<br />{c.tout}</span>
-      <div className="cue-text"><div>{c.es[0]}</div><div>{c.es[1]}</div></div>
       {busy
         ? <div className="cue-text"><span className="skeleton" style={{ width: '70%' }} /><span className="skeleton" style={{ width: '85%' }} /></div>
-        : <div className="cue-text"><div>{c.en[0]}</div><div>{c.en[1]}</div></div>}
+        : editing
+          ? <div className="cue-text" data-active=""><textarea className="cue-edit" defaultValue={c.es.join('\n')} wrap="off" aria-label="Texto del cue" readOnly /></div>
+          : <div className="cue-text"><div>{c.es[0]}</div><div>{c.es[1]}</div></div>}
       <span className="cue-stat">{busy ? '—' : c.cps}</span>
       <span className="cue-stat">{busy ? '—' : c.chars}</span>
     </div>
   )
 }
 
+/** The header is the tab strip, so the languages never scroll away. */
 function CueHead() {
   return (
-    <div className="cue-head">
+    <div className="cue-tabs">
       <span className="cue-n">#</span>
       <span>in · out</span>
-      <span>es · original</span>
-      <span>en · inglés</span>
+      <div className="tabs" role="tablist" aria-label="Idiomas">
+        <button className="tab" role="tab" aria-selected="true"><span>Original</span><span className="tab-dot" /></button>
+        <button className="tab" role="tab" aria-selected="false" data-qc="warn"><span>EN</span><span className="tab-dot" /><span className="tab-x" role="button" tabIndex={-1} aria-label="Quitar EN">×</span></button>
+      </div>
       <span className="cue-stat">cps</span>
       <span className="cue-stat">car</span>
     </div>
@@ -120,7 +127,7 @@ function CueHead() {
  *  dos se parecen, el acento no ha cedido. */
 export function CueTable({ className = '' }: { className?: string }) {
   return (
-    <div className={`cues ${className}`} style={{ '--cols': '36px 116px minmax(0, 1fr) minmax(0, 1fr) 52px 56px' } as CSSProperties}>
+    <div className={`cues ${className}`} style={{ '--cols': '36px 116px minmax(0, 1fr) 52px 56px' } as CSSProperties}>
       <CueHead />
       {CUES.map(c => <CueRow key={c.n} c={c} selected={c.n === 1} />)}
     </div>
@@ -163,7 +170,7 @@ export function Pieces() {
     <>
       <Grid
         title="Botón"
-        note={<>Cuatro variantes y dos alturas. El primario es el único con el acento como relleno: hay uno por superficie, o ninguno. El atajo va escrito dentro. Cargando, el texto se vuelve invisible en vez de desaparecer: el botón no cambia de anchura.</>}
+        note={<>Cuatro variantes, dos alturas y el de solo icono. El primario es el único con el acento como relleno: hay uno por superficie, o ninguno. El atajo va escrito dentro. Cargando, el texto se vuelve invisible en vez de desaparecer: el botón no cambia de anchura.</>}
         na={{ error: 'un botón no falla; falla el formulario, y lo dice el campo o el aviso' }}
       >
         {st => (
@@ -172,6 +179,8 @@ export function Pieces() {
             <button className="btn btn-primary" {...at(st)}>Exportar SRT <span className="kbd">⌘E</span></button>
             <button className="btn btn-danger" {...at(st)}>Borrar cue</button>
             <button className="btn btn-quiet" {...at(st)}>Cancelar</button>
+            <button className="btn btn-lg btn-primary" {...at(st)}>Empezar gratis</button>
+            <button className="btn btn-quiet btn-icon" aria-label="Cerrar" {...at(st)}>×</button>
           </div>
         )}
       </Grid>
@@ -214,7 +223,7 @@ export function Pieces() {
 
       <Grid
         title="Pestañas de idioma"
-        note={<>Pestañas de fichero: la activa se funde con la tabla, las demás van hundidas. Un idioma que se traduce lleva un punto que gira; uno con fallos, un punto ámbar o rojo. La cruz solo aparece al pasar el ratón o en la activa.</>}
+        note={<>Pestañas de fichero: la activa se funde con la tabla, las demás van hundidas. Un idioma que se traduce lleva un punto que gira; uno con fallos, un punto ámbar o rojo. La cruz solo aparece al pasar el ratón o en la activa. Comparando, una pestaña se pliega a una tira de 28 px y vuelve al pulsarla.</>}
       >
         {st => (
           <div className="tabs" role="tablist">
@@ -222,7 +231,8 @@ export function Pieces() {
             <button className="tab" role="tab" {...(st === 'error' ? { 'data-qc': 'danger' } : st === 'activo' ? { 'aria-selected': true } : at(st))}>
               <span>EN</span><span className="tab-dot" /><span className="tab-x">×</span>
             </button>
-            <button className="tab" role="tab"><span>FR</span></button>
+            <button className="tab" role="tab"><span>FR</span><span className="tab-dot" /><span className="tab-fold" role="button" tabIndex={-1} aria-label="Plegar FR">‹</span></button>
+            <button className="tab" data-folded="" aria-label="Desplegar DE"><span>DE</span></button>
           </div>
         )}
       </Grid>
@@ -250,7 +260,7 @@ export function Pieces() {
 
       <Grid
         title="Fila de cue"
-        note={<>Altura fija de 56 px. Seleccionada, neutra; con aviso, un tick ámbar en el margen y la cifra en ámbar; con error, en rojo. Cargando, la traducción se convierte en esqueleto y la fila sigue midiendo lo mismo.</>}
+        note={<>Altura fija de 56 px. Seleccionada, neutra; corrigiendo, el texto se edita en su sitio; con aviso, un tick ámbar en el margen y la cifra en ámbar; con error, en rojo. Cargando, la traducción se convierte en esqueleto y la fila sigue midiendo lo mismo.</>}
         na={{ deshabilitado: 'no hay cues deshabilitados: se editan o no existen' }}
         wide
       >
@@ -258,22 +268,23 @@ export function Pieces() {
           <div className="cues">
             {st === 'error'
               ? <CueRow c={CUES[2]} />
-              : <CueRow c={CUES[0]} selected={st === 'activo'} busy={st === 'cargando'} {...(st === 'activo' ? {} : atDiv(st))} />}
+              : <CueRow c={CUES[0]} selected={st === 'activo'} editing={st === 'activo'} busy={st === 'cargando'} {...(st === 'activo' ? {} : atDiv(st))} />}
           </div>
         )}
       </Grid>
 
       <Grid
         title="Panel de diálogo"
-        note={<>Alto en la pantalla, no centrado: cada diálogo trata de algo que hay detrás, y tapar el centro del editor esconde justo lo que se discute. El primario, a la derecha; lo que no compromete, a la izquierda.</>}
+        note={<>Alto en la pantalla, no centrado: cada diálogo trata de algo que hay detrás, y tapar el centro del editor esconde justo lo que se discute. Detrás, el velo: lo que hay debajo se ve, apagado. El primario, a la derecha; lo que no compromete, a la izquierda.</>}
         na={{ hover: 'un diálogo no se pasa por encima; sus botones sí', foco: 'el foco entra en el primer campo', activo: 'abierto es su único estado', deshabilitado: 'se cierra, no se deshabilita' }}
         wide
       >
         {st => (
+          <div className={`overlay ${s.scrim}`}>
           <div className="panel" style={{ '--panel-w': '460px', maxHeight: 'none' } as CSSProperties} aria-busy={st === 'cargando' || undefined}>
             <div className="panel-head">
               <span className="panel-title">Invitar a un compañero</span>
-              <button className="btn btn-quiet panel-close" aria-label="Cerrar">×</button>
+              <button className="btn btn-quiet btn-icon panel-close" aria-label="Cerrar">×</button>
             </div>
             <div className="panel-body">
               {st === 'cargando'
@@ -289,6 +300,7 @@ export function Pieces() {
                 ? <><span className="err">El correo no salió. El enlace copiable sí funciona.</span><button className="btn">Copiar enlace</button></>
                 : <><button className="btn btn-quiet">Cancelar</button><button className="btn btn-primary" aria-busy={st === 'cargando' || undefined}>Invitar</button></>}
             </div>
+          </div>
           </div>
         )}
       </Grid>
@@ -354,23 +366,6 @@ export function Pieces() {
       </Grid>
 
       <Grid
-        title="Aviso emergente"
-        note={<>Un punto de color dice de qué va; el texto dice qué pasó y, si hay algo que hacer, un botón lo hace. Sin iconos, sin cerrar: se va solo, salvo el rojo.</>}
-        na={{ hover: 'no se toca; su botón sí', foco: 'el foco va al botón', activo: 'no', deshabilitado: 'no' }}
-        wide
-      >
-        {st => (
-          st === 'cargando' ? <div className="toast" aria-busy="true">Traduciendo al inglés <span className="muted">12 de 93</span></div>
-          : st === 'error' ? <div className="toast" data-kind="danger">No se guardó: Marta guardó antes que tú. <button className="btn">Ver sus cambios</button></div>
-          : <div className={s.stackWide}>
-              <div className="toast">Guardado <span className="muted">14:52</span></div>
-              <div className="toast" data-kind="ok">Exportado SRT · ES, EN <button className="btn btn-quiet">Abrir carpeta</button></div>
-              <div className="toast" data-kind="warn">3 cues por encima de 17 cps <button className="btn btn-quiet">Ver</button></div>
-            </div>
-        )}
-      </Grid>
-
-      <Grid
         title="Menú"
         note={<>Filas de la misma altura que un botón, atajos a la derecha, separadores finos. Lo destructivo en rojo, y solo se enciende al pasar por encima. Lo marcable lleva su marca delante, y hueco cuando no.</>}
         na={{ cargando: 'no carga', error: 'no falla' }}
@@ -387,6 +382,97 @@ export function Pieces() {
             <button className="menu-item" role="menuitemcheckbox" aria-checked="false">Imantar al cambio de plano</button>
             <div className="menu-sep" />
             <button className="menu-item danger" role="menuitem">Borrar cue<span className="kbd">⌫</span></button>
+          </div>
+        )}
+      </Grid>
+
+      <Grid
+        title="Barra superior"
+        note={<>La marca, un separador y las migas: dónde estás, en tinta apagada, y lo último en tinta. A la derecha, lo que la pantalla necesita a mano —en el editor, guardar y la cuenta. 44 px en todas las pantallas, incluida la del cliente.</>}
+        na={{ hover: 'la barra no; las migas se subrayan', foco: 'va a sus piezas', activo: 'no', deshabilitado: 'no', error: 'lo dice la pieza que falla, no la barra' }}
+        wide
+      >
+        {st => (
+          <header className="topbar">
+            <a href="#" className="brand" onClick={e => e.preventDefault()}>captio</a>
+            <span className="topbar-sep" />
+            <nav className="crumbs" aria-label="Dónde estás"><a href="#" onClick={e => e.preventDefault()}>Proyectos</a><span>/</span><a href="#" onClick={e => e.preventDefault()}>Documental Groenlandia — EP03</a><span>/</span><span>Rollo 2</span></nav>
+            <span className={s.grow} />
+            <button className="btn" aria-busy={st === 'cargando' || undefined}>Guardar <span className="kbd">⌘S</span></button>
+            <span className="muted">{st === 'cargando' ? 'guardando…' : 'guardado 12:04'}</span>
+          </header>
+        )}
+      </Grid>
+
+      <Grid
+        title="Tarjeta"
+        note={<>Un bloque con borde en la superficie de trabajo: un plan, un enlace de revisión, un paso de la landing. Cabecera en negrita con su aclaración al lado, y el cuerpo debajo. Nada más: la tarjeta no tiene estados, los tiene lo que lleva dentro.</>}
+        na={{ hover: 'no', foco: 'no', activo: 'no', deshabilitado: 'no', cargando: 'cargando es el esqueleto', error: 'lo dice su contenido' }}
+        wide
+      >
+        {() => (
+          <div className="card">
+            <div className="card-head"><h3>Revisión del cliente</h3><span className="muted">caduca el 18/10/2026</span></div>
+            <p>Un enlace abre todas las secuencias de este proyecto a quien lo tenga. Puede corregir el texto y comentar; no puede tocar los tiempos.</p>
+          </div>
+        )}
+      </Grid>
+
+      <Grid
+        title="Ficha"
+        note={<>Una ficha que se marca: un idioma rápido, un filtro. En tinta cuando está puesta, para que no compita con el ámbar del control de calidad. Mono y pequeña: es un código, no una palabra.</>}
+        na={{ cargando: 'no carga', error: 'no falla' }}
+      >
+        {st => (
+          <div className={s.stack}>
+            <div className={s.rowWrap}>
+              <button className="chip" aria-pressed={st === 'activo'} {...at(st)}>EN</button>
+              <button className="chip">FR</button>
+              <button className="chip">DE</button>
+            </div>
+          </div>
+        )}
+      </Grid>
+
+      <Grid
+        title="Transporte"
+        note={<>La barra del vídeo, bajo la tabla: reproducir, el reloj en mono, qué archivo suena y, a la derecha, el zoom de la onda y la carga. Con vídeo, la imagen va a la izquierda con la cue encima; sin él, la barra lo dice y ofrece cargarlo.</>}
+        na={{ hover: 'sus botones', foco: 'sus botones', activo: 'reproduciendo: el botón cambia de signo', deshabilitado: 'sin archivo, el zoom y reproducir se apagan' }}
+        wide
+      >
+        {st => (
+          <div className="transport">
+            <div className="transport-video picture" hidden={st !== 'reposo'}>
+              <span className="caption">El hielo se rompe antes de que amanezca.</span>
+            </div>
+            <div className="transport-main">
+            <div className="transport-bar">
+              <button className="btn" aria-label="Reproducir" disabled={st === 'error'}>▶</button>
+              <span className="transport-clock">00:08:14,320 <span className="muted">/ 00:52:10,000</span></span>
+              <span className="kbd">2×</span>
+              <span className={st === 'error' ? 'err' : 'muted'}>{st === 'cargando' ? 'Descodificando…' : st === 'error' ? 'Ese archivo no se pudo reproducir' : 'groenlandia-ep03-rollo2.mov'}</span>
+              <div className="transport-tools">
+                <button className="btn btn-quiet" aria-label="Alejar" disabled={st === 'error'}>−</button>
+                <span className="transport-zoom">1.0×</span>
+                <button className="btn btn-quiet" aria-label="Acercar" disabled={st === 'error'}>+</button>
+                <button className="btn">Cargar vídeo o audio</button>
+              </div>
+            </div>
+            </div>
+          </div>
+        )}
+      </Grid>
+
+      <Grid
+        title="La imagen"
+        note={<>El vídeo con la cue encima, como la quemaría una emisora: abajo, centrada, blanca sobre sombra. No lee el tema: un subtítulo sobre imagen se lee contra la imagen. En el visor del cliente lleva los controles nativos y la cue sube por encima de su franja.</>}
+        na={{ hover: 'los controles nativos', foco: 'los controles nativos', activo: 'reproduciendo', deshabilitado: 'no', cargando: 'el navegador lo dice', error: 'lo dice la barra de transporte' }}
+        wide
+      >
+        {() => (
+          <div className="picture player">
+            <video muted playsInline aria-label="Sin vídeo: la pieza vacía" />
+            <div className="player-caption"><span className="caption">Aquí se cuida cada cepa{'\n'}como si fuera la única.</span></div>
           </div>
         )}
       </Grid>
@@ -409,13 +495,13 @@ export function Pieces() {
 
       <Grid
         title="Esqueleto"
-        note={<>Ocupa el sitio de lo que llega, con la forma de lo que llega: una fila de cue en carga sigue midiendo 56 px, y nada salta cuando aparece el texto. Sin movimiento si el sistema lo pide.</>}
+        note={<>Ocupa el sitio de lo que llega, con la forma de lo que llega: una fila de cue en carga sigue midiendo 56 px, y nada salta cuando aparece el texto. Cuando no hay forma que ocupar —una versión que se abre— gira el punto. Sin movimiento si el sistema lo pide.</>}
         na={{ reposo: 'no existe en reposo', hover: 'no', foco: 'no', activo: 'no', deshabilitado: 'no', error: 'si falla, es el vacío de error' }}
         wide
       >
         {() => (
           <div className={s.stackWide}>
-            <div className="row"><span className="skeleton skeleton-circle" /><Sk w="140px" /><Sk w="80px" /></div>
+            <div className="row"><Sk w="140px" /><Sk w="80px" /><span className="spinner" aria-label="Cargando" /></div>
             <div className="cues"><CueRow c={CUES[3]} busy /></div>
           </div>
         )}

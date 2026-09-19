@@ -1,6 +1,6 @@
 'use client'
 
-import { type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { type CSSProperties, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import Caption from '@/components/video/Caption'
 import { decodeAudio, mediaType } from '@/lib/audio/decode'
@@ -19,6 +19,8 @@ import { clampZoom, scrollToShow, visibleWindow } from '@/lib/timeline/view'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Playback } from '@/types/media'
 import type { Subtitle } from '@/types/subtitle'
+
+import s from './timeline.module.css'
 
 /**
  * The waveform, the cues, and where we are in the audio.
@@ -577,14 +579,14 @@ function Track({ playback }: { playback: Playback | null }) {
   const hasVideo = playback?.contentType.startsWith('video/') ?? false
 
   return (
-    <div className="transport" style={{ display: 'flex', alignItems: 'stretch' }}>
+    <div className="transport">
       {/*
         Always in the tree, because it is the player for audio-only files too;
         only shown when there is a picture to show. Pane width is fixed and the
         footage letterboxes inside it: an aspect-ratio box stretched to the
         row's height is a layout question with different answers per browser.
       */}
-      <div className="transport-video" style={{ display: hasVideo ? 'block' : 'none' }}>
+      <div className="transport-video picture" hidden={!hasVideo}>
         <video
           ref={videoRef}
           src={playback?.url}
@@ -598,7 +600,7 @@ function Track({ playback }: { playback: Playback | null }) {
         <Caption text={active?.text} />
       </div>
 
-      <div style={{ flex: 1, minWidth: 0 }}>
+      <div className="transport-main">
       <div className="transport-bar">
         <button
           className="btn"
@@ -709,15 +711,13 @@ function Track({ playback }: { playback: Playback | null }) {
         onPointerCancel={() => {
           dragRef.current = null
         }}
-        style={{
-          height: HEIGHT, overflowX: 'auto', overflowY: 'hidden',
-          cursor: ready ? 'pointer' : 'default',
-          touchAction: 'none',
-        }}
+        className={s.scroll}
+        data-ready={ready || undefined}
+        style={{ '--wave-h': `${HEIGHT}px` } as CSSProperties}
       >
         {/* Empty, and there only to give the scrollbar something to measure. */}
-        <div style={{ width: `${zoom * 100}%`, height: HEIGHT, position: 'relative' }}>
-          <canvas ref={canvasRef} style={{ display: 'block', position: 'sticky', left: 0, top: 0 }} />
+        <div className={s.track} style={{ width: `${zoom * 100}%` }}>
+          <canvas ref={canvasRef} className={s.canvas} />
         </div>
       </div>
       </div>
