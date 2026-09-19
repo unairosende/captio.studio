@@ -487,7 +487,8 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
 .cue-text > div { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
 .cue-text > .skeleton { margin: 3px 0; }
 .cue-text mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 2px; }
-.cue-text mark[data-current] { background: var(--warn); color: var(--on-accent); }
+.cue-text mark[data-current] { background: var(--warn); color: var(--s0); }
+
 /* Lo que no cabe en las dos líneas de la fila se cuenta en su esquina, en el
    rojo del control de calidad: la fila no crece, pero tampoco calla. */
 .cue-text[data-over]::after {

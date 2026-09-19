@@ -22,7 +22,9 @@
 
   --ink:   light-dark(#1b1b1d, #ecebe6);
   --ink-2: light-dark(#5b5b60, #a3a19a);
-  --ink-3: light-dark(#7a7a80, #83827c);
+  /* Medidas, no elegidas: cada tinta y cada semántico pasan de 4,5:1 sobre
+     s0 y s1 en los dos temas (tests/design/contrast.test.ts lo comprueba). */
+  --ink-3: light-dark(#6e6e74, #888781);
 
   --line:   color-mix(in srgb, var(--ink) 10%, transparent);
   --line-2: color-mix(in srgb, var(--ink) 18%, transparent);
@@ -42,8 +44,9 @@
   --on-accent:   #1b1b1d;
 
   /* Semánticos, reservados al control de calidad. No decoran: son datos. */
-  --ok:     light-dark(#2f8f5c, #63c58f);
-  --warn:   light-dark(#b3860f, #e6c15a);
+  --ok:     light-dark(#297c50, #63c58f);
+  --warn:   light-dark(#8c690c, #e6c15a);
+
   --danger: light-dark(#c8412f, #ff6f5e);
   --ok-bg:     color-mix(in srgb, var(--ok) 12%, transparent);
   --warn-bg:   color-mix(in srgb, var(--warn) 14%, transparent);
