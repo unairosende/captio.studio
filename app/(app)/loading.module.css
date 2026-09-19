@@ -1,0 +1,10 @@
+/* Lo que se ve mientras el servidor dibuja la siguiente pantalla: la barra
+   con la marca y tres tarjetas con la forma de lo que llega. */
+
+.page { min-height: 100vh; background: var(--s1); }
+.main { max-width: 1080px; margin: 0 auto; padding: var(--sp-8) var(--sp-4); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--sp-4); }
+.card { display: grid; gap: var(--sp-3); min-height: 132px; }
+.short { width: 32%; }
+.long { width: 72%; }
+.mid { width: 55%; }
