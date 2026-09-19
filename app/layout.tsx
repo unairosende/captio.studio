@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono, IBM_Plex_Sans, JetBrains_Mono } from 'next/font/google'
+import { Geist, Geist_Mono } from 'next/font/google'
 import Script from 'next/script'
 
 import './globals.css'
@@ -14,34 +14,17 @@ import './ui.css'
  * repeatedly found unlawful. Self-hosting removes the transfer rather than
  * disclosing it, and costs one import.
  */
-const sans = IBM_Plex_Sans({
+// Geist and Geist Mono, chosen on 2026-09-14 over a real cue row. tokens.css
+// reads them as --sans and --mono.
+const sans = Geist({
   subsets: ['latin'],
-  weight: ['400', '500'],
   variable: '--font-sans',
   display: 'swap',
 })
 
-const mono = JetBrains_Mono({
+const mono = Geist_Mono({
   subsets: ['latin'],
-  weight: ['400', '500'],
   variable: '--font-mono',
-  display: 'swap',
-})
-
-/**
- * The redesign's faces, chosen on 2026-09-14 over a real cue row. They ride
- * alongside the two above while screens migrate to the `.v2` tokens; when the
- * last screen has moved, Plex and JetBrains go and these take their names.
- */
-const geist = Geist({
-  subsets: ['latin'],
-  variable: '--font-geist',
-  display: 'swap',
-})
-
-const geistMono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-geist-mono',
   display: 'swap',
 })
 
@@ -55,7 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // suppressHydrationWarning: the theme script below stamps data-theme on
     // <html> before React hydrates, so the server's HTML and the client's
     // attributes differ on purpose. Scoped to this one element.
-    <html lang="es" className={`h-full ${sans.variable} ${mono.variable} ${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
+    <html lang="es" className={`h-full ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <body className="h-full">
         {/* The theme, before anything paints. A preference read after
             hydration would draw the page in one theme and flip it a moment

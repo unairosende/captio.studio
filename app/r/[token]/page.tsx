@@ -52,7 +52,7 @@ export default async function ReviewLinkPage({ params }: Props) {
   const count = sequences.length
 
   return (
-    <div className={`v2 ${s.page}`}>
+    <div className={s.page}>
       <header className="topbar">
         <span className="brand">captio</span>
         <span className="topbar-sep" />

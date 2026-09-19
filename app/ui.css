@@ -1,32 +1,32 @@
-/* ── Piezas del rediseño ────────────────────────────────────────────────────
-   Todo bajo .v2, como los tokens. Las clases repiten los nombres buenos del
-   CSS antiguo (.btn, .field, .panel, .row, .caps, .meter): una pantalla que
-   lleva .v2 las ve nuevas, una sin migrar las sigue viendo viejas. Cuando la
-   última migre, el prefijo se cae y el bloque antiguo se borra.
+/* ── Piezas ────────────────────────────────────────────────────────────────
+   Catorce piezas en sus siete estados, pintadas en /styleguide: si algo no
+   está allí, no existe. Los nombres son los buenos del CSS antiguo (.btn,
+   .field, .panel, .row, .caps, .meter); vivieron bajo un prefijo .v2 mientras
+   las pantallas migraban, y el prefijo se cayó con la última.
 
    Los estados no son clases: son lo que el navegador ya sabe. :hover,
    :focus-visible, :active, :disabled, aria-selected, aria-busy, aria-invalid.
    data-state="hover|focus|active" existe solo para que la guía enseñe un
    estado quieto; el producto no lo escribe nunca. */
 
-.v2 button, .v2 input, .v2 select, .v2 textarea { font-family: inherit; }
+button, input, select, textarea { font-family: inherit; }
 
 /* Foco: un anillo neutro. Se ve desde el teclado y nunca desde el ratón; el
    acento no lo pinta porque dentro del editor el acento cede. */
-.v2 :is(.btn, .field, .tab, .row, .cue, .menu-item, .badge, .palette-item):focus-visible,
-.v2 [data-state="focus"] {
+:is(.btn, .field, .tab, .row, .cue, .menu-item, .badge, .palette-item):focus-visible,
+[data-state="focus"] {
   outline: 2px solid var(--ring);
   outline-offset: 1px;
 }
 
-@keyframes v2-spin { to { transform: rotate(360deg); } }
-@keyframes v2-shimmer { to { background-position: -200% 0; } }
-@keyframes v2-slide { to { background-position: 40px 0; } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes shimmer { to { background-position: -200% 0; } }
+@keyframes slide { to { background-position: 40px 0; } }
 
 /* ── Etiquetas y atajos ──────────────────────────────────────────────────── */
 
 /* La etiqueta pequeña en mayúsculas que separa un grupo del siguiente. */
-.v2 .caps {
+.caps {
   font-family: var(--mono);
   font-size: var(--fs-xs);
   font-weight: 500;
@@ -37,7 +37,7 @@
 
 /* El atajo escrito junto a la acción, siempre. Quien subtitula no suelta el
    teclado, y un atajo que no se ve es un atajo que no existe. */
-.v2 .kbd {
+.kbd {
   display: inline-block;
   padding: 1px 4px;
   border-radius: var(--r-sm);
@@ -48,29 +48,29 @@
   line-height: 1.3;
 }
 
-.v2 .spinner {
+.spinner {
   display: inline-block;
   width: 12px;
   height: 12px;
   border: 1.5px solid var(--line-2);
   border-top-color: var(--ink);
   border-radius: 50%;
-  animation: v2-spin .6s linear infinite;
+  animation: spin .6s linear infinite;
 }
 
 /* El enlace de texto: el acento, subrayado, y nada más. */
-.v2 .link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
-.v2 .link:hover { text-decoration-thickness: 2px; }
-.v2 .link:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--r-sm); }
+.link { color: var(--accent); text-decoration: underline; text-underline-offset: 2px; }
+.link:hover { text-decoration-thickness: 2px; }
+.link:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; border-radius: var(--r-sm); }
 
 /* Lo que se dice en pequeño al lado de algo: una aclaración, un fallo. */
-.v2 .muted { color: var(--ink-3); font-size: var(--fs-sm); }
-.v2 .err   { color: var(--danger); font-size: var(--fs-sm); }
-.v2 .ok    { color: var(--ok); font-size: var(--fs-sm); }
+.muted { color: var(--ink-3); font-size: var(--fs-sm); }
+.err   { color: var(--danger); font-size: var(--fs-sm); }
+.ok    { color: var(--ok); font-size: var(--fs-sm); }
 
 /* Una ficha que se marca: un idioma rápido, un filtro. En tinta cuando está
    puesta, para que no compita con el ámbar del control de calidad. */
-.v2 .chip {
+.chip {
   display: inline-flex;
   align-items: center;
   height: 22px;
@@ -85,12 +85,12 @@
   cursor: pointer;
   transition: background var(--t-fast), color var(--t-fast);
 }
-.v2 .chip:hover, .v2 .chip[data-state="hover"] { background: var(--s0-hover); color: var(--ink); }
-.v2 .chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--s0); }
+.chip:hover, .chip[data-state="hover"] { background: var(--s0-hover); color: var(--ink); }
+.chip[aria-pressed="true"] { background: var(--ink); border-color: var(--ink); color: var(--s0); }
 
 /* ── Botón ───────────────────────────────────────────────────────────────── */
 
-.v2 .btn {
+.btn {
   position: relative;
   display: inline-flex;
   align-items: center;
@@ -110,33 +110,33 @@
   cursor: pointer;
   transition: background var(--t-fast), border-color var(--t-fast), color var(--t-fast);
 }
-.v2 .btn:hover,  .v2 .btn[data-state="hover"]  { background: var(--s0-hover); }
-.v2 .btn:active, .v2 .btn[data-state="active"], .v2 .btn[aria-pressed="true"] { background: var(--s0-active); }
-.v2 .btn-lg { height: var(--ctl-lg); padding: 0 var(--sp-4); }
+.btn:hover,  .btn[data-state="hover"]  { background: var(--s0-hover); }
+.btn:active, .btn[data-state="active"], .btn[aria-pressed="true"] { background: var(--s0-active); }
+.btn-lg { height: var(--ctl-lg); padding: 0 var(--sp-4); }
 
 /* El único que lleva el acento como relleno: hay uno por superficie, o ninguno. */
-.v2 .btn-primary { background: var(--accent-fill); border-color: transparent; color: var(--on-accent); }
-.v2 .btn-primary:hover,  .v2 .btn-primary[data-state="hover"]  { background: color-mix(in srgb, var(--ink) 8%, var(--accent-fill)); }
-.v2 .btn-primary:active, .v2 .btn-primary[data-state="active"] { background: color-mix(in srgb, var(--ink) 16%, var(--accent-fill)); }
-.v2 .btn-primary .kbd { background: rgb(27 27 29 / .12); color: var(--on-accent); }
+.btn-primary { background: var(--accent-fill); border-color: transparent; color: var(--on-accent); }
+.btn-primary:hover,  .btn-primary[data-state="hover"]  { background: color-mix(in srgb, var(--ink) 8%, var(--accent-fill)); }
+.btn-primary:active, .btn-primary[data-state="active"] { background: color-mix(in srgb, var(--ink) 16%, var(--accent-fill)); }
+.btn-primary .kbd { background: rgb(27 27 29 / .12); color: var(--on-accent); }
 
-.v2 .btn-danger { color: var(--danger); }
-.v2 .btn-danger:hover,  .v2 .btn-danger[data-state="hover"]  { color: var(--danger); background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
-.v2 .btn-danger:active, .v2 .btn-danger[data-state="active"] { background: color-mix(in srgb, var(--danger) 20%, transparent); }
+.btn-danger { color: var(--danger); }
+.btn-danger:hover,  .btn-danger[data-state="hover"]  { color: var(--danger); background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
+.btn-danger:active, .btn-danger[data-state="active"] { background: color-mix(in srgb, var(--danger) 20%, transparent); }
 
 /* Un botón que es solo un icono: cuadrado, sin texto, con su nombre en aria-label. */
-.v2 .btn-icon { width: var(--ctl); padding: 0; justify-content: center; }
-.v2 .btn-quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
-.v2 .btn-quiet:hover,  .v2 .btn-quiet[data-state="hover"]  { background: var(--hover); color: var(--ink); }
-.v2 .btn-quiet:active, .v2 .btn-quiet[data-state="active"] { background: var(--select); color: var(--ink); }
+.btn-icon { width: var(--ctl); padding: 0; justify-content: center; }
+.btn-quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn-quiet:hover,  .btn-quiet[data-state="hover"]  { background: var(--hover); color: var(--ink); }
+.btn-quiet:active, .btn-quiet[data-state="active"] { background: var(--select); color: var(--ink); }
 
-.v2 .btn:disabled, .v2 .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.btn:disabled, .btn[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 
 /* Cargando: el texto se vuelve transparente en lugar de desaparecer, así el
    botón no cambia de anchura y nada salta a su alrededor. */
-.v2 .btn[aria-busy="true"] { color: transparent; pointer-events: none; }
-.v2 .btn[aria-busy="true"] .kbd { visibility: hidden; }
-.v2 .btn[aria-busy="true"]::after {
+.btn[aria-busy="true"] { color: transparent; pointer-events: none; }
+.btn[aria-busy="true"] .kbd { visibility: hidden; }
+.btn[aria-busy="true"]::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -146,13 +146,13 @@
   border: 1.5px solid var(--line-2);
   border-top-color: var(--ink);
   border-radius: 50%;
-  animation: v2-spin .6s linear infinite;
+  animation: spin .6s linear infinite;
 }
-.v2 .btn-primary[aria-busy="true"]::after { border-color: rgb(27 27 29 / .25); border-top-color: var(--on-accent); }
+.btn-primary[aria-busy="true"]::after { border-color: rgb(27 27 29 / .25); border-top-color: var(--on-accent); }
 
 /* ── Campo y desplegable ─────────────────────────────────────────────────── */
 
-.v2 .field {
+.field {
   display: block;
   width: 100%;
   height: var(--ctl);
@@ -165,25 +165,25 @@
   font-size: var(--fs-md);
   transition: border-color var(--t-fast), background var(--t-fast);
 }
-.v2 textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--sp-2); line-height: var(--lh); resize: vertical; }
-.v2 .field::placeholder { color: var(--ink-3); }
-.v2 .field:hover, .v2 .field[data-state="hover"] { border-color: color-mix(in srgb, var(--ink) 32%, transparent); }
+textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--sp-2); line-height: var(--lh); resize: vertical; }
+.field::placeholder { color: var(--ink-3); }
+.field:hover, .field[data-state="hover"] { border-color: color-mix(in srgb, var(--ink) 32%, transparent); }
 /* Con el ratón, el campo en el que se escribe se afirma como al pasar por encima;
    el anillo es solo del teclado. */
-.v2 .field:focus { border-color: color-mix(in srgb, var(--ink) 32%, transparent); outline: 0; }
-.v2 .field:focus-visible, .v2 .field[data-state="focus"] { border-color: transparent; outline: 2px solid var(--ring); outline-offset: 0; }
-.v2 .field:disabled, .v2 .field[aria-disabled="true"] { opacity: .45; background: var(--s2); }
-.v2 .field[aria-invalid="true"] { border-color: var(--danger); }
+.field:focus { border-color: color-mix(in srgb, var(--ink) 32%, transparent); outline: 0; }
+.field:focus-visible, .field[data-state="focus"] { border-color: transparent; outline: 2px solid var(--ring); outline-offset: 0; }
+.field:disabled, .field[aria-disabled="true"] { opacity: .45; background: var(--s2); }
+.field[aria-invalid="true"] { border-color: var(--danger); }
 
 /* Lo que se dice bajo un campo: la ayuda y, cuando toca, el error. */
-.v2 .field-msg { margin-top: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-3); }
-.v2 .field-msg.err { color: var(--danger); }
+.field-msg { margin-top: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-3); }
+.field-msg.err { color: var(--danger); }
 
 /* El desplegable es un campo con una punta de flecha dibujada por el
    envoltorio, porque una imagen de fondo no puede leer el tema. */
-.v2 .select-wrap { position: relative; }
-.v2 .select-wrap .field { padding-right: var(--sp-6); appearance: none; cursor: pointer; }
-.v2 .select-wrap::after {
+.select-wrap { position: relative; }
+.select-wrap .field { padding-right: var(--sp-6); appearance: none; cursor: pointer; }
+.select-wrap::after {
   content: "";
   position: absolute;
   right: 10px;
@@ -200,7 +200,7 @@
 
 /* La misma en cada pantalla: la marca en minúscula y negrita, en tinta, y
    las migas de dónde estás. Lo que cada pantalla pone a la derecha es suyo. */
-.v2 .topbar {
+.topbar {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
@@ -209,7 +209,7 @@
   border-bottom: 1px solid var(--line);
   min-width: 0;
 }
-.v2 .brand {
+.brand {
   font-size: var(--fs-lg);
   font-weight: 700;
   letter-spacing: -.01em;
@@ -217,8 +217,8 @@
   text-decoration: none;
   flex: none;
 }
-.v2 .topbar-sep { width: 1px; height: 16px; background: var(--line-2); flex: none; }
-.v2 .crumbs {
+.topbar-sep { width: 1px; height: 16px; background: var(--line-2); flex: none; }
+.crumbs {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -226,18 +226,18 @@
   color: var(--ink-3);
   white-space: nowrap;
 }
-.v2 .crumbs a { color: var(--ink-3); text-decoration: none; }
-.v2 .crumbs a:hover { color: var(--ink); text-decoration: underline; }
-.v2 .crumbs > span:last-child { color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.crumbs a { color: var(--ink-3); text-decoration: none; }
+.crumbs a:hover { color: var(--ink); text-decoration: underline; }
+.crumbs > span:last-child { color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
 
 /* ── Pestañas de idioma ──────────────────────────────────────────────────── */
 
 /* Pestañas de fichero, como en un editor de texto: la barra va hundida en
    gris y la pestaña activa se funde con la tabla — es la misma superficie
    blanca que continúa hacia abajo. Un idioma es un documento, no un filtro. */
-.v2 .tabs { display: flex; background: var(--s2); border-bottom: 1px solid var(--line); }
+.tabs { display: flex; background: var(--s2); border-bottom: 1px solid var(--line); }
 
-.v2 .tab {
+.tab {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
@@ -258,26 +258,26 @@
   cursor: pointer;
   transition: color var(--t-fast), background var(--t-fast);
 }
-.v2 .tab > span:first-child { flex: 1; text-align: left; }
-.v2 .tab:hover, .v2 .tab[data-state="hover"] { color: var(--ink-2); background: var(--hover); }
-.v2 .tab[aria-selected="true"], .v2 .tab[data-state="active"] { color: var(--ink); background: var(--s0); border-bottom-color: var(--s0); }
-.v2 .tab:focus-visible, .v2 .tab[data-state="focus"] { outline-offset: -2px; }
-.v2 .tab:disabled, .v2 .tab[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.tab > span:first-child { flex: 1; text-align: left; }
+.tab:hover, .tab[data-state="hover"] { color: var(--ink-2); background: var(--hover); }
+.tab[aria-selected="true"], .tab[data-state="active"] { color: var(--ink); background: var(--s0); border-bottom-color: var(--s0); }
+.tab:focus-visible, .tab[data-state="focus"] { outline-offset: -2px; }
+.tab:disabled, .tab[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 
 /* Lo que la pestaña dice de su idioma, a la derecha y sin empujar: un punto
    ámbar o rojo con lo peor que ha encontrado el control de calidad, un punto
    que gira mientras se traduce, y la cruz para quitarlo, que solo aparece al
    pasar el ratón o en la activa. */
-.v2 .tab-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
-.v2 .tab[data-qc="warn"]   .tab-dot { background: var(--warn); }
-.v2 .tab[data-qc="danger"] .tab-dot { background: var(--danger); }
-.v2 .tab[aria-busy="true"] .tab-dot {
+.tab-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+.tab[data-qc="warn"]   .tab-dot { background: var(--warn); }
+.tab[data-qc="danger"] .tab-dot { background: var(--danger); }
+.tab[aria-busy="true"] .tab-dot {
   width: 8px; height: 8px;
   border: 1.5px solid var(--line-2);
   border-top-color: var(--ink);
-  animation: v2-spin .6s linear infinite;
+  animation: spin .6s linear infinite;
 }
-.v2 .tab-x {
+.tab-x {
   width: 16px; height: 16px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--r-sm);
@@ -288,13 +288,13 @@
   opacity: 0;
   flex: none;
 }
-.v2 .tab:hover .tab-x, .v2 .tab[aria-selected="true"] .tab-x, .v2 .tab[data-state="hover"] .tab-x { opacity: 1; }
-.v2 .tab-x:hover { background: var(--danger-bg); color: var(--danger); }
+.tab:hover .tab-x, .tab[aria-selected="true"] .tab-x, .tab[data-state="hover"] .tab-x { opacity: 1; }
+.tab-x:hover { background: var(--danger-bg); color: var(--danger); }
 
 /* Comparando, una pestaña se pliega en una tira con el nombre escrito hacia
    abajo, que cuelga de la cabecera pegajosa sobre su columna vacía. Pulsar
    la tira la despliega; el ‹ de una pestaña abierta la pliega. */
-.v2 .tab-fold {
+.tab-fold {
   width: 16px; height: 16px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: var(--r-sm);
@@ -305,10 +305,10 @@
   opacity: 0;
   flex: none;
 }
-.v2 .tab:hover .tab-fold, .v2 .tab[aria-selected="true"] .tab-fold { opacity: 1; }
-.v2 .tab-fold:hover { background: var(--hover); color: var(--ink); }
-.v2 .tab[data-folded] { position: relative; padding: 0; justify-content: center; color: var(--ink-3); }
-.v2 .tab[data-folded] > span:first-child {
+.tab:hover .tab-fold, .tab[aria-selected="true"] .tab-fold { opacity: 1; }
+.tab-fold:hover { background: var(--hover); color: var(--ink); }
+.tab[data-folded] { position: relative; padding: 0; justify-content: center; color: var(--ink-3); }
+.tab[data-folded] > span:first-child {
   position: absolute;
   top: var(--sp-2);
   left: 50%;
@@ -317,14 +317,14 @@
   line-height: 1;
   flex: none;
 }
-.v2 .tab[data-folded]:hover { color: var(--ink); }
+.tab[data-folded]:hover { color: var(--ink); }
 
 /* ── Control segmentado ──────────────────────────────────────────────────── */
 
 /* Dos o tres opciones excluyentes en una sola pieza: qué vista, qué sección.
    La pulsada se rellena; ninguna lleva acento. */
-.v2 .seg { display: inline-flex; padding: 2px; border-radius: var(--r-md); background: var(--s2); }
-.v2 .seg > button {
+.seg { display: inline-flex; padding: 2px; border-radius: var(--r-md); background: var(--s2); }
+.seg > button {
   height: 24px;
   padding: 0 var(--sp-2);
   border: 0;
@@ -337,15 +337,15 @@
   cursor: pointer;
   transition: background var(--t-fast), color var(--t-fast);
 }
-.v2 .seg > button:hover, .v2 .seg > button[data-state="hover"] { color: var(--ink); }
-.v2 .seg > button[aria-pressed="true"], .v2 .seg > button[aria-selected="true"], .v2 .seg > button[data-state="active"] { background: var(--s0); color: var(--ink); box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent); }
-.v2 .seg > button:focus-visible, .v2 .seg > button[data-state="focus"] { outline-offset: -2px; }
-.v2 .seg > button:disabled, .v2 .seg > button[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.seg > button:hover, .seg > button[data-state="hover"] { color: var(--ink); }
+.seg > button[aria-pressed="true"], .seg > button[aria-selected="true"], .seg > button[data-state="active"] { background: var(--s0); color: var(--ink); box-shadow: 0 1px 2px color-mix(in srgb, var(--ink) 12%, transparent); }
+.seg > button:focus-visible, .seg > button[data-state="focus"] { outline-offset: -2px; }
+.seg > button:disabled, .seg > button[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 
 /* ── Fila de lista ───────────────────────────────────────────────────────── */
 
 /* Un miembro, un comentario, una invitación, un proyecto en el panel. */
-.v2 .row {
+.row {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -357,38 +357,38 @@
   font-size: var(--fs-md);
   transition: background var(--t-fast);
 }
-.v2 .row:hover, .v2 .row[data-state="hover"] { background: var(--hover); }
-.v2 .row[aria-selected="true"], .v2 .row[data-state="active"] { background: var(--select); }
-.v2 .row[aria-disabled="true"] { opacity: .45; }
-.v2 .row .muted { color: var(--ink-3); font-size: var(--fs-sm); }
-.v2 .row .err { color: var(--danger); font-size: var(--fs-sm); }
-.v2 .row > .kbd, .v2 .row > .badge, .v2 .row > .btn { margin-left: auto; }
-.v2 .row > .btn + .btn, .v2 .row > .badge + .btn { margin-left: 0; }
+.row:hover, .row[data-state="hover"] { background: var(--hover); }
+.row[aria-selected="true"], .row[data-state="active"] { background: var(--select); }
+.row[aria-disabled="true"] { opacity: .45; }
+.row .muted { color: var(--ink-3); font-size: var(--fs-sm); }
+.row .err { color: var(--danger); font-size: var(--fs-sm); }
+.row > .kbd, .row > .badge, .row > .btn { margin-left: auto; }
+.row > .btn + .btn, .row > .badge + .btn { margin-left: 0; }
 
 /* ── Tarjeta ─────────────────────────────────────────────────────────────── */
 
 /* Un bloque de contenido que se lee, no que se opera — el panel es la primera
    pantalla así, y no será la última. */
-.v2 .card {
+.card {
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: var(--s0);
   padding: var(--sp-4);
 }
-.v2 .card-head {
+.card-head {
   display: flex;
   align-items: baseline;
   gap: var(--sp-2);
   margin-bottom: var(--sp-3);
 }
-.v2 .card-head h2, .v2 .card-head h3 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
+.card-head h2, .card-head h3 { margin: 0; font-size: var(--fs-md); font-weight: 600; }
 
 /* ── La fila de cue ──────────────────────────────────────────────────────── */
 
 /* Las columnas las pone quien dibuja la tabla, porque no son siempre las
    mismas: un idioma a todo el ancho con sus cifras, o un idioma por columna
    para compararlos. */
-.v2 .cues {
+.cues {
   --cols: 36px 116px minmax(0, 1fr) 52px 56px;
   background: var(--s0);
   border: 1px solid var(--line);
@@ -397,7 +397,7 @@
   font-size: var(--fs-md);
 }
 
-.v2 .cue-head, .v2 .cue {
+.cue-head, .cue {
   display: grid;
   grid-template-columns: var(--cols);
   align-items: center;
@@ -405,7 +405,7 @@
   padding-right: var(--sp-3);
 }
 
-.v2 .cue-head {
+.cue-head {
   height: 28px;
   border-bottom: 1px solid var(--line-2);
   font-family: var(--mono);
@@ -414,27 +414,27 @@
   text-transform: uppercase;
   color: var(--ink-3);
 }
-.v2 .cue-head .cue-stat { color: var(--ink-3); }
+.cue-head .cue-stat { color: var(--ink-3); }
 /* Una cabecera de columna que es un botón elige ese idioma. */
-.v2 .cue-head > button { border: 0; background: none; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; cursor: pointer; }
-.v2 .cue-head > button:hover { color: var(--ink); }
-.v2 .cue-head > button[aria-pressed="true"] { color: var(--ink); }
+.cue-head > button { border: 0; background: none; padding: 0; font: inherit; letter-spacing: inherit; text-transform: inherit; color: inherit; text-align: left; cursor: pointer; }
+.cue-head > button:hover { color: var(--ink); }
+.cue-head > button[aria-pressed="true"] { color: var(--ink); }
 
-.v2 .cue {
+.cue {
   height: var(--row);
   border-bottom: 1px solid var(--line);
   transition: background var(--t-fast);
 }
-.v2 .cue:last-child { border-bottom: 0; }
-.v2 .cue:hover, .v2 .cue[data-state="hover"] { background: var(--hover); }
-.v2 .cue[aria-selected="true"], .v2 .cue[data-state="active"] { background: var(--select); }
-.v2 .cue:focus-visible, .v2 .cue[data-state="focus"] { outline-offset: -2px; }
-.v2 .cue[aria-disabled="true"] { opacity: .45; }
+.cue:last-child { border-bottom: 0; }
+.cue:hover, .cue[data-state="hover"] { background: var(--hover); }
+.cue[aria-selected="true"], .cue[data-state="active"] { background: var(--select); }
+.cue:focus-visible, .cue[data-state="focus"] { outline-offset: -2px; }
+.cue[aria-disabled="true"] { opacity: .45; }
 
 /* El único color de la fila es un punto junto al número: ámbar por encima
    de la velocidad de lectura, rojo pasado el límite. Un punto y no una
    barra, porque se ve igual a 3 px del borde que en mitad de una celda. */
-.v2 .cue-n {
+.cue-n {
   position: relative;
   height: 100%;
   display: flex;
@@ -445,13 +445,13 @@
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
-.v2 .cue-n::before { content: ""; position: absolute; left: 4px; top: 50%; width: 6px; height: 6px; border-radius: 50%; translate: 0 -50%; }
-.v2 .cue[data-qc="warn"]   .cue-n::before { background: var(--warn); }
-.v2 .cue[data-qc="danger"] .cue-n::before { background: var(--danger); }
-.v2 .cue[data-qc="warn"]   .cue-stat:first-of-type { color: var(--warn); }
-.v2 .cue[data-qc="danger"] .cue-stat:first-of-type { color: var(--danger); }
+.cue-n::before { content: ""; position: absolute; left: 4px; top: 50%; width: 6px; height: 6px; border-radius: 50%; translate: 0 -50%; }
+.cue[data-qc="warn"]   .cue-n::before { background: var(--warn); }
+.cue[data-qc="danger"] .cue-n::before { background: var(--danger); }
+.cue[data-qc="warn"]   .cue-stat:first-of-type { color: var(--warn); }
+.cue[data-qc="danger"] .cue-stat:first-of-type { color: var(--danger); }
 
-.v2 .cue-tc {
+.cue-tc {
   font-family: var(--mono);
   font-size: var(--fs-sm);
   color: var(--ink-2);
@@ -465,17 +465,17 @@
    un campo con la misma letra y la misma métrica, así el cursor cae donde se
    ha pulsado. La fila no crece: un subtítulo de tres líneas ya es un error,
    y el campo hace scroll para enseñarlo. */
-.v2 .cue-text { position: relative; height: 36px; min-width: 0; line-height: 18px; font-size: var(--fs-md); cursor: text; }
-.v2 .cue-text > div { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
-.v2 .cue-text > .skeleton { margin: 3px 0; }
-.v2 .cue-text mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 2px; }
-.v2 .cue-text mark[data-current] { background: var(--warn); color: var(--on-accent); }
+.cue-text { position: relative; height: 36px; min-width: 0; line-height: 18px; font-size: var(--fs-md); cursor: text; }
+.cue-text > div { white-space: pre; overflow: hidden; text-overflow: ellipsis; }
+.cue-text > .skeleton { margin: 3px 0; }
+.cue-text mark { background: color-mix(in srgb, var(--warn) 30%, transparent); color: inherit; border-radius: 2px; }
+.cue-text mark[data-current] { background: var(--warn); color: var(--on-accent); }
  /* La fila de pestañas es la cabecera de la tabla: va dentro de la rejilla,
    con las mismas columnas que las filas, y pegada arriba al hacer scroll.
    Con un idioma a la vista, las pestañas se alinean en la columna del texto;
    comparando, cada pestaña ocupa su columna, como la de cada panel de un
    editor de texto. La activa se funde con la tabla. */
-.v2 .cue-tabs {
+.cue-tabs {
   display: grid;
   grid-template-columns: var(--cols);
   align-items: stretch;
@@ -490,20 +490,20 @@
   text-transform: uppercase;
   color: var(--ink-3);
 }
-.v2 .cue-tabs > span { display: flex; align-items: center; }
-.v2 .cue-tabs > .cue-stat { justify-content: flex-end; }
-.v2 .cue-tabs .tabs { background: none; border: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
-.v2 .cue-tabs .tab { height: 36px; }
-.v2 .cue-tabs .tab:first-child { border-left: 1px solid var(--line); }
+.cue-tabs > span { display: flex; align-items: center; }
+.cue-tabs > .cue-stat { justify-content: flex-end; }
+.cue-tabs .tabs { background: none; border: 0; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.cue-tabs .tab { height: 36px; }
+.cue-tabs .tab:first-child { border-left: 1px solid var(--line); }
 
 /* Comparando: cada idioma es un panel. Columnas pegadas, separadas por una
    línea que sube hasta su pestaña; la activa en blanco, las demás con un
    velo y tinta secundaria, para que la vista diga cuál se está corrigiendo. */
-.v2 .cues[data-view="compare"] .cue,
-.v2 .cues[data-view="compare"] .cue-tabs { column-gap: 0; padding-right: 0; }
-.v2 .cues[data-view="compare"] .cue-tc { padding-left: var(--sp-3); }
-.v2 .cues[data-view="compare"] .cue-tabs > .tab { width: 100%; min-width: 0; border-right: 0; border-left: 1px solid var(--line); }
-.v2 .cues[data-view="compare"] .cue-text {
+.cues[data-view="compare"] .cue,
+.cues[data-view="compare"] .cue-tabs { column-gap: 0; padding-right: 0; }
+.cues[data-view="compare"] .cue-tc { padding-left: var(--sp-3); }
+.cues[data-view="compare"] .cue-tabs > .tab { width: 100%; min-width: 0; border-right: 0; border-left: 1px solid var(--line); }
+.cues[data-view="compare"] .cue-text {
   height: 100%;
   display: flex;
   flex-direction: column;
@@ -511,15 +511,15 @@
   padding: 0 var(--sp-3) 0 calc(var(--sp-3) + 10px);
   border-left: 1px solid var(--line);
 }
-.v2 .cues[data-view="compare"] .cue-text:not([data-active]) { background: color-mix(in srgb, var(--ink) 3%, transparent); color: var(--ink-2); }
-.v2 .cues[data-view="compare"] .cue-text[data-folded] { padding: 0; cursor: pointer; }
-.v2 .cues[data-view="compare"] .cue-text[data-folded]:hover { background: var(--hover); }
-.v2 .cues[data-view="compare"] .cue-text > div { flex: none; }
-.v2 .cue-text[data-qc]::before { content: ""; position: absolute; left: var(--sp-2); top: 50%; width: 6px; height: 6px; border-radius: 50%; translate: 0 -50%; }
-.v2 .cues:not([data-view="compare"]) .cue-text[data-qc]::before { display: none; }
-.v2 .cue-text[data-qc="warn"]::before   { background: var(--warn); }
-.v2 .cue-text[data-qc="danger"]::before { background: var(--danger); }
-.v2 .cue-edit {
+.cues[data-view="compare"] .cue-text:not([data-active]) { background: color-mix(in srgb, var(--ink) 3%, transparent); color: var(--ink-2); }
+.cues[data-view="compare"] .cue-text[data-folded] { padding: 0; cursor: pointer; }
+.cues[data-view="compare"] .cue-text[data-folded]:hover { background: var(--hover); }
+.cues[data-view="compare"] .cue-text > div { flex: none; }
+.cue-text[data-qc]::before { content: ""; position: absolute; left: var(--sp-2); top: 50%; width: 6px; height: 6px; border-radius: 50%; translate: 0 -50%; }
+.cues:not([data-view="compare"]) .cue-text[data-qc]::before { display: none; }
+.cue-text[data-qc="warn"]::before   { background: var(--warn); }
+.cue-text[data-qc="danger"]::before { background: var(--danger); }
+.cue-edit {
   display: block;
   width: 100%;
   height: 100%;
@@ -537,9 +537,9 @@
   scrollbar-width: thin;
   outline: 0;
 }
-.v2 .cue-edit:focus { outline: 1px solid var(--line-2); outline-offset: 3px; border-radius: 2px; }
+.cue-edit:focus { outline: 1px solid var(--line-2); outline-offset: 3px; border-radius: 2px; }
 
-.v2 .cue-stat {
+.cue-stat {
   font-family: var(--mono);
   font-size: var(--fs-sm);
   text-align: right;
@@ -552,7 +552,7 @@
 /* Alto en la pantalla, no centrado: cada diálogo trata de algo que hay detrás
    — un cue, un colega, una búsqueda — y tapar el centro del editor esconde
    justo lo que se está discutiendo. */
-.v2 .overlay {
+.overlay {
   position: fixed;
   inset: 0;
   z-index: var(--overlay-z, 60);
@@ -563,7 +563,7 @@
   background: var(--scrim);
 }
 
-.v2 .panel {
+.panel {
   display: flex;
   flex-direction: column;
   width: var(--panel-w, 460px);
@@ -574,20 +574,20 @@
   box-shadow: var(--lift);
   color: var(--ink);
 }
-.v2 .panel-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
-.v2 .panel-title { font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
-.v2 .panel-close { margin-left: auto; }
-.v2 .panel-body { flex: 1; overflow-y: auto; padding: var(--sp-3) var(--sp-4); font-size: var(--fs-md); }
-.v2 .panel-foot { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line); }
-.v2 .panel-foot .err { margin-right: auto; font-size: var(--fs-sm); color: var(--danger); }
-.v2 .panel-foot > .btn:first-child:not(.btn-primary) { margin-right: auto; }
+.panel-head { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); }
+.panel-title { font-size: var(--fs-md); font-weight: 600; color: var(--ink); }
+.panel-close { margin-left: auto; }
+.panel-body { flex: 1; overflow-y: auto; padding: var(--sp-3) var(--sp-4); font-size: var(--fs-md); }
+.panel-foot { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--line); }
+.panel-foot .err { margin-right: auto; font-size: var(--fs-sm); color: var(--danger); }
+.panel-foot > .btn:first-child:not(.btn-primary) { margin-right: auto; }
 
 /* ── Paleta de comandos ──────────────────────────────────────────────────── */
 
 /* La superficie principal de acción, y lo dice el propio campo. Es el índice
    completo de lo que Captio sabe hacer: por eso la pantalla puede estar
    callada sin que nadie dude de lo que hay dentro. */
-.v2 .palette {
+.palette {
   width: var(--panel-w, 560px);
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
@@ -595,7 +595,7 @@
   box-shadow: var(--lift);
   overflow: hidden;
 }
-.v2 .palette-input {
+.palette-input {
   width: 100%;
   height: 44px;
   padding: 0 var(--sp-4);
@@ -607,10 +607,10 @@
   font-size: var(--fs-lg);
   outline: none;
 }
-.v2 .palette-input::placeholder { color: var(--ink-3); }
-.v2 .palette-list { padding: var(--sp-1); max-height: 320px; overflow-y: auto; }
-.v2 .palette-group { padding: var(--sp-2) var(--sp-2) var(--sp-1); }
-.v2 .palette-item {
+.palette-input::placeholder { color: var(--ink-3); }
+.palette-list { padding: var(--sp-1); max-height: 320px; overflow-y: auto; }
+.palette-group { padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+.palette-item {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -621,12 +621,12 @@
   font-size: var(--fs-md);
   cursor: pointer;
 }
-.v2 .palette-item .muted { color: var(--ink-3); font-size: var(--fs-sm); }
-.v2 .palette-item > .kbd { margin-left: auto; }
-.v2 .palette-item:hover, .v2 .palette-item[data-state="hover"] { background: var(--hover); }
-.v2 .palette-item[aria-selected="true"], .v2 .palette-item[data-state="active"] { background: var(--select); }
-.v2 .palette-empty { padding: var(--sp-6) var(--sp-4); text-align: center; color: var(--ink-3); font-size: var(--fs-sm); }
-.v2 .palette-foot {
+.palette-item .muted { color: var(--ink-3); font-size: var(--fs-sm); }
+.palette-item > .kbd { margin-left: auto; }
+.palette-item:hover, .palette-item[data-state="hover"] { background: var(--hover); }
+.palette-item[aria-selected="true"], .palette-item[data-state="active"] { background: var(--select); }
+.palette-empty { padding: var(--sp-6) var(--sp-4); text-align: center; color: var(--ink-3); font-size: var(--fs-sm); }
+.palette-foot {
   display: flex;
   gap: var(--sp-3);
   padding: var(--sp-2) var(--sp-4);
@@ -640,7 +640,7 @@
 /* Una línea con un hilo lo dice en reposo. Sin leer, en tinta; leído, en
    gris; resuelto, en verde. Nunca en ámbar: el ámbar es del control de
    calidad. */
-.v2 .badge {
+.badge {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -655,31 +655,31 @@
   cursor: pointer;
   transition: background var(--t-fast), color var(--t-fast);
 }
-.v2 .badge:hover, .v2 .badge[data-state="hover"] { background: var(--line-2); color: var(--ink); }
-.v2 .badge[data-unread="true"] { background: var(--ink); color: var(--s0); }
-.v2 .badge[data-unread="true"]:hover, .v2 .badge[data-unread="true"][data-state="hover"] { background: var(--ink-2); }
-.v2 .badge[data-resolved="true"] { background: var(--ok-bg); color: var(--ok); }
-.v2 .badge[data-state="active"], .v2 .badge[aria-pressed="true"] { outline: 2px solid var(--ring); outline-offset: 1px; }
-.v2 .badge:disabled, .v2 .badge[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.badge:hover, .badge[data-state="hover"] { background: var(--line-2); color: var(--ink); }
+.badge[data-unread="true"] { background: var(--ink); color: var(--s0); }
+.badge[data-unread="true"]:hover, .badge[data-unread="true"][data-state="hover"] { background: var(--ink-2); }
+.badge[data-resolved="true"] { background: var(--ok-bg); color: var(--ok); }
+.badge[data-state="active"], .badge[aria-pressed="true"] { outline: 2px solid var(--ring); outline-offset: 1px; }
+.badge:disabled, .badge[aria-disabled="true"] { opacity: .45; pointer-events: none; }
 
 /* ── Medidor de cuota ────────────────────────────────────────────────────── */
 
 /* Una barra, no un porcentaje: «has usado el 68 %» es una cuenta que hacer;
    una barra a dos tercios es un vistazo. */
-.v2 .meter { height: 4px; border-radius: 2px; background: var(--s3); overflow: hidden; }
-.v2 .meter-fill { height: 100%; border-radius: 2px; background: var(--ink-2); transition: width var(--t-base); }
-.v2 .meter-fill.low  { background: var(--warn); }
-.v2 .meter-fill.none { background: var(--danger); }
-.v2 .meter[aria-busy="true"] .meter-fill {
+.meter { height: 4px; border-radius: 2px; background: var(--s3); overflow: hidden; }
+.meter-fill { height: 100%; border-radius: 2px; background: var(--ink-2); transition: width var(--t-base); }
+.meter-fill.low  { background: var(--warn); }
+.meter-fill.none { background: var(--danger); }
+.meter[aria-busy="true"] .meter-fill {
   width: 100% !important;
   background: repeating-linear-gradient(90deg, var(--s3) 0 10px, var(--line-2) 10px 20px);
   background-size: 40px 4px;
-  animation: v2-slide .8s linear infinite;
+  animation: slide .8s linear infinite;
 }
 
 /* ── Aviso emergente ─────────────────────────────────────────────────────── */
 
-.v2 .toast {
+.toast {
   display: flex;
   align-items: center;
   gap: var(--sp-3);
@@ -692,23 +692,23 @@
   color: var(--ink);
   font-size: var(--fs-md);
 }
-.v2 .toast::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
-.v2 .toast[data-kind="ok"]::before     { background: var(--ok); }
-.v2 .toast[data-kind="warn"]::before   { background: var(--warn); }
-.v2 .toast[data-kind="danger"]::before { background: var(--danger); }
-.v2 .toast[aria-busy="true"]::before {
+.toast::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--ink-3); }
+.toast[data-kind="ok"]::before     { background: var(--ok); }
+.toast[data-kind="warn"]::before   { background: var(--warn); }
+.toast[data-kind="danger"]::before { background: var(--danger); }
+.toast[aria-busy="true"]::before {
   width: 10px; height: 10px;
   background: none;
   border: 1.5px solid var(--line-2);
   border-top-color: var(--ink);
-  animation: v2-spin .6s linear infinite;
+  animation: spin .6s linear infinite;
 }
-.v2 .toast .muted { color: var(--ink-3); font-size: var(--fs-sm); }
-.v2 .toast > .btn { margin-left: auto; }
+.toast .muted { color: var(--ink-3); font-size: var(--fs-sm); }
+.toast > .btn { margin-left: auto; }
 
 /* ── Menú ────────────────────────────────────────────────────────────────── */
 
-.v2 .menu {
+.menu {
   min-width: 220px;
   padding: var(--sp-1);
   border: 1px solid var(--line);
@@ -716,7 +716,7 @@
   background: var(--raised);
   box-shadow: var(--lift);
 }
-.v2 .menu-item {
+.menu-item {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -732,23 +732,23 @@
   text-align: left;
   cursor: pointer;
 }
-.v2 .menu-item > .kbd { margin-left: auto; }
-.v2 .menu-item:hover, .v2 .menu-item[data-state="hover"] { background: var(--hover); }
-.v2 .menu-item[data-state="active"], .v2 .menu-item:active { background: var(--select); }
-.v2 .menu-item[aria-checked="true"]::before { content: "✓"; width: 12px; font-size: var(--fs-sm); color: var(--ink-2); }
-.v2 .menu-item[aria-checked="false"]::before { content: ""; width: 12px; }
-.v2 .menu-item:disabled, .v2 .menu-item[aria-disabled="true"] { opacity: .45; pointer-events: none; }
-.v2 .menu-item.danger { color: var(--danger); }
-.v2 .menu-item.danger:hover, .v2 .menu-item.danger[data-state="hover"] { background: var(--danger-bg); }
-.v2 .menu-sep { height: 1px; margin: var(--sp-1) 0; background: var(--line); }
-.v2 .menu .caps { display: block; padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+.menu-item > .kbd { margin-left: auto; }
+.menu-item:hover, .menu-item[data-state="hover"] { background: var(--hover); }
+.menu-item[data-state="active"], .menu-item:active { background: var(--select); }
+.menu-item[aria-checked="true"]::before { content: "✓"; width: 12px; font-size: var(--fs-sm); color: var(--ink-2); }
+.menu-item[aria-checked="false"]::before { content: ""; width: 12px; }
+.menu-item:disabled, .menu-item[aria-disabled="true"] { opacity: .45; pointer-events: none; }
+.menu-item.danger { color: var(--danger); }
+.menu-item.danger:hover, .menu-item.danger[data-state="hover"] { background: var(--danger-bg); }
+.menu-sep { height: 1px; margin: var(--sp-1) 0; background: var(--line); }
+.menu .caps { display: block; padding: var(--sp-2) var(--sp-2) var(--sp-1); }
 
 /* ── Estado vacío ────────────────────────────────────────────────────────── */
 
 /* Un vacío dice tres cosas: qué falta, por qué, y el único botón que lo
    arregla. Sin ilustración: la ilustración es lo que se pone cuando no se
    sabe qué decir. */
-.v2 .empty {
+.empty {
   display: grid;
   justify-items: center;
   gap: var(--sp-2);
@@ -759,38 +759,38 @@
   color: var(--ink-2);
   font-size: var(--fs-sm);
 }
-.v2 .empty-title { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink); font-size: var(--fs-md); font-weight: 500; }
-.v2 .empty[data-kind="error"] .empty-title::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
-.v2 .empty p { margin: 0; max-width: 40ch; }
-.v2 .empty .btn { margin-top: var(--sp-2); }
+.empty-title { display: flex; align-items: center; gap: var(--sp-2); color: var(--ink); font-size: var(--fs-md); font-weight: 500; }
+.empty[data-kind="error"] .empty-title::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--danger); }
+.empty p { margin: 0; max-width: 40ch; }
+.empty .btn { margin-top: var(--sp-2); }
 
 /* ── Transporte de la onda ───────────────────────────────────────────────── */
 
 /* La barra sobre la forma de onda: reproducir, el reloj, el zoom, el audio.
    La onda es el instrumento; esto son sus mandos, y pesan poco a propósito. */
-.v2 .transport { background: var(--s1); }
-.v2 .transport-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); }
-.v2 .transport-clock { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
-.v2 .transport-tools { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); }
-.v2 .transport-zoom { min-width: 40px; text-align: center; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
-.v2 .transport-video { position: relative; flex: 0 0 clamp(280px, 28vw, 420px); background: #000; border-right: 1px solid var(--line); container-type: inline-size; }
-.v2 .transport-video video { display: block; width: 100%; height: 100%; object-fit: contain; }
+.transport { background: var(--s1); }
+.transport-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); }
+.transport-clock { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
+.transport-tools { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); }
+.transport-zoom { min-width: 40px; text-align: center; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+.transport-video { position: relative; flex: 0 0 clamp(280px, 28vw, 420px); background: #000; border-right: 1px solid var(--line); container-type: inline-size; }
+.transport-video video { display: block; width: 100%; height: 100%; object-fit: contain; }
 
 /* ── Esqueleto ───────────────────────────────────────────────────────────── */
 
 /* Ocupa el sitio de lo que llega, con la forma de lo que llega. Una fila de
    cue en carga sigue midiendo 56 px: nada salta cuando aparece el texto. */
-.v2 .skeleton {
+.skeleton {
   display: block;
   height: 1em;
   border-radius: var(--r-sm);
   background: linear-gradient(90deg, var(--s2) 0%, var(--s3) 50%, var(--s2) 100%);
   background-size: 200% 100%;
-  animation: v2-shimmer 1.2s linear infinite;
+  animation: shimmer 1.2s linear infinite;
 }
-.v2 .skeleton-circle { width: 24px; height: 24px; border-radius: 50%; }
+.skeleton-circle { width: 24px; height: 24px; border-radius: 50%; }
 
 @media (prefers-reduced-motion: reduce) {
-  .v2 * { transition: none !important; }
-  .v2 .skeleton, .v2 .meter[aria-busy="true"] .meter-fill { animation: none; }
+  * { transition: none !important; }
+  .skeleton, .meter[aria-busy="true"] .meter-fill { animation: none; }
 }

@@ -86,13 +86,23 @@ la forma del track — cues, timings, idiomas — nunca sale de una petición su
 
 ## Estilo
 
-Tokens y clases en `app/globals.css` (`.btn`, `.field`, `.panel`, `.row`,
-`.caps`…). Quedan objetos `style={{}}` inline de un solo uso, y está bien: **hay
-un rediseño desde cero en camino**, a partir de referencias que traerá Unai. No
-pulas el aspecto actual ni conviertas maquetación puntual en clases nuevas —
-sería escribir marcado para un diseño que todavía no hemos visto. Lo que sí
-importa es no reintroducir duplicación: si un botón o un panel ya se repite,
-tiene clase.
+El rediseño (dirección B · Consola, disciplina de Linear) es el producto desde
+el 19 de septiembre de 2026. Tokens en `app/tokens.css` (`light-dark()` para
+claro y oscuro; bordes y lavados con `color-mix()` sobre la tinta), piezas en
+`app/ui.css` (`.btn`, `.field`, `.panel`, `.row`, `.caps`, `.cues`…), y la
+maquetación de cada pantalla en su `*.module.css`. **`/styleguide` es la
+verdad: si algo no está allí, no existe.** Reglas que evitan volver al desorden:
+
+- Ningún `style={{}}` nuevo con un valor que ya tenga nombre (color, tamaño,
+  radio, espacio). Un valor de un solo uso va en el módulo de la pantalla.
+- Los estados no son clases: `:hover`, `:focus-visible`, `:disabled`,
+  `aria-busy`, `aria-selected`, `aria-invalid`. Un botón ocupado lleva
+  `aria-busy`, no otro texto.
+- Componente que aparece dos veces, componente que se extrae.
+- El acento cede dentro del editor: selección y foco neutros; ámbar, rojo y
+  verde son del control de calidad y de nadie más.
+- La interfaz habla español. Los errores de Better Auth se traducen por su
+  código, no por su mensaje.
 
 ## Commits
 

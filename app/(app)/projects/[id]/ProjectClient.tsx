@@ -106,7 +106,7 @@ export default function ProjectClient({ project, sequences, links }: Props) {
   const newSequence = () => router.push(`/translate?project=${project.id}`)
 
   return (
-    <div className={`v2 ${s.page}`}>
+    <div className={s.page}>
       <header className={`topbar ${s.head}`}>
         <Link href="/dashboard" className="brand">captio</Link>
         <span className="topbar-sep" />

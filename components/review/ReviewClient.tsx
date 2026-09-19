@@ -325,7 +325,7 @@ export default function ReviewClient(props: ReviewProps) {
   const status = saving ? 'Guardando…' : unsaved ? `${unsaved} sin guardar` : canEdit ? 'Guardado' : 'Solo lectura'
 
   return (
-    <div className={`v2 ${s.page} ${s.app}`}>
+    <div className={`${s.page} ${s.app}`}>
       {openCue && (
         <CommentsPanel
           sequenceId={sequence.id}

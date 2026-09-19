@@ -26,7 +26,7 @@ export default async function Shell({ children }: { children: ReactNode }) {
   const legal = await publishedLegalSlugs()
 
   return (
-    <div className={`v2 ${s.page}`}>
+    <div className={s.page}>
       <header className={`topbar ${s.head}`}>
         <Link href="/" className="brand">captio</Link>
         <nav className={s.nav} aria-label="Principal">

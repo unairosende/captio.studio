@@ -25,7 +25,7 @@ export function AuthCard({
   footer?: ReactNode
 }) {
   return (
-    <div className={`v2 ${s.page}`}>
+    <div className={s.page}>
       <div className={s.column}>
         <div className={s.head}>
           <Link href="/" className="brand">captio</Link>

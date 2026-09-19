@@ -8,7 +8,7 @@ import s from './review.module.css'
  */
 export default function DeadLink() {
   return (
-    <div className={`v2 ${s.page} ${s.center}`}>
+    <div className={`${s.page} ${s.center}`}>
       <div className={`card ${s.gate}`}>
         <span className="brand">captio</span>
         <div>

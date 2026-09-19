@@ -197,7 +197,7 @@ export default function DashboardClient({
   }
 
   return (
-    <div className={`v2 ${s.page}`}>
+    <div className={s.page}>
       {team && (
         <TeamPanel
           currentUserId={user.id}

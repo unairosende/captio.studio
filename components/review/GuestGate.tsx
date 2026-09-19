@@ -51,7 +51,7 @@ export default function GuestGate({ token, projectName, organizationName }: Prop
   }
 
   return (
-    <div className={`v2 ${s.page} ${s.center}`}>
+    <div className={`${s.page} ${s.center}`}>
       <form onSubmit={submit} className={`card ${s.gate}`}>
         <span className="brand">captio</span>
         <div>

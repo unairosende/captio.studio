@@ -154,7 +154,7 @@
   border: 1.5px solid var(--line-2);
   border-top-color: var(--ink);
   background: var(--s1);
-  animation: v2-spin .6s linear infinite;
+  animation: spin .6s linear infinite;
 }
 
 /* La barra lateral: los mandos del paso abierto. Se queda hasta que se

@@ -54,7 +54,7 @@ export default function StyleguidePage() {
   }, [theme])
 
   return (
-    <div className={`v2 ${s.page}`}>
+    <div className={s.page}>
       <header className={s.bar}>
         <span className={s.brand}>CAPTIO</span>
         <span className={s.crumb}>Fundaciones y piezas · fases 03 y 04</span>

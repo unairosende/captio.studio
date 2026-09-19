@@ -1,15 +1,14 @@
-/* ── Fundaciones del rediseño ───────────────────────────────────────────────
-   Dirección B · Consola, con la disciplina de Linear. Ámbito `.v2` a propósito:
-   una pantalla entra en el rediseño cuando su raíz lleva la clase, y hasta
-   entonces sigue leyendo los tokens antiguos de globals.css. Cuando la última
-   pantalla haya migrado, este bloque pasa a :root y el antiguo se borra.
+/* ── Fundaciones ───────────────────────────────────────────────────────────
+   Dirección B · Consola, con la disciplina de Linear. Nacieron bajo un ámbito
+   `.v2` mientras las pantallas migraban una a una; migrada la última, el
+   bloque pasó a :root y el antiguo de globals.css se borró.
 
    Claro y oscuro salen del mismo token con light-dark(); cambiar de tema es
    cambiar color-scheme, no duplicar la paleta. Bordes, lavados y anillos se
    derivan de la tinta con color-mix(), así un borde nunca es un gris elegido a
    mano que luego no casa con el texto que tiene al lado. */
 
-.v2 {
+:root {
   color-scheme: light;
 
   /* Superficies: una escala, no unos roles. s0 es el extremo — la única
@@ -53,8 +52,8 @@
   /* Tipografía: Geist y Geist Mono, elegidas sobre una fila de cue real frente
      a Plex. Seis tamaños y ninguno por debajo de 11: la auditoría contó quince
      en el producto, con 10 px como el más usado del editor. */
-  --sans: var(--font-geist), system-ui, sans-serif;
-  --mono: var(--font-geist-mono), ui-monospace, 'SF Mono', monospace;
+  --sans: var(--font-sans), system-ui, sans-serif;
+  --mono: var(--font-mono), ui-monospace, 'SF Mono', monospace;
   --fs-xs:  11px;
   --fs-sm:  12px;
   --fs-md:  13px;
@@ -98,6 +97,6 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .v2 { color-scheme: dark; }
+  :root:not([data-theme="light"]) { color-scheme: dark; }
 }
-:root[data-theme="dark"] .v2 { color-scheme: dark; }
+:root[data-theme="dark"] { color-scheme: dark; }

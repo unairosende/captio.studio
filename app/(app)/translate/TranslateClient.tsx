@@ -135,7 +135,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   }, [redo, undo])
 
   return (
-    <div className={`v2 ${s.editor}`}>
+    <div className={s.editor}>
       {team && <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />}
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
 
