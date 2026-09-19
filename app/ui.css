@@ -646,7 +646,9 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
 }
 .palette-input::placeholder { color: var(--ink-3); }
 .palette-list { padding: var(--sp-1); max-height: 320px; overflow-y: auto; }
-.palette-group { padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+.palette-group { display: block; padding: var(--sp-2) var(--sp-2) var(--sp-1); }
+/* Un cue entero cabe en una línea o se corta: la fila no crece. */
+.palette-label { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .palette-item {
   display: flex;
   align-items: center;

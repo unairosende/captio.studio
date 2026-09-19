@@ -191,78 +191,53 @@ export default function CommandPalette({ onClose }: Props) {
       aria-modal="true"
       aria-label="Paleta de comandos"
     >
-      <div className="panel" style={{ '--panel-w': '540px', '--panel-h': '60vh' } as CSSProperties}>
-        <div className="panel-head">
-          <span style={{ color: 'var(--ink-3)', fontSize: 'var(--fs-md)' }}>⌕</span>
-          <input
-            ref={inputRef}
-            value={q}
-            // The cursor goes back to the top here rather than in an effect
-            // watching `q`: a filtered list is a different list, and leaving the
-            // cursor on row six of a list that now has two would run whatever
-            // happens to be sitting there.
-            onChange={e => { setQ(e.target.value); setCursor(0) }}
-            onKeyDown={onKeyDown}
-            placeholder="Cue, timecode o acción…"
-            aria-label="Acción o búsqueda"
-            autoComplete="off"
-            spellCheck={false}
-            style={{
-              flex: 1, background: 'none', border: 'none', outline: 'none',
-              color: 'var(--ink)', fontSize: 13,
-            }}
-          />
-          <span style={{
-            fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--ink-3)',
-            border: '1px solid var(--line-2)', borderRadius: 'var(--r-sm)', padding: '1px 5px',
-          }}>
-            esc
-          </span>
-        </div>
+      {/* The piece the style guide shows, and nothing drawn here: the field,
+          the list in groups, the empty answer and the foot with the keys. */}
+      <div className="palette">
+        <input
+          ref={inputRef}
+          className="palette-input"
+          value={q}
+          // The cursor goes back to the top here rather than in an effect
+          // watching `q`: a filtered list is a different list, and leaving the
+          // cursor on row six of a list that now has two would run whatever
+          // happens to be sitting there.
+          onChange={e => { setQ(e.target.value); setCursor(0) }}
+          onKeyDown={onKeyDown}
+          placeholder="Cue, timecode o acción…"
+          aria-label="Acción o búsqueda"
+          autoComplete="off"
+          spellCheck={false}
+        />
 
-        <div ref={listRef} className="panel-body" style={{ padding: '5px 0 8px' }}>
-          {items.length === 0 && (
-            <div className="muted" style={{ padding: '14px 15px', fontSize: 'var(--fs-md)' }}>
-              Nada para «{q}».
-            </div>
-          )}
+        <div ref={listRef} className="palette-list">
+          {items.length === 0 && <div className="palette-empty">Nada para «{q}».</div>}
           {items.map((item, i) => {
             const header = item.section !== lastSection ? item.section : null
             lastSection = item.section
             return (
               <div key={item.key}>
-                {header && (
-                  <div className="caps" style={{ padding: '8px 15px 3px' }}>{header}</div>
-                )}
+                {header && <span className="caps palette-group">{header}</span>}
                 <div
+                  className="palette-item"
                   data-row={i}
+                  aria-selected={i === cursor}
                   onMouseEnter={() => setCursor(i)}
                   onClick={() => item.run()}
-                  style={{
-                    display: 'flex', alignItems: 'center', gap: 9, cursor: 'pointer',
-                    padding: '6px 15px',
-                    background: i === cursor ? 'var(--s3)' : 'transparent',
-                  }}
                 >
-                  <span style={{
-                    fontSize: 'var(--fs-md)', color: 'var(--ink)', whiteSpace: 'nowrap',
-                    overflow: 'hidden', textOverflow: 'ellipsis',
-                  }}>
-                    {item.label}
-                  </span>
-                  {item.hint && (
-                    <span style={{
-                      fontFamily: 'var(--mono)', fontSize: 'var(--fs-xs)', color: 'var(--ink-3)',
-                      marginLeft: 'auto', flexShrink: 0,
-                    }}>
-                      {item.hint}
-                    </span>
-                  )}
+                  <span className="palette-label">{item.label}</span>
+                  {/* A cue's position reads beside its text; an action's key
+                      sits at the far end, as the style guide has them. */}
+                  {item.hint && (item.section === 'Cues'
+                    ? <span className="muted">{item.hint}</span>
+                    : <span className="kbd">{item.hint}</span>)}
                 </div>
               </div>
             )
           })}
         </div>
+
+        <div className="palette-foot"><span>↑↓ moverse</span><span>⏎ ejecutar</span><span>esc cerrar</span></div>
       </div>
     </div>
   )

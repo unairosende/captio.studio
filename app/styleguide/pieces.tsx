@@ -296,22 +296,26 @@ export function Pieces() {
       <Grid
         title="Paleta de comandos"
         note={<>La superficie principal de acción, y lo dice el propio campo. Es el índice completo de lo que Captio sabe hacer: por eso la pantalla puede estar callada sin que nadie dude de lo que hay dentro. Cada acción lleva su atajo al lado.</>}
-        na={{ hover: 'dentro: una fila con el ratón encima', foco: 'el foco vive en el campo', activo: 'dentro: la fila seleccionada', deshabilitado: 'no existe', error: 'una búsqueda sin resultados no es un error: es el vacío' }}
+        na={{ hover: 'dentro: una fila con el ratón encima', foco: 'el foco vive en el campo', activo: 'dentro: la fila seleccionada', deshabilitado: 'no existe' }}
         wide
       >
         {st => (
           <div className="palette">
-            <input className="palette-input" placeholder="Cue, timecode o acción…" defaultValue={st === 'cargando' ? 'retrad' : ''} readOnly />
+            <input className="palette-input" placeholder="Cue, timecode o acción…" defaultValue={st === 'cargando' ? 'retrad' : st === 'error' ? 'xq' : ''} readOnly />
             <div className="palette-list">
               {st === 'cargando'
                 ? <div className={s.stackWide} style={{ padding: 8 }}><Sk w="60%" /><Sk w="45%" /><Sk w="70%" /></div>
-                : <>
+                : st === 'error'
+                  // A search with no answer is not an error: it is the empty
+                  // state, and it says so in the list's own words.
+                  ? <div className="palette-empty">Nada para «xq».</div>
+                  : <>
                     <span className="caps palette-group">Acciones</span>
-                    <div className="palette-item" data-state="hover">Retraducir el cue <span className="muted">EN</span><span className="kbd">⌘R</span></div>
-                    <div className="palette-item" aria-selected="true">Partir el cue por el salto de línea<span className="kbd">⌘⏎</span></div>
-                    <div className="palette-item">Exportar SRT<span className="kbd">⌘E</span></div>
-                    <span className="caps palette-group">Ir a</span>
-                    <div className="palette-item">Cue 142 <span className="muted">00:08:14,320</span></div>
+                    <div className="palette-item" data-state="hover"><span className="palette-label">Retraducir el cue</span><span className="muted">EN</span><span className="kbd">⌘R</span></div>
+                    <div className="palette-item" aria-selected="true"><span className="palette-label">Partir el cue por el salto de línea</span><span className="kbd">⌘⏎</span></div>
+                    <div className="palette-item"><span className="palette-label">Exportar SRT</span><span className="kbd">⌘E</span></div>
+                    <span className="caps palette-group">Cues</span>
+                    <div className="palette-item"><span className="palette-label">El hielo se rompe antes de que amanezca.</span><span className="muted">#142 · 00:08:14,320</span></div>
                   </>}
             </div>
             <div className="palette-foot"><span>↑↓ moverse</span><span>⏎ ejecutar</span><span>esc cerrar</span></div>
