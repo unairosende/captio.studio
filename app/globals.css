@@ -1,9 +1,7 @@
-@import "tailwindcss";
+/* Lo que no es un token ni una pieza: el cuerpo y la barra de scroll. El reset
+   está en reset.css, los tokens en tokens.css y las piezas en ui.css, todos
+   cargados desde app/layout.tsx, en ese orden. */
 
-/* Lo que no es un token ni una pieza: el reset y el cuerpo. Los tokens viven
-   en tokens.css y las piezas en ui.css, ambos cargados desde app/layout.tsx. */
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
   background: var(--s1);
@@ -13,6 +11,11 @@ body {
   line-height: var(--lh);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Un <code> sin clase también va en la mono del producto. Tailwind lo hacía
+   por debajo, apuntando su fuente mono por defecto a --font-mono; sin él,
+   hay que decirlo aquí. */
+code, kbd, samp, pre { font-family: var(--mono); }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: transparent; }

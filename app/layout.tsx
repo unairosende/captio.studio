@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Script from 'next/script'
 
+import './reset.css'
 import './globals.css'
 import './tokens.css'
 import './ui.css'
@@ -38,8 +39,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // suppressHydrationWarning: the theme script below stamps data-theme on
     // <html> before React hydrates, so the server's HTML and the client's
     // attributes differ on purpose. Scoped to this one element.
-    <html lang="es" className={`h-full ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
-      <body className="h-full">
+    <html lang="es" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+      <body>
         {/* The theme, before anything paints. A preference read after
             hydration would draw the page in one theme and flip it a moment
             later; read here, before React runs, it is right from the first
