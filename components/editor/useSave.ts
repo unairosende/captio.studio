@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useState } from 'react'
 
 import type { GlossaryEntry } from '@/lib/ai/prompt'
+import { api, send } from '@/lib/api'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
+import type { ProjectComment } from '@/types/comment'
 import type { Playback } from '@/types/media'
 import type { Subtitle, TranslationStore } from '@/types/subtitle'
 
@@ -49,9 +51,8 @@ export function useSave() {
 
   const refresh = useCallback(async () => {
     if (!projectId) return
-    const res = await fetch(`/api/sequences?project=${projectId}`)
-    if (!res.ok) return
-    setList((await res.json()).sequences ?? [])
+    const r = await api<{ sequences?: SequenceSummary[] }>(`/api/sequences?project=${projectId}`)
+    if (r.ok) setList(r.json.sequences ?? [])
   }, [projectId])
 
   /** Warn before losing work to a reload or a closed tab. */
@@ -78,27 +79,18 @@ export function useSave() {
       ...(sequenceId && anchorOps.length ? { anchorOps } : {}),
       ...(mediaId ? { mediaId } : {}),
     }
-    const res = await fetch(sequenceId ? `/api/sequences/${sequenceId}` : '/api/sequences', {
-      method: sequenceId ? 'PATCH' : 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    const json = await res.json().catch(() => ({}))
+    const r = await send<{ sequence: Saved }>(sequenceId ? `/api/sequences/${sequenceId}` : '/api/sequences', payload, sequenceId ? 'PATCH' : 'POST')
 
-    if (res.status === 409) { setBusy(false); setConflict(true); return }
-    if (!res.ok) { setBusy(false); setError(json.error ?? `No se pudo guardar (HTTP ${res.status})`); return }
+    if (r.status === 409) { setBusy(false); setConflict(true); return }
+    if (!r.ok) { setBusy(false); setError(r.error); return }
 
     if (glossaryDirty) {
-      const terms = await fetch(`/api/projects/${projectId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ glossary }),
-      })
-      if (!terms.ok) setError('Guardado, pero el glosario no subió')
+      const terms = await send(`/api/projects/${projectId}`, { glossary }, 'PATCH')
+      if (!terms.ok) setError(`Guardado, pero el glosario no subió: ${terms.error}`)
     }
 
     setBusy(false)
-    const saved: Saved = json.sequence
+    const saved = r.json.sequence
     setConflict(false)
     setSavedAt(new Date())
     markSaved(saved.id, saved.name, saved.version)
@@ -107,12 +99,11 @@ export function useSave() {
   async function load(id: string) {
     setBusy(true)
     setError(null)
-    const res = await fetch(`/api/sequences/${id}`)
-    const json = await res.json().catch(() => ({}))
+    const r = await api<{ sequence: Saved; playback?: Playback | null }>(`/api/sequences/${id}`)
     setBusy(false)
-    if (!res.ok) { setError(json.error ?? 'No se pudo abrir esa secuencia'); return }
+    if (!r.ok) { setError(r.error); return }
 
-    const s: Saved = json.sequence
+    const s = r.json.sequence
     openSequence({
       id: s.id,
       name: s.name,
@@ -122,11 +113,12 @@ export function useSave() {
       subtitles: s.data?.subtitles ?? [],
       translations: s.data?.translations ?? {},
       glossary,
-      playback: (json.playback as Playback | null) ?? null,
+      playback: r.json.playback ?? null,
     })
     setConflict(false)
-    const notes = await fetch(`/api/sequences/${id}/comments`)
-    setComments(notes.ok ? (await notes.json()).comments ?? [] : [])
+    const notes = await api<{ comments?: ProjectComment[] }>(`/api/sequences/${id}/comments`)
+    setComments(notes.ok ? notes.json.comments ?? [] : [])
+
   }
 
   function startNew() {

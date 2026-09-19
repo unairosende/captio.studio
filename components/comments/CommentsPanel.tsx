@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 
+import { api, send } from '@/lib/api'
 import { shortLang } from '@/lib/lang'
 import type { ProjectComment } from '@/types/comment'
 
@@ -45,7 +46,6 @@ export default function CommentsPanel({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const thread = comments.filter(c => c.cue_index === cueIndex)
-  const headers = { 'Content-Type': 'application/json', ...authHeaders }
 
   useEffect(() => {
     inputRef.current?.focus()
@@ -63,50 +63,38 @@ export default function CommentsPanel({
     setBusy(true)
     setError(null)
 
-    const res = await fetch(`/api/sequences/${sequenceId}/comments`, {
-      method: 'POST',
-      headers,
-      // Which language it was written on, so "this reads oddly" is anchored to
-      // a language rather than to the cue in general.
-      body: JSON.stringify({ cueIndex, lang, body }),
-    })
-    const json = await res.json().catch(() => ({}))
+    // Which language it was written on, so "this reads oddly" is anchored to
+    // a language rather than to the cue in general.
+    const r = await send<{ comments: ProjectComment[] }>(`/api/sequences/${sequenceId}/comments`, { cueIndex, lang, body }, 'POST', authHeaders)
     setBusy(false)
 
-    if (!res.ok) {
-      setError(json.error ?? 'No se pudo enviar')
+    if (!r.ok) {
+      setError(r.error)
       return
     }
-    onChange(json.comments as ProjectComment[])
+    onChange(r.json.comments)
     setDraft('')
   }
 
   async function toggleResolved(c: ProjectComment) {
-    const res = await fetch(`/api/sequences/${sequenceId}/comments/${c.id}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({ resolved: !c.resolved }),
-    })
-    const json = await res.json().catch(() => ({}))
-    if (!res.ok) {
-      setError('No se pudo cambiar ese comentario')
+    const r = await send<{ comment?: ProjectComment }>(`/api/sequences/${sequenceId}/comments/${c.id}`, { resolved: !c.resolved }, 'PATCH', authHeaders)
+    if (!r.ok) {
+      setError(r.error)
       return
     }
-    const updated = json.comment as ProjectComment | undefined
+    const updated = r.json.comment
     onChange(comments.map(x => (x.id === c.id
       ? { ...x, resolved: !c.resolved, resolved_at: updated?.resolved_at ?? null }
       : x)))
   }
 
   async function remove(c: ProjectComment) {
-    const res = await fetch(`/api/sequences/${sequenceId}/comments/${c.id}`, {
-      method: 'DELETE',
-      headers: authHeaders,
-    })
-    if (!res.ok) {
-      setError('No se pudo borrar ese comentario')
+    const r = await api(`/api/sequences/${sequenceId}/comments/${c.id}`, { method: 'DELETE', headers: authHeaders })
+    if (!r.ok) {
+      setError(r.error)
       return
     }
+
     onChange(comments.filter(x => x.id !== c.id))
   }
 

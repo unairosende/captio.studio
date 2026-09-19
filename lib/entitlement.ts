@@ -180,12 +180,13 @@ export function allowanceFor(entitlement: Entitlement, kind: UsageKind): Allowan
 export function paywallResponse(allowance: Allowance): Response {
   const error =
     allowance.status === 'over-plan' && allowance.monthly
-      ? `Your ${allowance.monthly.plan} plan includes ` +
-        `${allowance.monthly.limit.toLocaleString('en-GB')} minutes of material a month, ` +
-        'and this month is spent. The allowance starts again at the beginning of next month, ' +
-        'or a larger plan raises it now — your projects stay where they are and can still be exported.'
-      : `Your free trial has used the ${TRIAL.mediaMinutes} minutes it includes. ` +
-        'Subscribe to run new jobs — your projects stay where they are and can still be exported.'
+      ? `Tu plan ${allowance.monthly.plan} incluye ` +
+        `${allowance.monthly.limit.toLocaleString('es-ES')} minutos de material al mes, ` +
+        'y los de este mes están gastados. La cuota vuelve a empezar el mes que viene, ' +
+        'o un plan mayor la amplía ahora — tus proyectos se quedan donde están y siguen exportándose.'
+      : `Tu prueba gratuita ha usado los ${TRIAL.mediaMinutes} minutos que incluye. ` +
+        'Suscríbete para lanzar trabajos nuevos — tus proyectos se quedan donde están y siguen exportándose.'
+
 
   return Response.json(
     {

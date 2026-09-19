@@ -6,6 +6,7 @@ import { useState } from 'react'
 
 import TeamPanel from '@/components/team/TeamPanel'
 import { ago } from '@/lib/ago'
+import { api, send } from '@/lib/api'
 import { signOut as endSession } from '@/lib/auth/client'
 import type { MemberRow } from '@/lib/db/organizations'
 import type { ProjectSummary } from '@/lib/db/projects'
@@ -97,22 +98,17 @@ export default function DashboardClient({
 
     setCreating(true)
     setError(null)
-    const res = await fetch('/api/projects', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    })
-    const json = await res.json().catch(() => ({}))
+    const r = await send<{ project: { id: string } }>('/api/projects', { name })
     setCreating(false)
 
-    if (!res.ok) {
-      setError(json.error ?? `No se pudo crear el proyecto (HTTP ${res.status})`)
+    if (!r.ok) {
+      setError(r.error)
       return
     }
     setNaming(false)
     setNewName('')
     // Straight into it: nobody creates a project in order to look at it empty.
-    router.push(`/projects/${json.project.id}`)
+    router.push(`/projects/${r.json.project.id}`)
   }
 
   /**
@@ -125,18 +121,17 @@ export default function DashboardClient({
     setPortalBusy(true)
     setPortalError(null)
 
-    const res = await fetch('/api/portal', { method: 'POST' })
-    const json = await res.json().catch(() => ({}))
+    const r = await api<{ url?: string }>('/api/portal', { method: 'POST' })
 
-    if (res.ok && json.url) {
+    if (r.ok && r.json.url) {
       // Left busy on purpose: the navigation is already happening, and a button
       // that re-enables first invites a second portal session nobody asked for.
-      window.location.href = json.url
+      window.location.assign(r.json.url)
       return
     }
 
     setPortalBusy(false)
-    setPortalError(json.error ?? `No se pudo abrir el portal de facturación (HTTP ${res.status})`)
+    setPortalError(r.error || 'No se pudo abrir el portal de facturación')
   }
 
   /** The field, wherever it is shown — under the heading, or in the empty state. */
@@ -176,14 +171,14 @@ export default function DashboardClient({
 
     setBusyId(project.id)
     setError(null)
-    const res = await fetch(`/api/projects/${project.id}`, { method: 'DELETE' })
+    const r = await api(`/api/projects/${project.id}`, { method: 'DELETE' })
     setBusyId(null)
 
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      setError(json.error ?? `No se pudo eliminar el proyecto (HTTP ${res.status})`)
+    if (!r.ok) {
+      setError(r.error)
       return
     }
+
     // The list was drawn on the server, so the server has to draw it again.
     router.refresh()
   }

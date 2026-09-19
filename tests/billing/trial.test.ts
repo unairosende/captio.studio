@@ -65,7 +65,7 @@ describe('the wall', () => {
     const audio = await paywallResponse(exhausted('transcribe')).json()
     const subtitles = await paywallResponse(exhausted('translate')).json()
 
-    assert.match(audio.error, new RegExp(`${TRIAL.mediaMinutes} minutes`))
+    assert.match(audio.error, new RegExp(`${TRIAL.mediaMinutes} minutos`))
     assert.equal(audio.error, subtitles.error)
   })
 

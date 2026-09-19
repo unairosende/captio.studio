@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import m from '@/components/marketing/marketing.module.css'
+import { send } from '@/lib/api'
 import { PLANS, TRIAL } from '@/lib/plans'
 
 /**
@@ -25,28 +26,24 @@ export default function Plans() {
     setBusy(planId)
     setError(null)
 
-    const res = await fetch('/api/checkout', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ planId }),
-    })
-    const json = await res.json().catch(() => ({}))
+    const r = await send<{ url?: string }>('/api/checkout', { planId })
 
-    if (res.status === 401) {
+    if (r.status === 401) {
       router.push('/login?next=/pricing')
       return
     }
-    if (res.ok && json.url) {
+    if (r.ok && r.json.url) {
       // Left busy on purpose: the navigation is already happening.
-      window.location.assign(json.url)
+      window.location.assign(r.json.url)
       return
     }
     setError(
-      res.status === 403
+      r.status === 403
         ? 'Solo un propietario o administrador de la organización puede cambiar la suscripción.'
-        : (json.error ?? `No se pudo abrir el pago (HTTP ${res.status})`),
+        : r.error,
     )
     setBusy(null)
+
   }
 
   return (

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 
+import { api, send } from '@/lib/api'
 import { REVIEW_LINK_EXPIRY_DAYS } from '@/lib/auth/expiry'
 import type { ReviewLinkSummary } from '@/lib/db/review-links'
 
@@ -46,23 +47,18 @@ export default function ReviewLinks({ projectId, initial }: Props) {
   const urlOf = (link: ReviewLinkSummary) => `${window.location.origin}/r/${link.token}`
 
   async function refresh() {
-    const res = await fetch(`/api/projects/${projectId}/review-links`)
-    if (res.ok) setLinks((await res.json()).links ?? [])
+    const r = await api<{ links?: ReviewLinkSummary[] }>(`/api/projects/${projectId}/review-links`)
+    if (r.ok) setLinks(r.json.links ?? [])
   }
 
   async function create() {
     if (busy) return
     setBusy(true)
     setError(null)
-    const res = await fetch(`/api/projects/${projectId}/review-links`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ label, canEdit }),
-    })
-    const json = await res.json().catch(() => ({}))
+    const r = await send(`/api/projects/${projectId}/review-links`, { label, canEdit })
     setBusy(false)
-    if (!res.ok) {
-      setError(json.error ?? 'No se pudo crear el enlace')
+    if (!r.ok) {
+      setError(r.error)
       return
     }
     setLabel('')
@@ -85,11 +81,12 @@ export default function ReviewLinks({ projectId, initial }: Props) {
   async function revoke(link: ReviewLinkSummary) {
     if (!confirm(`¿Revocar este enlace? ${link.guests.length ? 'Quien lo haya usado pierde el acceso. ' : ''}Sus comentarios se quedan.`)) return
     setError(null)
-    const res = await fetch(`/api/projects/${projectId}/review-links/${link.id}`, { method: 'DELETE' })
-    if (!res.ok) {
-      setError('No se pudo revocar el enlace')
+    const r = await api(`/api/projects/${projectId}/review-links/${link.id}`, { method: 'DELETE' })
+    if (!r.ok) {
+      setError(r.error)
       return
     }
+
     await refresh()
   }
 

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 
 import { useSubtitleStore } from '@/store/useSubtitleStore'
+import { api, must } from '@/lib/api'
 import { decodeAudio, mediaType } from '@/lib/audio/decode'
 import { packPeaks } from '@/lib/audio/peaks'
 import { LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
@@ -39,17 +40,6 @@ export function langCode(lang: string): string {
 /** The source, which may not have been named yet: then it is just "original". */
 export function sourceLabel(srcLang: string): string {
   return srcLang === 'Auto-detect' ? 'original' : `${langCode(srcLang)} · original`
-}
-
-/**
- * A gateway that gives up answers with an HTML page, and `res.json()` then
- * fails on `<!DOCTYPE` — which reads as a bug in the reply rather than as a
- * request that was cut short before there was one.
- */
-export async function readJson(res: Response): Promise<Record<string, unknown> & { error?: string }> {
-  return res.json().catch(() => {
-    throw new Error(`El servidor respondió ${res.status} sin JSON — la petición se cortó antes de tiempo.`)
-  })
 }
 
 /**
@@ -113,7 +103,7 @@ export function useTranslate() {
       try {
         // Cues, not prose. The server composes the prompt, so a subscription
         // cannot be turned into a general-purpose model.
-        const res = await fetch('/api/translate', {
+        const data = await must('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -134,7 +124,6 @@ export function useTranslate() {
             glossary,
           }),
         })
-        const data = await readJson(res)
         if (data.error) throw new Error(data.error)
         // No falling back to the source text. A cue left in the original
         // language but presented as translated ships as finished work.
@@ -206,7 +195,7 @@ export function useTranscribe() {
 
       setTranscribeJob({ message: isVideo && upload === file ? 'Subiendo el vídeo…' : 'Subiendo el audio…', progress: 55 })
 
-      const grant = await fetch('/api/media', {
+      const grantData = await must('/api/media', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
@@ -217,8 +206,6 @@ export function useTranscribe() {
           peaks: decoded ? peaks : undefined,
         }),
       })
-      const grantData = await readJson(grant)
-      if (!grant.ok) throw new Error(grantData.error ?? `HTTP ${grant.status}`)
 
       // Remembered rather than used and forgotten: the save attaches it to the
       // sequence, and a translation names it as the material it belongs to.
@@ -226,15 +213,15 @@ export function useTranscribe() {
 
       // Straight to object storage. Routing this through our own API would
       // cap the file at the platform's request-body limit.
-      const put = await fetch(grantData.uploadUrl as string, {
+      const put = await api(grantData.uploadUrl as string, {
         method:  'PUT',
         body:    upload,
         headers: { 'Content-Type': uploadType },
       })
-      if (!put.ok) throw new Error(`La subida falló (HTTP ${put.status})`)
+      if (!put.ok) throw new Error(put.status ? `La subida falló (HTTP ${put.status})` : put.error)
 
       setTranscribeJob({ message: 'Transcribiendo…', progress: 75 })
-      const res = await fetch('/api/transcribe', {
+      const data = await must('/api/transcribe', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
@@ -243,8 +230,6 @@ export function useTranscribe() {
           outputMode,
         }),
       })
-      const data = await readJson(res)
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`)
 
       setTranscribeJob({ progress: 100 })
       // Already cues, already timecoded: the server cuts them from the word

@@ -4,7 +4,9 @@ import type { ReviewNote } from '@/lib/ai/prompt'
 import { charStatus, qcForMode, reflowText } from '@/lib/subtitles'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 
-import { readJson, useSpent } from './useJobs'
+import { must } from '@/lib/api'
+
+import { useSpent } from './useJobs'
 
 /**
  * The passes over a translation that already exists.
@@ -47,7 +49,7 @@ export function usePasses() {
       const batch = toFix.slice(i, i + BATCH)
       const srcTexts = batch.map(c => subtitles.find(o => o.index === c.index)?.text ?? '')
       try {
-        const res = await fetch('/api/translate', {
+        const data = await must('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -59,7 +61,6 @@ export function usePasses() {
             outputMode,
           }),
         })
-        const data = await readJson(res)
         if (data.error) throw new Error(data.error)
         const parsed = data.translations as string[]
         batch.forEach((c, j) => { if (parsed[j]) s.updateSubtitle(lang, c.index, parsed[j]) })
@@ -93,7 +94,7 @@ export function usePasses() {
     for (let i = 0; i < subs.length; i += BATCH) {
       const batch = subs.slice(i, i + BATCH)
       try {
-        const res = await fetch('/api/translate', {
+        const data = await must('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -110,7 +111,6 @@ export function usePasses() {
             glossary,
           }),
         })
-        const data = await readJson(res)
         if (data.error) throw new Error(data.error)
         const parsed = data.translations as string[]
         batch.forEach((c, j) => { if (parsed[j] && parsed[j] !== c.text) s.updateSubtitle(lang, c.index, parsed[j]) })
@@ -153,7 +153,7 @@ export function usePasses() {
     for (let i = 0; i < subs.length; i += BATCH) {
       const batch = subs.slice(i, i + BATCH)
       try {
-        const res = await fetch('/api/translate', {
+        const data = await must('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -166,7 +166,6 @@ export function usePasses() {
             glossary,
           }),
         })
-        const data = await readJson(res)
         if (data.error) throw new Error(data.error)
         found.push(...(data.notes as ReviewNote[]))
         s.setReviewJob({
@@ -209,7 +208,7 @@ export function usePasses() {
     for (let i = 0; i < subs.length; i += BATCH) {
       const batch = subs.slice(i, i + BATCH)
       try {
-        const res = await fetch('/api/translate', {
+        const data = await must('/api/translate', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -220,7 +219,6 @@ export function usePasses() {
             sourceLang: srcLang,
           }),
         })
-        const data = await readJson(res)
         if (data.error) throw new Error(data.error)
         const parsed = data.translations as string[]
         batch.forEach((c, j) => result.push({ ...c, text: parsed[j] ?? c.text }))

@@ -3,6 +3,8 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+import { send } from '@/lib/api'
+
 import s from './review.module.css'
 
 /**
@@ -34,18 +36,14 @@ export default function GuestGate({ token, projectName, organizationName }: Prop
     setBusy(true)
     setError(null)
 
-    const res = await fetch(`/api/review/${token}/guest`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email }),
-    })
-    const json = await res.json().catch(() => ({}))
+    const r = await send(`/api/review/${token}/guest`, { name, email })
     setBusy(false)
 
-    if (!res.ok) {
-      setError(json.error ?? 'No se pudo continuar')
+    if (!r.ok) {
+      setError(r.error)
       return
     }
+
     // The cookie is set; the server component reads it and shows the project.
     router.refresh()
   }

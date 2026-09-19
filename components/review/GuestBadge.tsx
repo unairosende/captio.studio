@@ -2,6 +2,8 @@
 
 import { useRouter } from 'next/navigation'
 
+import { api } from '@/lib/api'
+
 import s from './review.module.css'
 
 /** Who the page thinks you are, and the way to say it is not you. */
@@ -9,8 +11,9 @@ export default function GuestBadge({ token, name, email }: { token: string; name
   const router = useRouter()
 
   async function forget() {
-    await fetch(`/api/review/${token}/guest`, { method: 'DELETE' })
+    await api(`/api/review/${token}/guest`, { method: 'DELETE' })
     router.refresh()
+
   }
 
   return (

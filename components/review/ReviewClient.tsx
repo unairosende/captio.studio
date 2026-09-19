@@ -6,6 +6,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 
 import CommentsPanel from '@/components/comments/CommentsPanel'
 import Player from '@/components/video/Player'
+import { api, send } from '@/lib/api'
 import type { VersionSummary } from '@/lib/db/sequences'
 import { knownSource, shortLang } from '@/lib/lang'
 import { REVIEW_TOKEN_HEADER } from '@/lib/review/protocol'
@@ -125,11 +126,7 @@ export default function ReviewClient(props: ReviewProps) {
   const [error, setError] = useState<string | null>(null)
   const [edited, setEdited] = useState(() => new Set<string>())
 
-  const headers = useMemo(
-    () => ({ 'Content-Type': 'application/json', ...(token ? { [REVIEW_TOKEN_HEADER]: token } : {}) }),
-    [token],
-  )
-  const authHeaders = useMemo(() => (token ? { [REVIEW_TOKEN_HEADER]: token } : undefined), [token])
+  const authHeaders = useMemo(() => { const h: Record<string, string> = {}; if (token) h[REVIEW_TOKEN_HEADER] = token; return h }, [token])
 
   // ── Text by cue, per language ──────────────────────────────────────────────
   const byLang = useMemo(() => {
@@ -189,22 +186,17 @@ export default function ReviewClient(props: ReviewProps) {
     setSaving(true)
     setError(null)
 
-    const res = await fetch(`/api/sequences/${sequence.id}/edits`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ version, edits }),
-    })
-    const json = await res.json().catch(() => ({}))
+    const r = await send<{ sequence: { version: number } }>(`/api/sequences/${sequence.id}/edits`, { version, edits }, 'POST', authHeaders)
     setSaving(false)
 
-    if (res.status === 409) {
+    if (r.status === 409) {
       // Somebody saved a different shape underneath us. Nothing sent is lost
       // from the screen, but nothing more should be tried against this version.
       setConflict(true)
       return
     }
-    if (!res.ok) {
-      setError(json.error ?? `No se pudo guardar (HTTP ${res.status})`)
+    if (!r.ok) {
+      setError(r.error)
       return
     }
     // Only what went out is cleared: a cell edited while the request was in
@@ -214,9 +206,9 @@ export default function ReviewClient(props: ReviewProps) {
       if (pending.current.get(key) === e) pending.current.delete(key)
     }
     setUnsaved(pending.current.size)
-    setVersion(json.sequence.version)
+    setVersion(r.json.sequence.version)
     if (pending.current.size) schedule()
-  }, [headers, saving, schedule, sequence.id, version])
+  }, [authHeaders, saving, schedule, sequence.id, version])
 
   useEffect(() => {
     flushRef.current = () => void flush()
@@ -271,16 +263,15 @@ export default function ReviewClient(props: ReviewProps) {
 
   async function pick(v: VersionSummary) {
     setLoadingVersion(v.id)
-    const res = await fetch(`/api/sequences/${sequence.id}/versions/${v.id}`, { headers: authHeaders })
-    const json = await res.json().catch(() => ({}))
+    const r = await api<{ version: { data: unknown } }>(`/api/sequences/${sequence.id}/versions/${v.id}`, { headers: authHeaders })
     setLoadingVersion(null)
-    if (!res.ok) { setError(json.error ?? 'No se pudo abrir esa versión'); return }
-    setPicked({ summary: v, cues: readCues(json.version.data) })
+    if (!r.ok) { setError(r.error); return }
+    setPicked({ summary: v, cues: readCues(r.json.version.data) })
   }
 
   async function refreshVersions() {
-    const res = await fetch(`/api/sequences/${sequence.id}/versions`, { headers: authHeaders })
-    if (res.ok) setVersions((await res.json()).versions ?? [])
+    const r = await api<{ versions?: VersionSummary[] }>(`/api/sequences/${sequence.id}/versions`, { headers: authHeaders })
+    if (r.ok) setVersions(r.json.versions ?? [])
   }
 
   /** Every cue whose words differ between the picked version and what is on screen now. */
@@ -306,17 +297,14 @@ export default function ReviewClient(props: ReviewProps) {
     if (!picked || !canRestore) return
     const v = picked.summary.version ?? '?'
     if (!confirm(`¿Dejar toda la secuencia como en la v${v}? Se guarda como una versión nueva.`)) return
-    const res = await fetch(`/api/sequences/${sequence.id}`, {
-      method: 'PATCH',
-      headers,
-      body: JSON.stringify({
-        data: picked.cues,
-        version,
-        note: `Restaurada la v${picked.summary.version ?? ''}`.trim(),
-      }),
-    })
-    if (res.status === 409) { setConflict(true); return }
-    if (!res.ok) { setError('No se pudo restaurar esa versión'); return }
+    const r = await send(`/api/sequences/${sequence.id}`, {
+      data: picked.cues,
+      version,
+      note: `Restaurada la v${picked.summary.version ?? ''}`.trim(),
+    }, 'PATCH', authHeaders)
+    if (r.status === 409) { setConflict(true); return }
+    if (!r.ok) { setError(r.error); return }
+
     router.refresh()
   }
 

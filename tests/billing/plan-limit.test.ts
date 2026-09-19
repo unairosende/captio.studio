@@ -130,7 +130,7 @@ describe('the wall a subscriber sees', () => {
     const body = await paywallResponse(over()).json()
 
     assert.match(body.error, new RegExp(individual.name))
-    assert.match(body.error, new RegExp(individual.monthlyMediaMinutes.toLocaleString('en-GB')))
+    assert.match(body.error, new RegExp(individual.monthlyMediaMinutes.toLocaleString('es-ES')))
     assert.equal(body.monthly.limit, individual.monthlyMediaMinutes)
   })
 
@@ -138,8 +138,8 @@ describe('the wall a subscriber sees', () => {
     // They would go to support rather than to checkout, and rightly: they pay.
     const body = await paywallResponse(over()).json()
 
-    assert.doesNotMatch(body.error, /free trial/i)
-    assert.match(body.error, /next month/i)
+    assert.doesNotMatch(body.error, /prueba gratuita/i)
+    assert.match(body.error, /mes que viene/i)
   })
 
   it('says the work is still theirs', async () => {
@@ -148,5 +148,6 @@ describe('the wall a subscriber sees', () => {
     const body = await paywallResponse(over()).json()
 
     assert.match(body.error, /export/i)
+
   })
 })

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { ago } from '@/lib/ago'
+import { api, send } from '@/lib/api'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { ProjectSummary } from '@/lib/db/projects'
 import type { ReviewLinkSummary } from '@/lib/db/review-links'
@@ -51,14 +52,9 @@ export default function ProjectClient({ project, sequences, links }: Props) {
     setRenaming(false)
     if (!name || name === project.name) return
 
-    const res = await fetch(`/api/projects/${project.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name }),
-    })
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      setError(json.error ?? 'No se pudo renombrar')
+    const r = await send(`/api/projects/${project.id}`, { name }, 'PATCH')
+    if (!r.ok) {
+      setError(r.error)
       return
     }
     router.refresh()
@@ -70,18 +66,13 @@ export default function ProjectClient({ project, sequences, links }: Props) {
     setSavedTerms(false)
     setError(null)
 
-    const res = await fetch(`/api/projects/${project.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      // Blank rows are dropped server-side; sending them keeps the row on
-      // screen while somebody is still typing into it.
-      body: JSON.stringify({ glossary: next }),
-    })
+    // Blank rows are dropped server-side; sending them keeps the row on
+    // screen while somebody is still typing into it.
+    const r = await send(`/api/projects/${project.id}`, { glossary: next }, 'PATCH')
     setSavingTerms(false)
 
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      setError(json.error ?? 'No se pudo guardar el glosario')
+    if (!r.ok) {
+      setError(r.error)
       return
     }
     setSavedTerms(true)
@@ -92,14 +83,14 @@ export default function ProjectClient({ project, sequences, links }: Props) {
 
     setBusyId(sequence.id)
     setError(null)
-    const res = await fetch(`/api/sequences/${sequence.id}`, { method: 'DELETE' })
+    const r = await api(`/api/sequences/${sequence.id}`, { method: 'DELETE' })
     setBusyId(null)
 
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}))
-      setError(json.error ?? `No se pudo borrar (HTTP ${res.status})`)
+    if (!r.ok) {
+      setError(r.error)
       return
     }
+
     router.refresh()
   }
 
