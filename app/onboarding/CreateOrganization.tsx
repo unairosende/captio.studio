@@ -3,13 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import {
-  AuthCard,
-  FormError,
-  buttonStyle,
-  inputStyle,
-  labelStyle,
-} from '@/components/auth/AuthCard'
+import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
 import { organization } from '@/lib/auth/client'
 
 /** Name → URL-safe slug. Accents are folded so "Producciones Ñ" stays readable. */
@@ -61,35 +55,29 @@ export function CreateOrganization({ suggestedName }: { suggestedName: string })
 
   return (
     <AuthCard title="Crea tu organización" subtitle="Un último paso">
-      <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text2)', marginBottom: 18 }}>
-        Tus proyectos, tu equipo y tu facturación viven dentro de una organización. Suele ser el
-        nombre de tu productora.
-      </p>
-
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label htmlFor="org" style={labelStyle}>
-            Nombre
-          </label>
-          <input
-            id="org"
-            type="text"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            placeholder="Mi productora"
-            required
-            maxLength={80}
-            autoFocus
-            style={inputStyle}
-          />
-        </div>
+      <AuthForm onSubmit={handleSubmit}>
+        <p>
+          Tus proyectos, tu equipo y tu facturación viven dentro de una organización. Suele ser el
+          nombre de tu productora.
+        </p>
+        <Field
+          id="org"
+          label="Nombre"
+          type="text"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          placeholder="Mi productora"
+          required
+          maxLength={80}
+          autoFocus
+        />
 
         <FormError>{error}</FormError>
 
-        <button type="submit" disabled={loading || !name.trim()} style={buttonStyle(loading)}>
-          {loading ? 'Creando…' : 'Crear organización'}
+        <button type="submit" className="btn btn-primary btn-lg" disabled={!name.trim()} aria-busy={loading || undefined}>
+          Crear organización
         </button>
-      </form>
+      </AuthForm>
     </AuthCard>
   )
 }

@@ -1,0 +1,46 @@
+/* Las pantallas de acceso: entrar, crear cuenta, recuperar y cambiar la
+   contraseña, aceptar una invitación, crear la organización. Una tarjeta sola
+   en mitad de la pantalla, con las piezas de la biblioteca y el aire de las
+   pantallas que se leen. Solo maquetación de estas pantallas. */
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-6);
+  background: var(--s1);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: var(--fs-lg);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+.column { width: 400px; max-width: 100%; }
+
+.head { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); margin-bottom: var(--sp-6); }
+.subtitle { margin: 0; font-size: var(--fs-md); color: var(--ink-3); }
+
+.card { padding: var(--sp-6); }
+.title { margin: 0 0 var(--sp-4); font-size: var(--fs-xl); font-weight: 600; letter-spacing: -.01em; }
+
+/* Lo que la tarjeta cuenta cuando no hay formulario: el correo enviado, la
+   invitación que no abre. */
+.card p { margin: 0; font-size: var(--fs-md); color: var(--ink-2); }
+.card p + p { margin-top: var(--sp-3); }
+.card p strong { color: var(--ink); font-weight: 500; }
+
+/* Un formulario que se rellena una vez, con más aire y controles más altos que
+   los del editor; el botón primario ocupa el ancho porque es el único. */
+.form { display: flex; flex-direction: column; gap: var(--sp-4); }
+.form :global(.field) { height: var(--ctl-lg); }
+.form :global(.btn) { margin-top: var(--sp-1); }
+.label { display: block; margin-bottom: var(--sp-1); font-size: var(--fs-sm); color: var(--ink-2); }
+
+/* Dos botones, uno encima del otro: aceptar arriba, rechazar debajo y sin acento. */
+.actions { display: flex; flex-direction: column; gap: var(--sp-2); margin-top: var(--sp-4); }
+
+.footer { margin-top: var(--sp-4); text-align: center; font-size: var(--fs-md); color: var(--ink-3); }
+.footer p { margin: 0; }
+.footer p + p { margin-top: var(--sp-2); }

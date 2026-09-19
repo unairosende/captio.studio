@@ -4,13 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 
-import {
-  AuthCard,
-  FormError,
-  buttonStyle,
-  inputStyle,
-  labelStyle,
-} from '@/components/auth/AuthCard'
+import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
 import { resetPassword } from '@/lib/auth/client'
 
 /** Better Auth's own floor, stated here so the form can refuse before the round trip. */
@@ -66,15 +60,9 @@ function ResetPasswordForm() {
       <AuthCard
         title="Enlace no válido"
         subtitle="Cambiar la contraseña"
-        footer={
-          <Link href="/forgot-password" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-            Pedir uno nuevo
-          </Link>
-        }
+        footer={<p><Link href="/forgot-password" className="link">Pedir uno nuevo</Link></p>}
       >
-        <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
-          Este enlace está incompleto o ha caducado. Pide otro y úsalo cuanto antes.
-        </p>
+        <p>Este enlace está incompleto o ha caducado. Pide otro y úsalo cuanto antes.</p>
       </AuthCard>
     )
   }
@@ -83,54 +71,38 @@ function ResetPasswordForm() {
     <AuthCard
       title="Elige una contraseña nueva"
       subtitle="Cambiar la contraseña"
-      footer={
-        <Link href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-          Volver a iniciar sesión
-        </Link>
-      }
+      footer={<p><Link href="/login" className="link">Volver a iniciar sesión</Link></p>}
     >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label htmlFor="password" style={labelStyle}>
-            Contraseña nueva
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            minLength={MIN_LENGTH}
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            autoFocus
-            style={inputStyle}
-          />
-          <div style={{ fontSize: 11, color: 'var(--text3)', marginTop: 6 }}>
-            Mínimo {MIN_LENGTH} caracteres.
-          </div>
-        </div>
-        <div>
-          <label htmlFor="confirm" style={labelStyle}>
-            Repítela
-          </label>
-          <input
-            id="confirm"
-            type="password"
-            autoComplete="new-password"
-            minLength={MIN_LENGTH}
-            value={confirm}
-            onChange={e => setConfirm(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </div>
+      <AuthForm onSubmit={handleSubmit}>
+        <Field
+          id="password"
+          label="Contraseña nueva"
+          hint={`Mínimo ${MIN_LENGTH} caracteres.`}
+          type="password"
+          autoComplete="new-password"
+          minLength={MIN_LENGTH}
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+          autoFocus
+        />
+        <Field
+          id="confirm"
+          label="Repítela"
+          type="password"
+          autoComplete="new-password"
+          minLength={MIN_LENGTH}
+          value={confirm}
+          onChange={e => setConfirm(e.target.value)}
+          required
+        />
 
         <FormError>{error}</FormError>
 
-        <button type="submit" disabled={loading} style={buttonStyle(loading)}>
-          {loading ? 'Guardando…' : 'Guardar contraseña'}
+        <button type="submit" className="btn btn-primary btn-lg" aria-busy={loading || undefined}>
+          Guardar contraseña
         </button>
-      </form>
+      </AuthForm>
     </AuthCard>
   )
 }

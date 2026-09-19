@@ -4,13 +4,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 
-import {
-  AuthCard,
-  FormError,
-  buttonStyle,
-  inputStyle,
-  labelStyle,
-} from '@/components/auth/AuthCard'
+import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
 import { signIn } from '@/lib/auth/client'
 
 function LoginForm() {
@@ -39,12 +33,15 @@ function LoginForm() {
     const { error } = await signIn.email({ email, password })
 
     if (error) {
-      // Better Auth reports an unverified account through this code; the generic
-      // message would send people hunting for a typo in a correct password.
+      // By code, not by message: Better Auth's messages are in English, and an
+      // unverified account deserves its own answer — the generic one would send
+      // people hunting for a typo in a correct password.
       setError(
         error.code === 'EMAIL_NOT_VERIFIED'
           ? 'Confirma tu correo antes de entrar. Revisa tu bandeja.'
-          : (error.message ?? 'No se pudo iniciar sesión.'),
+          : error.code === 'INVALID_EMAIL_OR_PASSWORD'
+            ? 'El correo o la contraseña no son correctos.'
+            : (error.message ?? 'No se pudo iniciar sesión.'),
       )
       setLoading(false)
       return
@@ -62,54 +59,37 @@ function LoginForm() {
       subtitle="Entra en tu cuenta"
       footer={
         <>
-          ¿No tienes cuenta?{' '}
-          <Link href="/signup" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-            Crear una
-          </Link>
-          <div style={{ marginTop: 8 }}>
-            <Link href="/forgot-password" style={{ color: 'var(--text3)', textDecoration: 'none' }}>
-              ¿Has olvidado la contraseña?
-            </Link>
-          </div>
+          <p>¿No tienes cuenta? <Link href="/signup" className="link">Crear una</Link></p>
+          <p><Link href="/forgot-password" className="link">¿Has olvidado la contraseña?</Link></p>
         </>
       }
     >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label htmlFor="email" style={labelStyle}>
-            Correo
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label htmlFor="password" style={labelStyle}>
-            Contraseña
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </div>
+      <AuthForm onSubmit={handleSubmit}>
+        <Field
+          id="email"
+          label="Correo"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+        />
+        <Field
+          id="password"
+          label="Contraseña"
+          type="password"
+          autoComplete="current-password"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+        />
 
         <FormError>{error}</FormError>
 
-        <button type="submit" disabled={loading} style={buttonStyle(loading)}>
-          {loading ? 'Entrando…' : 'Entrar'}
+        <button type="submit" className="btn btn-primary btn-lg" aria-busy={loading || undefined}>
+          Entrar
         </button>
-      </form>
+      </AuthForm>
     </AuthCard>
   )
 }

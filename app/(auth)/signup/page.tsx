@@ -3,13 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 
-import {
-  AuthCard,
-  FormError,
-  buttonStyle,
-  inputStyle,
-  labelStyle,
-} from '@/components/auth/AuthCard'
+import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
 import { signUp } from '@/lib/auth/client'
 
 export default function SignupPage() {
@@ -42,13 +36,11 @@ export default function SignupPage() {
   if (sent) {
     return (
       <AuthCard title="Revisa tu correo" subtitle="Ya casi está">
-        <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text2)' }}>
-          Hemos enviado un enlace de confirmación a{' '}
-          <strong style={{ color: 'var(--text)' }}>{email}</strong>. Ábrelo para activar tu cuenta.
+        <p>
+          Hemos enviado un enlace de confirmación a <strong>{email}</strong>. Ábrelo para activar
+          tu cuenta.
         </p>
-        <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text3)', marginTop: 14 }}>
-          Si no llega en unos minutos, mira en spam.
-        </p>
+        <p>Si no llega en unos minutos, mira en spam.</p>
       </AuthCard>
     )
   }
@@ -57,69 +49,45 @@ export default function SignupPage() {
     <AuthCard
       title="Crear cuenta"
       subtitle="Empieza a subtitular"
-      footer={
-        <>
-          ¿Ya tienes cuenta?{' '}
-          <Link href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-            Entrar
-          </Link>
-        </>
-      }
+      footer={<p>¿Ya tienes cuenta? <Link href="/login" className="link">Entrar</Link></p>}
     >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label htmlFor="name" style={labelStyle}>
-            Nombre
-          </label>
-          <input
-            id="name"
-            type="text"
-            autoComplete="name"
-            value={name}
-            onChange={e => setName(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label htmlFor="email" style={labelStyle}>
-            Correo
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            style={inputStyle}
-          />
-        </div>
-        <div>
-          <label htmlFor="password" style={labelStyle}>
-            Contraseña
-          </label>
-          <input
-            id="password"
-            type="password"
-            autoComplete="new-password"
-            minLength={8}
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            required
-            style={inputStyle}
-          />
-          <div style={{ fontSize: 12, color: 'var(--text3)', marginTop: 6 }}>
-            Mínimo 8 caracteres.
-          </div>
-        </div>
+      <AuthForm onSubmit={handleSubmit}>
+        <Field
+          id="name"
+          label="Nombre"
+          type="text"
+          autoComplete="name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          required
+        />
+        <Field
+          id="email"
+          label="Correo"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+        />
+        <Field
+          id="password"
+          label="Contraseña"
+          hint="Mínimo 8 caracteres."
+          type="password"
+          autoComplete="new-password"
+          minLength={8}
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          required
+        />
 
         <FormError>{error}</FormError>
 
-        <button type="submit" disabled={loading} style={buttonStyle(loading)}>
-          {loading ? 'Creando…' : 'Crear cuenta'}
+        <button type="submit" className="btn btn-primary btn-lg" aria-busy={loading || undefined}>
+          Crear cuenta
         </button>
-      </form>
+      </AuthForm>
     </AuthCard>
   )
 }

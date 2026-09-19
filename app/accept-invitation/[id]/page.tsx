@@ -31,13 +31,11 @@ export default async function AcceptInvitationPage({
   if (!invitation) {
     return (
       <AuthCard title="Invitación no válida" subtitle="No pudimos abrirla">
-        <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text2)' }}>
+        <p>
           Esta invitación ha caducado, ya se usó, o va dirigida a otra dirección de correo. Pide a
           la organización que te envíe una nueva.
         </p>
-        <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text3)', marginTop: 14 }}>
-          Has entrado como {session.user.email}.
-        </p>
+        <p>Has entrado como <strong>{session.user.email}</strong>.</p>
       </AuthCard>
     )
   }

@@ -3,8 +3,11 @@
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
-import { AuthCard, FormError, buttonStyle } from '@/components/auth/AuthCard'
+import { Actions, AuthCard, FormError } from '@/components/auth/AuthCard'
 import { organization } from '@/lib/auth/client'
+
+/** The role as the reader says it. Better Auth keeps the English key. */
+const ROLE: Record<string, string> = { owner: 'propietario', admin: 'administrador', member: 'miembro' }
 
 export function AcceptInvitation({
   invitationId,
@@ -49,31 +52,21 @@ export function AcceptInvitation({
 
   return (
     <AuthCard title={`Únete a ${organizationName}`} subtitle="Tienes una invitación">
-      <p style={{ fontSize: 14, lineHeight: 1.6, color: 'var(--text2)', marginBottom: 18 }}>
-        Te han invitado a <strong style={{ color: 'var(--text)' }}>{organizationName}</strong> como{' '}
-        <strong style={{ color: 'var(--text)' }}>{role}</strong>. Verás los proyectos de la
-        organización y podrás trabajar en ellos.
+      <p>
+        Te han invitado a <strong>{organizationName}</strong> como <strong>{ROLE[role] ?? role}</strong>.
+        Verás los proyectos de la organización y podrás trabajar en ellos.
       </p>
 
       <FormError>{error}</FormError>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-        <button onClick={accept} disabled={busy !== null} style={buttonStyle(busy === 'accept')}>
-          {busy === 'accept' ? 'Entrando…' : 'Aceptar invitación'}
+      <Actions>
+        <button className="btn btn-primary btn-lg" disabled={busy === 'reject'} aria-busy={busy === 'accept' || undefined} onClick={() => void accept()}>
+          Aceptar invitación
         </button>
-        <button
-          onClick={reject}
-          disabled={busy !== null}
-          style={{
-            ...buttonStyle(busy === 'reject'),
-            background: 'transparent',
-            color: 'var(--text2)',
-            border: '1px solid var(--border)',
-          }}
-        >
+        <button className="btn btn-lg" disabled={busy === 'accept'} aria-busy={busy === 'reject' || undefined} onClick={() => void reject()}>
           Rechazar
         </button>
-      </div>
+      </Actions>
     </AuthCard>
   )
 }

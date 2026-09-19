@@ -3,13 +3,7 @@
 import Link from 'next/link'
 import { useState } from 'react'
 
-import {
-  AuthCard,
-  FormError,
-  buttonStyle,
-  inputStyle,
-  labelStyle,
-} from '@/components/auth/AuthCard'
+import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
 import { requestPasswordReset } from '@/lib/auth/client'
 import { RESET_EXPIRY_HOURS } from '@/lib/auth/expiry'
 
@@ -53,62 +47,40 @@ export default function ForgotPasswordPage() {
     setLoading(false)
   }
 
+  const back = <p><Link href="/login" className="link">Volver a iniciar sesión</Link></p>
+
   if (sent) {
     return (
-      <AuthCard
-        title="Revisa tu correo"
-        subtitle="Recuperar la contraseña"
-        footer={
-          <Link href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-            Volver a iniciar sesión
-          </Link>
-        }
-      >
-        <p style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 1.6 }}>
-          Si <strong style={{ color: 'var(--text)' }}>{email}</strong> tiene una cuenta, le hemos
-          enviado un enlace para cambiar la contraseña. Caduca en{' '}
-          {RESET_EXPIRY_HOURS === 1 ? 'una hora' : `${RESET_EXPIRY_HOURS} horas`}.
+      <AuthCard title="Revisa tu correo" subtitle="Recuperar la contraseña" footer={back}>
+        <p>
+          Si <strong>{email}</strong> tiene una cuenta, le hemos enviado un enlace para cambiar la
+          contraseña. Caduca en {RESET_EXPIRY_HOURS === 1 ? 'una hora' : `${RESET_EXPIRY_HOURS} horas`}.
         </p>
-        <p style={{ fontSize: 12, color: 'var(--text3)', lineHeight: 1.6, marginTop: 12 }}>
-          ¿No llega? Mira en spam, y comprueba que la dirección esté bien escrita.
-        </p>
+        <p>¿No llega? Mira en spam, y comprueba que la dirección esté bien escrita.</p>
       </AuthCard>
     )
   }
 
   return (
-    <AuthCard
-      title="Recuperar la contraseña"
-      subtitle="Te enviamos un enlace"
-      footer={
-        <Link href="/login" style={{ color: 'var(--accent)', textDecoration: 'none' }}>
-          Volver a iniciar sesión
-        </Link>
-      }
-    >
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-        <div>
-          <label htmlFor="email" style={labelStyle}>
-            Correo
-          </label>
-          <input
-            id="email"
-            type="email"
-            autoComplete="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            required
-            autoFocus
-            style={inputStyle}
-          />
-        </div>
+    <AuthCard title="Recuperar la contraseña" subtitle="Te enviamos un enlace" footer={back}>
+      <AuthForm onSubmit={handleSubmit}>
+        <Field
+          id="email"
+          label="Correo"
+          type="email"
+          autoComplete="email"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          required
+          autoFocus
+        />
 
         <FormError>{error}</FormError>
 
-        <button type="submit" disabled={loading} style={buttonStyle(loading)}>
-          {loading ? 'Enviando…' : 'Enviar enlace'}
+        <button type="submit" className="btn btn-primary btn-lg" aria-busy={loading || undefined}>
+          Enviar enlace
         </button>
-      </form>
+      </AuthForm>
     </AuthCard>
   )
 }
