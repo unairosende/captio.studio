@@ -11,13 +11,16 @@
 
 button, input, select, textarea { font-family: inherit; }
 
-/* Foco: un anillo neutro. Se ve desde el teclado y nunca desde el ratón; el
-   acento no lo pinta porque dentro del editor el acento cede. */
-:is(.btn, .field, .tab, .row, .cue, .menu-item, .badge, .palette-item):focus-visible,
-[data-state="focus"] {
+/* Foco: un anillo neutro, en todo lo que se puede enfocar — enlace, ficha,
+   casilla, desplegable, fila — y no solo en las piezas con nombre. Se ve desde
+   el teclado y nunca desde el ratón; el acento no lo pinta porque dentro del
+   editor el acento cede. Las piezas que van pegadas a un borde meten el anillo
+   hacia dentro; ninguna lo quita. */
+:focus-visible, [data-state="focus"] {
   outline: 2px solid var(--ring);
   outline-offset: 1px;
 }
+
 
 /* ── Movimiento ──────────────────────────────────────────────────────────── */
 

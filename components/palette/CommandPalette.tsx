@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { useRestoreFocus } from '@/components/useRestoreFocus'
 import { srtToSec } from '@/lib/subtitles'
 import { parseGoto } from '@/lib/timeline/goto'
 import { seekTo } from '@/lib/timeline/playhead'
@@ -42,6 +43,8 @@ const fold = (s: string) =>
 const MAX_CUES = 8
 
 export default function CommandPalette({ onClose }: Props) {
+  useRestoreFocus()
+
   const { subtitles, translations, activeTab, switchToTab } = useSubtitleStore()
   const [q, setQ] = useState('')
   const [cursor, setCursor] = useState(0)

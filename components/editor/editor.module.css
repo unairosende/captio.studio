@@ -379,3 +379,10 @@
   .side { width: 280px; }
   .keys { display: none; }
 }
+
+/* ── Atajos ─────────────────────────────────────────────────────────────── */
+
+.keys { --panel-w: 560px; --panel-h: 80vh; }
+.keyGroup { display: grid; gap: 2px; padding: var(--sp-2) 0; }
+.keyGroup :global(.caps) { padding: var(--sp-1) var(--sp-2); }
+.keyGroup :global(.row) { min-height: 30px; }

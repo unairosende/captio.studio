@@ -8,6 +8,7 @@ import Panel, { type Section } from '@/components/editor/Panel'
 import Steps, { type Step } from '@/components/editor/Steps'
 import s from '@/components/editor/editor.module.css'
 import CommandPalette from '@/components/palette/CommandPalette'
+import Shortcuts from '@/components/editor/Shortcuts'
 import TeamPanel from '@/components/team/TeamPanel'
 import Timeline from '@/components/timeline/Timeline'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
@@ -61,6 +62,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   const { undo, redo, openSequence, newSequence, setComments } = useSubtitleStore()
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
+  const [shortcuts, setShortcuts] = useState(false)
   const [filter, setFilter] = useState<Filter>(null)
   // The panel starts open and the sidebar folded: the steps are a rail of
   // icons, and the empty table has its own button to the first one.
@@ -117,6 +119,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
       }
 
       if (key === 'k') { e.preventDefault(); setPalette(p => !p); return }
+      if (key === '/') { e.preventDefault(); setShortcuts(v => !v); return }
       if (key === 's') { press('Guardar la secuencia'); return }
       if (key === 'e') { press('Exportar la pestaña en pantalla'); return }
       if (key !== 'z') return
@@ -138,8 +141,10 @@ export default function TranslateClient({ user, entitlement, project, sequence }
     <div className={s.editor}>
       {team && <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />}
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
+      {shortcuts && <Shortcuts onClose={() => setShortcuts(false)} />}
 
-      <Header user={user} project={project} onPalette={() => setPalette(true)} onTeam={() => setTeam(true)} />
+      <Header user={user} project={project} onPalette={() => setPalette(true)} onTeam={() => setTeam(true)} onShortcuts={() => setShortcuts(true)} />
+
       <Steps entitlement={entitlement} step={step} onStep={setStep} />
       <CueTable userId={user.id} filter={filter} onFilter={setFilter} onImport={() => setStep('import')} panel={panel} onPanel={() => setPanel(p => !p)} />
       <Panel userId={user.id} open={panel} section={section} onOpen={openPanel} onClose={() => setPanel(false)} filter={filter} onFilter={setFilter} />

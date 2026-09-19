@@ -15,6 +15,7 @@ interface Props {
   project: { id: string; name: string }
   onPalette: () => void
   onTeam: () => void
+  onShortcuts: () => void
 }
 
 /**
@@ -25,7 +26,7 @@ interface Props {
  * ⌘K opens it from anywhere, and the account menu names it for whoever has
  * not learnt that yet.
  */
-export default function Header({ user, project, onPalette, onTeam }: Props) {
+export default function Header({ user, project, onPalette, onTeam, onShortcuts }: Props) {
   const router = useRouter()
   const { sequenceName, setSequenceName } = useSubtitleStore()
   const save = useSave()
@@ -131,6 +132,7 @@ export default function Header({ user, project, onPalette, onTeam }: Props) {
             <div className={`menu ${s.pop}`} role="menu">
               <span className="caps">{user.name || user.email}</span>
               <button className="menu-item" role="menuitem" onClick={() => { setMeMenu(false); onPalette() }}>Buscar o ejecutar una acción <span className="kbd">⌘K</span></button>
+              <button className="menu-item" role="menuitem" onClick={() => { setMeMenu(false); onShortcuts() }}>Atajos de teclado <span className="kbd">⌘/</span></button>
               <button className="menu-item" role="menuitem" onClick={() => { setMeMenu(false); onTeam() }}>Equipo</button>
               {save.sequenceId && (
                 <button className="menu-item" role="menuitem" onClick={() => router.push(`/review/${save.sequenceId}`)}>Vista de revisión</button>
@@ -153,6 +155,8 @@ export default function Header({ user, project, onPalette, onTeam }: Props) {
         <button data-cmd="Nueva secuencia" onClick={save.startNew} />
         <button data-cmd="Abrir otra secuencia" onClick={() => setSeqMenu(true)} />
         <button data-cmd="Gestionar el equipo" onClick={onTeam} />
+        <button data-cmd="Ver los atajos de teclado" data-cmd-hint="⌘/" onClick={onShortcuts} />
+
         <button data-cmd="Volver al proyecto" onClick={() => router.push(`/projects/${project.id}`)} />
         {save.sequenceId && <button data-cmd="Abrir la vista de revisión" onClick={() => router.push(`/review/${save.sequenceId}`)} />}
       </span>

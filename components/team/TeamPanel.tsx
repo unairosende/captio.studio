@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useCallback, useEffect, useState } from 'react'
 
+import { useRestoreFocus } from '@/components/useRestoreFocus'
 import { organization } from '@/lib/auth/client'
 import { INVITATION_EXPIRY_DAYS } from '@/lib/auth/expiry'
 import { ROLES, type Role, roleLabel } from '@/lib/roles'
@@ -82,6 +83,8 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
   const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
 
   const canManage = role === 'owner' || role === 'admin'
+  useRestoreFocus()
+
 
   const refresh = useCallback(async () => {
     const [m, i] = await Promise.all([

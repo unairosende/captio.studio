@@ -167,10 +167,24 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
   const [ctx, setCtx] = useState<{ x: number; y: number; index: number } | null>(null)
   const [thread, setThread] = useState<number | null>(null)
 
+  const ctxRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!ctx) return
-    const shut = () => setCtx(null)
-    function onKey(e: globalThis.KeyboardEvent) { if (e.key === 'Escape') shut() }
+    // The first item takes the focus, so the menu can be walked with ↑↓ and
+    // chosen with ⏎ whether it was opened by the right button or by ⇧F10.
+    const items = () => Array.from(ctxRef.current?.querySelectorAll<HTMLButtonElement>('.menu-item:not(:disabled)') ?? [])
+    const before = document.activeElement as HTMLElement | null
+    items()[0]?.focus()
+    const shut = () => { setCtx(null); before?.focus?.() }
+
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.key === 'Escape') { shut(); return }
+      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+      const list = items()
+      const at = list.indexOf(document.activeElement as HTMLButtonElement)
+      const next = list[(at + (e.key === 'ArrowDown' ? 1 : -1) + list.length) % list.length]
+      if (next) { e.preventDefault(); next.focus() }
+    }
     window.addEventListener('pointerdown', shut)
     window.addEventListener('keydown', onKey)
     window.addEventListener('scroll', shut, true)
@@ -217,7 +231,37 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
     } else if (e.key === 'Enter' && selected !== null) {
       e.preventDefault()
       startEdit(selected, editCol, -1)
+    } else if (e.key === 'F10' && e.shiftKey && selected !== null) {
+      // The row's menu from the keyboard. Windows raises a contextmenu event
+      // for ⇧F10 on its own; a Mac does not, so the table answers the key.
+      e.preventDefault()
+      const row = e.currentTarget.querySelector<HTMLElement>(`[data-cue="${selected}"]`)
+      const r = row?.getBoundingClientRect()
+      if (r) setCtx({ x: r.left + 160, y: Math.min(r.top + 8, window.innerHeight - 180), index: selected })
+    } else if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+
+      // The language beside this one, as the tabs are ordered — the folded
+      // ones skipped when comparing, since they have no column to land on.
+      e.preventDefault()
+      const cols = compare ? columns : allCols
+      const next = cols[cols.indexOf(activeTab) + (e.key === 'ArrowRight' ? 1 : -1)]
+      if (next) switchToTab(next)
     }
+  }
+
+  /**
+   * Tab out of a cell: the next language in the same row, then the next row's
+   * first — the order a sheet is read in. Backwards mirrors it.
+   */
+  function tabFrom(index: number, col: Col, dir: 1 | -1) {
+    const cols = compare ? columns : [activeTab]
+    let ci = cols.indexOf(col) + dir
+    let ri = shown.findIndex(c => c.index === index)
+    if (ci < 0) { ri -= 1; ci = cols.length - 1 } else if (ci >= cols.length) { ri += 1; ci = 0 }
+    const row = shown[ri]
+    if (!row) return
+    choose(row)
+    startEdit(row.index, cols[ci], -1)
   }
 
   if (!subtitles.length) {
@@ -336,7 +380,7 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
               : <div className="tabs" role="tablist" aria-label="Idiomas">{allCols.map(tab)}</div>}
             {!compare && <><span className="cue-stat">cps</span><span className="cue-stat">car</span></>}
           </div>
-          {shown.map(c => {
+          {shown.map((c, i) => {
             const active = cueOf(activeTab, c.index)
             const text = active?.text ?? ''
             const cps = active ? cueCps(active) : null
@@ -345,10 +389,24 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
             return (
               <div key={c.index} className="cue" data-cue={c.index} data-qc={tone(quality?.get(c.index)?.status)}
                 data-born={born === c.index || undefined}
-                aria-selected={selected === c.index} tabIndex={0}
+                // One stop for the whole table, not one per row: Tab lands on
+                // the selected cue (or the first) and leaves for the panel;
+                // ↑↓ move inside. Three hundred rows are not three hundred
+                // tabs between the search and the checks.
+                aria-selected={selected === c.index} tabIndex={selected === c.index || (selected === null && i === 0) ? 0 : -1}
+
 
                 onClick={e => { if ((e.target as HTMLElement).tagName !== 'TEXTAREA') choose(c) }}
-                onContextMenu={e => { e.preventDefault(); choose(c); setCtx({ x: e.clientX, y: Math.min(e.clientY, window.innerHeight - 180), index: c.index }) }}>
+                onContextMenu={e => {
+                  e.preventDefault()
+                  choose(c)
+                  // From the keyboard (⇧F10) the event carries no point; the
+                  // menu opens on the row instead of in the corner.
+                  const r = e.currentTarget.getBoundingClientRect()
+                  const x = e.clientX || r.left + 160
+                  const y = e.clientY || r.top + 8
+                  setCtx({ x, y: Math.min(y, window.innerHeight - 180), index: c.index })
+                }}>
                 <span className="cue-n" title={open ? `${open} comentarios abiertos` : undefined}>{c.index}{open ? <b className={s.dot} /> : null}</span>
                 <span className="cue-tc">{c.start}<br />{c.end}</span>
                 {(compare ? allCols : columns).map(col => folded.has(col) ? (
@@ -364,6 +422,7 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
                     onEdit={caret => startEdit(c.index, col, caret)}
                     onCommit={t => commit(c.index, col, t)}
                     onDone={() => finishEdit(c.index)}
+                    onTab={dir => tabFrom(c.index, col, dir)}
                   />
                 ))}
                 {!compare && (
@@ -388,7 +447,8 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
       </div>
 
       {ctx && (
-        <div className={`menu ${s.ctx}`} role="menu" style={{ left: ctx.x, top: ctx.y }} onPointerDown={e => e.stopPropagation()}>
+        <div ref={ctxRef} className={`menu ${s.ctx}`} role="menu" style={{ left: ctx.x, top: ctx.y }} onPointerDown={e => e.stopPropagation()}>
+
           <span className="caps">Cue {ctx.index}</span>
           <button className="menu-item" role="menuitem" disabled={!sequenceId} title={sequenceId ? undefined : 'Guarda la secuencia para poder comentar'}
             onClick={() => { setCtx(null); comment(ctx.index) }}>
@@ -422,7 +482,7 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
  * lands where the pointer was. It is uncontrolled on purpose: the store hears
  * about the edit once, on leaving, and one edit is one step back.
  */
-function Cell({ text, query, qc, active, editing, onEdit, onCommit, onDone }: {
+function Cell({ text, query, qc, active, editing, onEdit, onCommit, onDone, onTab }: {
   text: string
   /** What the search is looking for, lower-cased and trimmed. */
   query: string
@@ -434,6 +494,8 @@ function Cell({ text, query, qc, active, editing, onEdit, onCommit, onDone }: {
   onEdit: (caret: number) => void
   onCommit: (text: string) => void
   onDone: () => void
+  /** Tab and ⇧Tab: leave this cell for the next or the previous one. */
+  onTab: (dir: 1 | -1) => void
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const skip = useRef(false)
@@ -460,6 +522,16 @@ function Cell({ text, query, qc, active, editing, onEdit, onCommit, onDone }: {
           onKeyDown={e => {
             if (e.key === 'Escape') { e.preventDefault(); skip.current = true; e.currentTarget.blur() }
             else if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); e.currentTarget.blur() }
+            else if (e.key === 'Tab') {
+              // Committed here rather than by the blur the next cell causes:
+              // a field that is unmounted does not always say goodbye.
+              e.preventDefault()
+              skip.current = true
+              onCommit(e.currentTarget.value)
+              onDone()
+              onTab(e.shiftKey ? -1 : 1)
+            }
+
           }}
           onBlur={e => { if (!skip.current) onCommit(e.currentTarget.value); onDone() }}
         />

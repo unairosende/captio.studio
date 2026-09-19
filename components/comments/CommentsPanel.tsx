@@ -2,6 +2,7 @@
 
 import { type CSSProperties, useEffect, useRef, useState } from 'react'
 
+import { useRestoreFocus } from '@/components/useRestoreFocus'
 import { api, send } from '@/lib/api'
 import { shortLang } from '@/lib/lang'
 import type { ProjectComment } from '@/types/comment'
@@ -45,7 +46,9 @@ export default function CommentsPanel({
   const [error, setError] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  useRestoreFocus()
   const thread = comments.filter(c => c.cue_index === cueIndex)
+
 
   useEffect(() => {
     inputRef.current?.focus()
