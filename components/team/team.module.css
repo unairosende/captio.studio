@@ -38,3 +38,20 @@
 .invWhen + :global(.btn) { margin-left: 0; }
 
 .note { margin: var(--sp-2) var(--sp-2) 0; }
+
+/* Zona de peligro: eliminar la organización. Una línea la separa del resto y
+   le da su propio aire, para que el botón rojo no se roce con lo demás. Solo la
+   ve el propietario, y solo desde el panel del dashboard. */
+.danger {
+  margin: var(--sp-4) var(--sp-2) 0;
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+.dangerText { margin: 0; font-size: var(--fs-sm); color: var(--ink-3); }
+.dangerText strong { color: var(--ink); font-weight: 600; }
+.dangerConfirm { display: flex; gap: var(--sp-2); align-self: stretch; }
+.dangerConfirm > :global(.field) { flex: 1; min-width: 0; }

@@ -34,6 +34,21 @@ export async function hasActiveSubscription(orgId: string): Promise<boolean> {
 }
 
 /**
+ * The most recent subscription of any status.
+ *
+ * Erasure needs the id to cancel at Stripe, and a `past_due` one is as billable
+ * as an active one — `getLiveSubscription` deliberately hides both, so it is the
+ * wrong question here. Newest first, because an org that resubscribed after
+ * cancelling has more than one row and only the last one is still live at Stripe.
+ */
+export async function latestSubscription(orgId: string): Promise<SubscriptionRow | null> {
+  return queryOne<SubscriptionRow>(
+    `select * from subscriptions where org_id = $1 order by created_at desc limit 1`,
+    [requireOrg(orgId)],
+  )
+}
+
+/**
  * The Stripe customer this organisation already has, if any.
  *
  * Deliberately ignores status: a cancelled subscription still identifies the

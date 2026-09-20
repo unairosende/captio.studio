@@ -1,8 +1,10 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useCallback, useEffect, useState } from 'react'
 
 import Dialog from '@/components/Dialog'
+import { send } from '@/lib/api'
 import { organization } from '@/lib/auth/client'
 import { INVITATION_EXPIRY_DAYS } from '@/lib/auth/expiry'
 import { ROLES, type Role, roleLabel } from '@/lib/roles'
@@ -66,10 +68,19 @@ interface Props {
   currentUserId: string
   /** The caller's own role, read from the session on the server. */
   role: string
+  /**
+   * The organisation's name, which unlocks the danger zone.
+   *
+   * Only passed where deleting the account makes sense — the dashboard — and
+   * left out in the editor, so the destructive control never sits under a track
+   * somebody is mid-edit on. Its presence, plus an owner, is what draws the
+   * section; the name is also what has to be typed back to confirm.
+   */
+  orgName?: string
   onClose: () => void
 }
 
-export default function TeamPanel({ currentUserId, role, onClose }: Props) {
+export default function TeamPanel({ currentUserId, role, orgName, onClose }: Props) {
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invitation[]>([])
   const [email, setEmail] = useState('')
@@ -81,8 +92,17 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
   const [copied, setCopied] = useState<string | null>(null)
   /** Shown when the clipboard is refused: the link itself, to copy by hand. */
   const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
+  /** The danger zone opens in two steps: a plain button, then a typed name. */
+  const [confirming, setConfirming] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [deleting, setDeleting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  const router = useRouter()
 
   const canManage = role === 'owner' || role === 'admin'
+  /** Only an owner deletes the account, and only where the name was passed in. */
+  const canDelete = role === 'owner' && !!orgName
 
   const refresh = useCallback(async () => {
     const [m, i] = await Promise.all([
@@ -186,6 +206,24 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
       return
     }
     await refresh()
+  }
+
+  async function deleteOrg() {
+    if (deleting || confirmText.trim() !== orgName) return
+    setDeleting(true)
+    setDeleteError(null)
+    const res = await send('/api/organization', { confirm: confirmText.trim() }, 'DELETE')
+    if (!res.ok) {
+      setDeleting(false)
+      setDeleteError(res.error)
+      return
+    }
+    // Back to the dashboard, re-resolved on the server: the organisation this
+    // session was working in is gone, so the (app) layout re-runs requireOrgContext
+    // and sends them on — to another organisation if they belong to one, or to
+    // onboarding (layout.tsx catches NoOrganizationError) if this was their last.
+    router.push('/dashboard')
+    router.refresh()
   }
 
   const expires = (at: string | Date) =>
@@ -303,6 +341,55 @@ export default function TeamPanel({ currentUserId, role, onClose }: Props) {
 
           {!canManage && (
             <p className={`muted ${s.note}`}>Pide a un administrador que invite a alguien o cambie un rol.</p>
+          )}
+
+          {canDelete && (
+            <div className={s.danger}>
+              <span className="caps">Zona de peligro</span>
+              {!confirming ? (
+                <>
+                  <p className={s.dangerText}>
+                    Eliminar la organización borra sus proyectos, subtítulos, comentarios y
+                    archivos, y cancela la suscripción. No se puede deshacer.
+                  </p>
+                  <button className="btn btn-danger" onClick={() => setConfirming(true)}>
+                    Eliminar organización
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className={s.dangerText}>
+                    Escribe <strong>{orgName}</strong> para confirmar. Esto es definitivo.
+                  </p>
+                  <div className={s.dangerConfirm}>
+                    <input
+                      value={confirmText}
+                      onChange={e => setConfirmText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void deleteOrg() } }}
+                      aria-label="Nombre de la organización para confirmar"
+                      className="field"
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                    <button
+                      className="btn btn-danger"
+                      onClick={() => void deleteOrg()}
+                      disabled={confirmText.trim() !== orgName}
+                      aria-busy={deleting || undefined}
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+                  <button
+                    className="btn btn-quiet"
+                    onClick={() => { setConfirming(false); setConfirmText(''); setDeleteError(null) }}
+                  >
+                    Cancelar
+                  </button>
+                </>
+              )}
+              {deleteError && <p className="err" role="alert">{deleteError}</p>}
+            </div>
           )}
         </div>
     </Dialog>

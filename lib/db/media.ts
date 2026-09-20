@@ -156,6 +156,23 @@ export async function orphanedStorageKeys(orgId: string, limit = 500): Promise<s
 }
 
 /**
+ * Every object this organisation has in the bucket.
+ *
+ * Unlike orphanedStorageKeys, no guard: erasing an organisation deletes all of
+ * its media, paid for or not, because the whole point is that nothing of theirs
+ * survives. Only ever called from the erasure path, which is deleting the rows
+ * a moment later anyway (by cascade), so there is nothing left for a billing
+ * guard to protect.
+ */
+export async function allStorageKeys(orgId: string): Promise<string[]> {
+  const rows = await query<{ storage_key: string }>(
+    `select storage_key from media where org_id = $1`,
+    [requireOrg(orgId)],
+  )
+  return rows.map(r => r.storage_key)
+}
+
+/**
  * Forget the rows whose objects the sweeper has just deleted.
  *
  * Called only after the bytes are gone, never before. The other order loses the

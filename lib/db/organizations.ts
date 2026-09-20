@@ -39,6 +39,31 @@ export async function getOrganization(orgId: string): Promise<OrganizationRow | 
   )
 }
 
+/**
+ * Delete an organisation, and with it everything the tenancy owns.
+ *
+ * Every tenant table's `org_id` is `on delete cascade` against this row (0004,
+ * 0007, 0011), and Better Auth's own member and invitation rows cascade too, so
+ * a single delete here erases the projects, versions, media rows, comments,
+ * usage, review links and guests, subscriptions and memberships in one
+ * statement. What it does NOT reach is the bytes in the bucket or the Stripe
+ * subscription — both live outside this database — so this is never called on
+ * its own: lib/erasure.ts cancels billing and clears the objects first, then
+ * this.
+ *
+ * A raw delete rather than Better Auth's own org endpoint because both callers
+ * are server-side and one is a cron with no session to act through, and the
+ * cascade is the same either way. `requireOrg` guards the one thing that would
+ * be catastrophic — an empty id, which no `where` clause would constrain.
+ */
+export async function deleteOrganization(orgId: string): Promise<boolean> {
+  const rows = await query<{ id: string }>(
+    `delete from "organization" where id = $1 returning id`,
+    [requireOrg(orgId)],
+  )
+  return rows.length > 0
+}
+
 export interface MemberRow {
   id: string
   user_id: string

@@ -197,6 +197,7 @@ export default function DashboardClient({
         <TeamPanel
           currentUserId={user.id}
           role={user.role}
+          orgName={organizationName}
           onClose={() => {
             setTeam(false)
             // Somebody may have been invited or removed while it was open, and
