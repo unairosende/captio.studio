@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useState } from 'react'
 
 import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 import { signUp } from '@/lib/auth/client'
 
 export default function SignupPage() {
@@ -87,6 +88,8 @@ export default function SignupPage() {
         <button type="submit" className="btn btn-primary btn-lg" aria-busy={loading || undefined}>
           Crear cuenta
         </button>
+
+        <GoogleButton />
       </AuthForm>
     </AuthCard>
   )

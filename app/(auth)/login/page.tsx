@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useState } from 'react'
 
 import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
+import { GoogleButton } from '@/components/auth/GoogleButton'
 import { signIn } from '@/lib/auth/client'
 
 function LoginForm() {
@@ -89,6 +90,8 @@ function LoginForm() {
         <button type="submit" className="btn btn-primary btn-lg" aria-busy={loading || undefined}>
           Entrar
         </button>
+
+        <GoogleButton next={next} />
       </AuthForm>
     </AuthCard>
   )
