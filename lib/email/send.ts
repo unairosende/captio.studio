@@ -202,3 +202,41 @@ export function invitationEmail(input: {
     ),
   }
 }
+
+/**
+ * The one warning before a cancelled organisation's data is erased.
+ *
+ * Sent to the owners once the retention window is nearly up, and the deletion
+ * does not proceed until it has actually gone out (see lib/db/retention.ts), so
+ * this is the notice a real person acts on, not a formality. It names the date
+ * and offers the way back — resubscribing stops the clock — because a customer
+ * who wanted to keep their work should not have to email support to do it.
+ */
+export function retentionWarningEmail(input: {
+  organizationName: string
+  deleteOn: string
+  reactivateUrl: string
+}): Omit<Mail, 'to'> {
+  const org = esc(input.organizationName)
+  const when = esc(input.deleteOn)
+  const url = esc(input.reactivateUrl)
+
+  return {
+    subject: `Los datos de ${input.organizationName} se borrarán pronto`,
+    text: [
+      `La suscripción de ${input.organizationName} está cancelada, así que sus proyectos,`,
+      `subtítulos, comentarios y archivos se borrarán de forma definitiva a partir del ${input.deleteOn}.`,
+      '',
+      `Si quieres conservarlos, reactiva la suscripción antes de esa fecha: ${input.reactivateUrl}`,
+      '',
+      'Si no, no tienes que hacer nada.',
+    ].join('\n'),
+    html: layout(
+      'Tus datos se borrarán pronto',
+      `La suscripción de <strong>${org}</strong> está cancelada, así que sus proyectos, subtítulos, ` +
+        `comentarios y archivos se borrarán de forma definitiva a partir del <strong>${when}</strong>. ` +
+        'Si quieres conservarlos, reactiva la suscripción antes de esa fecha. Si no, no tienes que hacer nada.',
+      { url, label: 'Reactivar la suscripción' },
+    ),
+  }
+}

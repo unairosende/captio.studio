@@ -5,6 +5,10 @@
     {
       "path": "/api/cron/sweep-media",
       "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/sweep-cancelled",
+      "schedule": "0 5 * * *"
     }
   ]
 }

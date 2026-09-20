@@ -51,6 +51,18 @@ const TENANT_TABLES = [
  */
 const UNSCOPED_ALLOWED = [
   /^select \* from review_links where token = \$1 and revoked_at is null and expires_at > now\(\)$/i,
+  // The retention sweep (lib/db/retention.ts) is inherently cross-organisation:
+  // a cron that removes lapsed accounts has to start from all of them, exactly
+  // like listOrganizationIds — the difference being subscriptions is tenant data,
+  // so each statement is named here rather than exempted wholesale. The rows go
+  // only to the cron, never to a user, and every per-org action it takes
+  // afterwards (listMembers, eraseOrganization) is scoped by the id returned.
+  // The two selects differ only by which end of the window they look at.
+  /^select s\.org_id, o\.name as org_name, s\.id as sub_id, s\.current_period_end from subscriptions s join "organization" o on o\.id = s\.org_id where s\.status = \$2 .* s\.retention_warned_at is null .*$/i,
+  /^select s\.org_id, o\.name as org_name, s\.id as sub_id, s\.current_period_end from subscriptions s join "organization" o on o\.id = s\.org_id where s\.status = \$3 .* s\.retention_warned_at is not null .*$/i,
+  // Keyed by the subscription's own primary key, which the sweep above already
+  // resolved; there is no org to cross into by a unique id it is holding.
+  /^update subscriptions set retention_warned_at = now\(\) where id = \$1$/i,
 ]
 
 interface Statement {

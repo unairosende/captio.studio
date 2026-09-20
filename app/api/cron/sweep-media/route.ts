@@ -1,7 +1,6 @@
-import { timingSafeEqual } from 'node:crypto'
-
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { authorizeCron } from '@/lib/cron'
 import { deleteMediaByStorageKeys, orphanedStorageKeys } from '@/lib/db/media'
 import { listOrganizationIds } from '@/lib/db/organizations'
 import { deleteObject, r2Config } from '@/lib/storage/r2'
@@ -21,26 +20,8 @@ import { deleteObject, r2Config } from '@/lib/storage/r2'
 
 export const maxDuration = 300
 
-/**
- * Only the scheduler may run this.
- *
- * Vercel sends `Authorization: Bearer $CRON_SECRET` when that variable is set.
- * With no secret configured the answer is no — an endpoint that deletes things
- * must fail closed, and an unauthenticated deleter reachable from the internet
- * is worse than a sweeper that never runs.
- */
-function authorised(req: NextRequest): boolean {
-  const secret = process.env.CRON_SECRET
-  const header = req.headers.get('authorization')
-  if (!secret || !header) return false
-
-  const given = Buffer.from(header)
-  const expected = Buffer.from(`Bearer ${secret}`)
-  return given.length === expected.length && timingSafeEqual(given, expected)
-}
-
 export async function GET(req: NextRequest) {
-  if (!authorised(req)) {
+  if (!authorizeCron(req)) {
     return NextResponse.json({ error: 'Not authorised' }, { status: 401 })
   }
   if (!r2Config()) {
