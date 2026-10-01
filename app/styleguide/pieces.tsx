@@ -436,28 +436,21 @@ export function Pieces() {
 
       <Grid
         title="Transporte"
-        note={<>La barra del vídeo, bajo la tabla: reproducir, el reloj en mono, qué archivo suena y, a la derecha, el zoom de la onda y la carga. Con vídeo, la imagen va a la izquierda con la cue encima; sin él, la barra lo dice y ofrece cargarlo.</>}
-        na={{ hover: 'sus botones', foco: 'sus botones', activo: 'reproduciendo: el botón cambia de signo', deshabilitado: 'sin archivo, el zoom y reproducir se apagan' }}
+        note={<>La barra de la onda, bajo la tabla: reproducir, el reloj en mono y, a la derecha, el zoom. Qué archivo suena, la carga y la imagen con la cue encima están en el visor, a la derecha de la tabla.</>}
+        na={{ hover: 'sus botones', foco: 'sus botones', activo: 'reproduciendo: el botón cambia de signo', deshabilitado: 'sin archivo, el zoom y reproducir se apagan', cargando: 'lo dice el botón de carga del visor', error: 'lo dice el visor, bajo la imagen' }}
         wide
       >
-        {st => (
+        {() => (
           <div className="transport">
-            <div className="transport-video picture" hidden={st !== 'reposo'}>
-              <span className="caption">El hielo se rompe antes de que amanezca.</span>
-            </div>
-            <div className="transport-main">
             <div className="transport-bar">
-              <button className="btn" aria-label="Reproducir" disabled={st === 'error'}>▶</button>
+              <button className="btn" aria-label="Reproducir">▶</button>
               <span className="transport-clock">00:08:14,320 <span className="muted">/ 00:52:10,000</span></span>
               <span className="kbd">2×</span>
-              <span className={st === 'error' ? 'err' : 'muted'}>{st === 'cargando' ? 'Descodificando…' : st === 'error' ? 'Ese archivo no se pudo reproducir' : 'groenlandia-ep03-rollo2.mov'}</span>
               <div className="transport-tools">
-                <button className="btn btn-quiet" aria-label="Alejar" disabled={st === 'error'}>−</button>
+                <button className="btn btn-quiet" aria-label="Alejar">−</button>
                 <span className="transport-zoom">1.0×</span>
-                <button className="btn btn-quiet" aria-label="Acercar" disabled={st === 'error'}>+</button>
-                <button className="btn">Cargar vídeo o audio</button>
+                <button className="btn btn-quiet" aria-label="Acercar">+</button>
               </div>
-            </div>
             </div>
           </div>
         )}

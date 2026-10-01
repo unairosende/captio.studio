@@ -1,6 +1,7 @@
 'use client'
 
 import { type CSSProperties, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 
 import Caption from '@/components/video/Caption'
 import { decodeAudio, mediaType } from '@/lib/audio/decode'
@@ -47,7 +48,14 @@ import s from './timeline.module.css'
  * hands the timeline from disk. That second path still exists on purpose:
  * somebody correcting an SRT against a screener should not have to upload
  * their video first.
+ *
+ * The picture is drawn in the editor's viewer, to the right of the table,
+ * through a portal: the element stays this component's, because it is the
+ * clock, and goes where the screen has room for it.
  */
+
+/** What both of the viewer's load buttons answer to; only one is ever drawn. */
+const LOAD_MEDIA = 'Cargar el vídeo o el audio de la secuencia'
 
 const RULER_H = 18
 const BLOCK_H = 38
@@ -156,12 +164,12 @@ interface Drag {
  * playhead, the element's own buffer — starts over with the file rather than
  * being reset one by one in an effect.
  */
-export default function Timeline() {
+export default function Timeline({ screen }: { screen: HTMLElement | null }) {
   const playback = useSubtitleStore(s => s.playback)
-  return <Track key={playback?.url ?? ''} playback={playback} />
+  return <Track key={playback?.url ?? ''} playback={playback} screen={screen} />
 }
 
-function Track({ playback }: { playback: Playback | null }) {
+function Track({ playback, screen }: { playback: Playback | null; screen: HTMLElement | null }) {
   const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, setPlayback } =
     useSubtitleStore()
 
@@ -545,7 +553,7 @@ function Track({ playback }: { playback: Playback | null }) {
    * Goes through the store like a file from the bucket does, so there is one
    * way for the timeline to receive material. Decoded here for the waveform;
    * a file the platform cannot decode still gets handed to the <video>, which
-   * may manage the picture even so, and says next to the button if it cannot.
+   * may manage the picture even so, and says under it if it cannot.
    */
   async function load(file: File) {
     setLoading(true)
@@ -576,20 +584,17 @@ function Track({ playback }: { playback: Playback | null }) {
   }, [seek])
 
   const ready = duration > 0
-  const hasVideo = playback?.contentType.startsWith('video/') ?? false
 
-  return (
-    <div className="transport">
-      {/*
-        Always in the tree, because it is the player for audio-only files too;
-        only shown when there is a picture to show. Pane width is fixed and the
-        footage letterboxes inside it: an aspect-ratio box stretched to the
-        row's height is a layout question with different answers per browser.
-      */}
-      <div className="transport-video picture" hidden={!hasVideo}>
+  // What the viewer holds: the picture with the line on it and the file it
+  // comes from, or the way to load one. Audio gets the picture too — black,
+  // with the cue as it will read over footage — rather than an empty column.
+  // The box is 16:9 whatever plays in it; vertical footage pillarboxes.
+  const viewer = playback ? (
+    <>
+      <div className={`picture ${s.screen}`}>
         <video
           ref={videoRef}
-          src={playback?.url}
+          src={playback.url}
           preload="metadata"
           playsInline
           onLoadedMetadata={e => {
@@ -599,8 +604,38 @@ function Track({ playback }: { playback: Playback | null }) {
         />
         <Caption text={active?.text} />
       </div>
+      <div className={s.source}>
+        <span title={playback.filename} data-tone={failed ? 'danger' : undefined}>
+          {failed ? 'Ese archivo no se pudo reproducir' : playback.filename}
+        </span>
+        <button className="btn btn-quiet" data-cmd={LOAD_MEDIA} aria-busy={loading || undefined} onClick={() => fileRef.current?.click()}>Cambiar</button>
+      </div>
+    </>
+  ) : (
+    <div className={s.idle}>
+      <div className="empty">
+        <span className="empty-title">Sin vídeo ni audio</span>
+        <p>Carga el de la secuencia: se ve aquí con la cue encima, y su onda sale abajo para cuadrar tiempos.</p>
+        <button className="btn btn-primary" data-cmd={LOAD_MEDIA} aria-busy={loading || undefined} onClick={() => fileRef.current?.click()}>Cargar vídeo o audio</button>
+      </div>
+    </div>
+  )
 
-      <div className="transport-main">
+  return (
+    <div className="transport">
+      {screen && createPortal(viewer, screen)}
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="audio/*,video/*"
+        hidden
+        onChange={e => {
+          const f = e.target.files?.[0]
+          if (f) load(f)
+        }}
+      />
+
       <div className="transport-bar">
         <button
           className="btn"
@@ -627,33 +662,11 @@ function Track({ playback }: { playback: Playback | null }) {
           <span className="kbd">{speedLabel(transport)}</span>
         )}
 
-        <span className={failed ? 'err' : 'muted'} title={playback?.filename}>
-          {loading
-            ? 'Descodificando…'
-            : failed
-              ? 'Ese archivo no se pudo reproducir'
-              : (playback?.filename || 'Sin vídeo ni audio — carga el de la secuencia para cuadrar tiempos')}
-        </span>
-
         <div className="transport-tools">
           <button className="btn btn-quiet" onClick={() => changeZoom(zoom / ZOOM_STEP)} disabled={!ready} aria-label="Alejar">−</button>
           <span className="transport-zoom">{zoom.toFixed(1)}×</span>
           <button className="btn btn-quiet" onClick={() => changeZoom(zoom * ZOOM_STEP)} disabled={!ready} aria-label="Acercar">+</button>
-          <button className={ready ? 'btn' : 'btn btn-primary'} data-cmd="Cargar el vídeo o el audio de la secuencia" onClick={() => fileRef.current?.click()}>
-            {ready ? 'Cambiar archivo' : 'Cargar vídeo o audio'}
-          </button>
         </div>
-
-        <input
-          ref={fileRef}
-          type="file"
-          accept="audio/*,video/*"
-          hidden
-          onChange={e => {
-            const f = e.target.files?.[0]
-            if (f) load(f)
-          }}
-        />
       </div>
 
       <div
@@ -719,7 +732,6 @@ function Track({ playback }: { playback: Playback | null }) {
         <div className={s.track} style={{ width: `${zoom * 100}%` }}>
           <canvas ref={canvasRef} className={s.canvas} />
         </div>
-      </div>
       </div>
     </div>
   )

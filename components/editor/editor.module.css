@@ -1,6 +1,6 @@
-/* La composición del editor: cabecera, raíl, barra lateral, tabla y onda.
-   Solo maquetación de esta pantalla; las piezas viven en app/ui.css y los
-   tokens en app/tokens.css. */
+/* La composición del editor: cabecera, raíl, barra lateral, tabla, visor y
+   onda. Solo maquetación de esta pantalla; las piezas viven en app/ui.css y
+   los tokens en app/tokens.css. */
 
 .editor {
   display: grid;
@@ -364,6 +364,19 @@
 .term { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-1); }
 
 .hint { font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.45; }
+
+/* ── Visor ──────────────────────────────────────────────────────────────── */
+
+/* Lo que se subtitula, a la derecha de la tabla y a la vista mientras se
+   corrige. Lo de dentro lo pinta la línea de tiempo (timeline.module.css),
+   dueña del <video> porque es su reloj; esto solo le hace sitio. */
+.viewer {
+  grid-area: side;
+  width: clamp(320px, 30vw, 520px);
+  min-height: 0;
+  overflow-y: auto;
+  border-left: 1px solid var(--line);
+}
 
 /* ── Onda ───────────────────────────────────────────────────────────────── */
 

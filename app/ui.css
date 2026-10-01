@@ -762,23 +762,21 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
 
 /* ── Transporte de la onda ───────────────────────────────────────────────── */
 
-/* La barra sobre la forma de onda: reproducir, el reloj, el zoom, el audio.
-   La onda es el instrumento; esto son sus mandos, y pesan poco a propósito. */
-.transport { display: flex; align-items: stretch; background: var(--s1); }
-.transport-main { flex: 1; min-width: 0; }
+/* La barra sobre la forma de onda: reproducir, el reloj, el zoom. La onda
+   es el instrumento; esto son sus mandos, y pesan poco a propósito. La
+   imagen, el archivo y la carga están en el visor del editor. */
+.transport { background: var(--s1); }
 .transport-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); }
 .transport-clock { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
 .transport-tools { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); }
 .transport-zoom { min-width: 40px; text-align: center; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
-.transport-video { flex: 0 0 clamp(280px, 28vw, 420px); border-right: 1px solid var(--line); }
-.transport-video video { height: 100%; }
 
 /* ── La imagen ───────────────────────────────────────────────────────────── */
 
 /* El vídeo y la cue encima, como la quemaría una emisora: abajo, centrada,
    blanca sobre sombra. No lee el tema a propósito: un subtítulo sobre imagen
-   se lee contra la imagen, no contra la app. La misma pieza en el panel del
-   editor y en el visor del cliente; el visor lleva los controles nativos y
+   se lee contra la imagen, no contra la app. La misma pieza en el visor del
+   editor y en el del cliente; el del cliente lleva los controles nativos y
    la cue sube por encima de su franja. */
 .picture { position: relative; background: #000; container-type: inline-size; }
 .picture video { display: block; width: 100%; object-fit: contain; }
