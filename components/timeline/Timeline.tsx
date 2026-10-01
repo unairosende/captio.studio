@@ -47,15 +47,15 @@ import s from './timeline.module.css'
  * file was uploaded and saved with it, or here and now for a file somebody
  * hands the timeline from disk. That second path still exists on purpose:
  * somebody correcting an SRT against a screener should not have to upload
- * their video first.
+ * their video first — and a file loaded here is the one Transcribir sends.
  *
  * The picture is drawn in the editor's viewer, to the right of the table,
  * through a portal: the element stays this component's, because it is the
  * clock, and goes where the screen has room for it.
  */
 
-/** What both of the viewer's load buttons answer to; only one is ever drawn. */
-const LOAD_MEDIA = 'Cargar el vídeo o el audio de la secuencia'
+/** The viewer's load button, which the Transcribir step presses when it has nothing to send. */
+export const LOAD_MEDIA = 'Cargar el vídeo o el audio de la secuencia'
 
 const RULER_H = 18
 const BLOCK_H = 38
@@ -553,7 +553,8 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
    * Goes through the store like a file from the bucket does, so there is one
    * way for the timeline to receive material. Decoded here for the waveform;
    * a file the platform cannot decode still gets handed to the <video>, which
-   * may manage the picture even so, and says under it if it cannot.
+   * may manage the picture even so, and says under it if it cannot. The file
+   * goes along, for Transcribir to send as it is.
    */
   async function load(file: File) {
     setLoading(true)
@@ -564,6 +565,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       filename: file.name,
       durationSeconds: decoded?.duration ?? null,
       peaks: decoded ? packPeaks(decoded.peaks) : [],
+      file,
     })
     setLoading(false)
   }
@@ -615,7 +617,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     <div className={s.idle}>
       <div className="empty">
         <span className="empty-title">Sin vídeo ni audio</span>
-        <p>Carga el de la secuencia: se ve aquí con la cue encima, y su onda sale abajo para cuadrar tiempos.</p>
+        <p>Carga el de la secuencia: se ve aquí con la cue encima, su onda sale abajo para cuadrar tiempos y se transcribe sin volver a elegirlo.</p>
         <button className="btn btn-primary" data-cmd={LOAD_MEDIA} aria-busy={loading || undefined} onClick={() => fileRef.current?.click()}>Cargar vídeo o audio</button>
       </div>
     </div>

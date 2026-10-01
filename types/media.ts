@@ -16,4 +16,10 @@ export interface Playback {
   durationSeconds: number | null
   /** 0..1, PEAK_BUCKETS long, or empty when the upload could not be decoded. */
   peaks: number[]
+  /**
+   * The file itself, when it came from this computer rather than the bucket.
+   * Kept so that what was loaded to be watched is what gets transcribed,
+   * without choosing it a second time.
+   */
+  file?: File
 }

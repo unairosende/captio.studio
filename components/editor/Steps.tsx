@@ -2,6 +2,7 @@
 
 import { useRef, useState, type ReactNode } from 'react'
 
+import { LOAD_MEDIA } from '@/components/timeline/Timeline'
 import type { Entitlement } from '@/lib/entitlement'
 import { TRIAL } from '@/lib/plans'
 import { QUICK_LANGS, SOURCE_LANGUAGES, TARGET_LANGUAGES } from '@/lib/providers'
@@ -70,7 +71,7 @@ export function Sidebar({ name, onFold, children }: { name: string; onFold: () =
  */
 export default function Steps({ entitlement, open, onOpen }: Props) {
   const {
-    subtitles, translations, activeTab, outputMode, srcLang, tgtLang, allowRephrase,
+    subtitles, translations, activeTab, outputMode, srcLang, tgtLang, allowRephrase, playback,
     translateJob, transcribeJob, reviewJob, backTranslateJob,
     setSrcLang, setTgtLang, setOutputMode, setAllowRephrase, clearAll,
   } = useSubtitleStore()
@@ -86,7 +87,6 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
 
   const [hint, setHint] = useState<ParseHint>('auto')
   const [paste, setPaste] = useState('')
-  const [xcFile, setXcFile] = useState<File | null>(null)
   const [xcLang, setXcLang] = useState('auto')
   const [custom, setCustom] = useState('')
   const [showCustom, setShowCustom] = useState(false)
@@ -94,11 +94,14 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
   const [allFmt, setAllFmt] = useState<'xlsx' | 'csv'>('xlsx')
 
   const fileRef = useRef<HTMLInputElement>(null)
-  const xcRef = useRef<HTMLInputElement>(null)
 
   const targetLang = showCustom ? custom.trim() : tgtLang
   const meter = allowanceOf(entitlement)
   const step = STEPS.find(st => st.id === open)
+  // What Transcribir sends is what the viewer plays. Choosing a file here
+  // presses the viewer's own button, so media has one way in.
+  const media = playback?.file
+  const loadMedia = () => document.querySelector<HTMLButtonElement>(`[data-cmd="${LOAD_MEDIA}"]`)?.click()
   const jobOf = (id: Pane) =>
     id === 'transcribe' ? transcribeJob
     : id === 'translate' ? translateJob
@@ -168,23 +171,21 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
                     </select>
                   </div>
                 </div>
-                <input ref={xcRef} type="file" accept="audio/*,video/*,.mp3,.mp4,.wav,.m4a,.mov,.mkv,.aac,.ogg,.flac,.webm" hidden
-                  onChange={e => { const f = e.target.files?.[0]; if (f) setXcFile(f); e.target.value = '' }} />
-                {xcFile ? (
+                {media ? (
                   <div className={s.file}>
-                    <span title={xcFile.name}>{xcFile.name}</span>
-                    <span>{(xcFile.size / 1024 / 1024).toFixed(1)} MB</span>
-                    <button className="btn btn-quiet" aria-label="Quitar el archivo" onClick={() => setXcFile(null)}>×</button>
+                    <span title={media.name}>{media.name}</span>
+                    <span>{(media.size / 1024 / 1024).toFixed(1)} MB</span>
+                    <button className="btn btn-quiet" onClick={loadMedia}>Cambiar</button>
                   </div>
                 ) : (
-                  <button type="button" className={s.drop} onClick={() => xcRef.current?.click()}>
+                  <button type="button" className={s.drop} onClick={loadMedia}>
                     <span>Elige un audio o un vídeo</span>
-                    <small>MP3 · MP4 · WAV · M4A · máx. 25 MB</small>
+                    <small>MP3 · MP4 · WAV · M4A · MOV</small>
                   </button>
                 )}
                 <div>
-                  <button className="btn btn-primary" data-cmd="Transcribir el audio" disabled={!xcFile || transcribeJob.running} aria-busy={transcribeJob.running || undefined}
-                    onClick={() => { if (xcFile) void transcribe.start(xcFile, xcLang) }}>Transcribir</button>
+                  <button className="btn btn-primary" data-cmd="Transcribir el audio" disabled={!media || transcribeJob.running} aria-busy={transcribeJob.running || undefined}
+                    onClick={() => void transcribe.start(xcLang)}>Transcribir</button>
                 </div>
                 {transcribeJob.running && <div className={s.jobMsg}>{transcribeJob.message}</div>}
                 {!transcribeJob.running && transcribeJob.message && <div className={s.jobMsg} data-tone="ok">{transcribeJob.message}</div>}

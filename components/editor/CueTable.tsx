@@ -270,7 +270,7 @@ export default function CueTable({ userId, filter, onFilter, onImport, viewer, o
         <div className={s.emptyWrap}>
           <div className="empty">
             <span className="empty-title">Ningún cue todavía</span>
-            <p>Abre un archivo de subtítulos, pega el texto, o sube un audio para transcribirlo. Los pasos están arriba.</p>
+            <p>Abre un archivo de subtítulos, pega el texto, o carga un vídeo o un audio en el visor para transcribirlo. Los pasos están a la izquierda.</p>
             <button className="btn btn-primary" onClick={onImport}>Empezar por importar</button>
           </div>
         </div>

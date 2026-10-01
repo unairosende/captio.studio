@@ -4,8 +4,7 @@ import { useRouter } from 'next/navigation'
 
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import { api, must } from '@/lib/api'
-import { decodeAudio, mediaType } from '@/lib/audio/decode'
-import { packPeaks } from '@/lib/audio/peaks'
+import { decodeAudio } from '@/lib/audio/decode'
 import { LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
 import { MAX_UPLOAD_BYTES } from '@/lib/upload'
 import {
@@ -154,40 +153,36 @@ export function useTranslate() {
 export function useTranscribe() {
   const spent = useSpent()
 
-  async function start(file: File, language: string) {
-    const { outputMode, setTranscribeJob, setMediaId, setPlayback, loadSubtitles } = useSubtitleStore.getState()
-    setTranscribeJob({ running: true, progress: 30, message: 'Leyendo el archivo…', error: null })
+  /**
+   * What is loaded in the viewer, sent up and brought back as cues.
+   *
+   * Nothing to choose: the file the timeline was handed is the one that goes,
+   * already playing and already decoded — its waveform and length are the
+   * ones the row records. A sequence opened from the bucket has no file here
+   * and is asked for one.
+   */
+  async function start(language: string) {
+    const { outputMode, playback, setTranscribeJob, setMediaId, loadSubtitles } = useSubtitleStore.getState()
+    const file = playback?.file
+    if (!file) return
+    setTranscribeJob({ running: true, progress: 30, message: 'Preparando el archivo…', error: null })
 
     try {
-      const contentType = mediaType(file)
-      const isVideo = contentType.startsWith('video/')
-
-      // Decoded once, here, for everything that needs it: the waveform the
-      // timeline draws now and every later visit draws from the row, the length
-      // the row records, and — only when the file is too big to send — the audio
-      // that goes up in its place.
-      const decoded = await decodeAudio(file)
-      const peaks = decoded ? packPeaks(decoded.peaks) : []
-
-      // The picture, straight from disk, before a byte has gone up. The upload
-      // is for next time; this time the file is right here.
-      setPlayback({
-        url: URL.createObjectURL(file),
-        contentType,
-        filename: file.name,
-        durationSeconds: decoded?.duration ?? null,
-        peaks,
-      })
+      const isVideo = playback.contentType.startsWith('video/')
 
       // Whole, so it plays back from the bucket later — unless it is a master
       // that would not fit, in which case the audio alone goes, as it always
       // did, and playback stays local to this session.
       let upload: Blob = file
       let uploadName = file.name
-      let uploadType = contentType
+      let uploadType = playback.contentType
       if (file.size > MAX_UPLOAD_BYTES) {
-        if (!decoded) throw new Error('El archivo pasa de 1 GB y no se pudo extraer el audio para subirlo')
         setTranscribeJob({ message: 'Demasiado grande para subir entero — extrayendo el audio…', progress: 40 })
+        // Decoded again rather than held since loading: a feature's samples
+        // kept in memory for a transcription nobody may ask for is the wrong
+        // way round, and only a master this size needs them twice.
+        const decoded = await decodeAudio(file)
+        if (!decoded) throw new Error('El archivo pasa de 1 GB y no se pudo extraer el audio para subirlo')
         upload = new Blob([audioBufferToWav(decoded.buffer)], { type: 'audio/wav' })
         uploadName = file.name.replace(/\.[^.]+$/, '.wav')
         uploadType = 'audio/wav'
@@ -202,8 +197,9 @@ export function useTranscribe() {
           filename: uploadName,
           contentType: uploadType,
           bytes: upload.size,
-          durationSeconds: decoded?.duration,
-          peaks: decoded ? peaks : undefined,
+          // Read off the file when it was loaded; absent when it would not decode.
+          durationSeconds: playback.durationSeconds ?? undefined,
+          peaks: playback.peaks.length ? playback.peaks : undefined,
         }),
       })
 

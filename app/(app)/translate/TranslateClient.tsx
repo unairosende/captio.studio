@@ -74,6 +74,13 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   // it is the clock — and the room for it is this layout's.
   const [screen, setScreen] = useState<HTMLElement | null>(null)
 
+  // Media loaded into an empty sequence has one next step, and the step
+  // has the file ready: what was just loaded is what it transcribes.
+  useEffect(() => useSubtitleStore.subscribe((st, prev) => {
+    const file = st.playback?.file
+    if (file && file !== prev.playback?.file && !st.subtitles.length) setPane('transcribe')
+  }), [])
+
   /**
    * Seed the store from what the server already resolved.
    *
