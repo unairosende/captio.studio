@@ -10,38 +10,32 @@ import { useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
 import type { Filter } from './CueTable'
-import { PanelRightIcon } from './icons'
+import { SECTIONS, Sidebar, type Pane } from './Steps'
 import { langCode } from './useJobs'
 import { usePasses } from './usePasses'
 
-export type Section = 'review' | 'batch' | 'props' | 'comments'
-
 interface Props {
   userId: string
-  /** Whether the panel is showing. The commands inside it exist either way. */
-  open: boolean
-  section: Section
-  onOpen: (sec: Section) => void
-  onClose: () => void
+  /** What fills the sidebar; this draws it only when that is one of its sections. The commands exist either way. */
+  open: Pane | null
+  onOpen: (pane: Pane | null) => void
   filter: Filter
   onFilter: (f: Filter) => void
 }
 
-const SECTIONS: [Section, string][] = [['review', 'Revisar'], ['batch', 'Lotes'], ['props', 'Propiedades'], ['comments', 'Comentarios']]
-
 /**
- * The panel on the right: what the table is not.
+ * What the table is not, in the sidebar the steps use.
  *
  * Reviewing with the model and its notes, the corrections that touch every
  * cue at once, the properties of the sequence and the project's glossary,
- * and the comments. Open by default and folded from its own icon; a review
- * asked for from the palette opens it again.
+ * and the comments — four icons on the rail, under the steps and a rule. A
+ * review asked for from the palette opens its section.
  *
- * Every action here is also a ⌘K command whether the panel is open or not:
+ * Every action here is also a ⌘K command whether its section shows or not:
  * the palette reads the hidden buttons at the bottom when the visible ones
  * are not on screen.
  */
-export default function Panel({ userId, open, section, onOpen, onClose, filter, onFilter }: Props) {
+export default function Panel({ userId, open, onOpen, filter, onFilter }: Props) {
   const {
     subtitles, translations, backTranslations, reviewNotes, activeTab, outputMode, srcLang, allowRephrase, glossary, comments, sequenceId,
     selected, select, translateJob, reviewJob, backTranslateJob,
@@ -75,7 +69,8 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
   const [reviseText, setReviseText] = useState('')
   const [thread, setThread] = useState(false)
 
-  const showing = (sec: Section) => open && section === sec
+  const section = SECTIONS.find(x => x.id === open)
+  const showing = (sec: Pane) => open === sec
   const goTo = (index: number) => {
     select(index)
     document.querySelector(`[data-cue="${index}"]`)?.scrollIntoView({ block: 'nearest' })
@@ -99,14 +94,13 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
       {!showing('props') && <button data-cmd="Abrir el glosario" onClick={() => onOpen('props')} />}
       {!showing('props') && <button data-cmd="Añadir un término al glosario" onClick={() => { onOpen('props'); setGlossary([...glossary, { term: '', translation: '' }]) }} />}
       {!showing('comments') && <button data-cmd="Ver los comentarios" onClick={() => onOpen('comments')} />}
-      {open ? <button data-cmd="Plegar el panel" onClick={onClose} /> : <button data-cmd="Abrir el panel" onClick={() => onOpen(section)} />}
     </span>
   )
 
-  if (!open) return hidden
+  if (!section) return hidden
 
   return (
-    <aside className={s.side} aria-label="Panel">
+    <Sidebar name={section.name} onFold={() => onOpen(null)}>
       {thread && sequenceId && cue && (
         <CommentsPanel
           sequenceId={sequenceId}
@@ -119,18 +113,9 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
         />
       )}
 
-      <div className={s.sideHead}>
-        <div className="seg" role="tablist" aria-label="Sección">
-          {SECTIONS.map(([id, name]) => (
-            <button key={id} role="tab" aria-selected={section === id} onClick={() => onOpen(id)}>{name}</button>
-          ))}
-        </div>
-        <button className="btn btn-quiet btn-icon" aria-label="Plegar el panel" onClick={onClose}><PanelRightIcon /></button>
-      </div>
-
       <div className={s.sideBody}>
         {/* ── Revisar ─────────────────────────────────────────────────────── */}
-        {section === 'review' && (isSource ? (
+        {open === 'review' && (isSource ? (
           <div className={s.section}>
             <div className={s.hint}>Elige una pestaña de idioma para revisarla contra el original.</div>
           </div>
@@ -200,7 +185,7 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
         ))}
 
         {/* ── Lotes ───────────────────────────────────────────────────────── */}
-        {section === 'batch' && (isSource ? (
+        {open === 'batch' && (isSource ? (
           <div className={s.section}>
             <div className={s.hint}>Las correcciones en lote se aplican a una traducción. Elige una pestaña de idioma.</div>
           </div>
@@ -230,7 +215,7 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
         ))}
 
         {/* ── Propiedades ─────────────────────────────────────────────────── */}
-        {section === 'props' && (
+        {open === 'props' && (
           <>
             <div className={s.section}>
               <span className="caps">Secuencia</span>
@@ -272,7 +257,7 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
         )}
 
         {/* ── Comentarios ─────────────────────────────────────────────────── */}
-        {section === 'comments' && (!sequenceId ? (
+        {open === 'comments' && (!sequenceId ? (
           <div className={s.section}>
             <div className={s.hint}>Guarda la secuencia para poder comentar: una nota necesita una secuencia de la que colgar.</div>
           </div>
@@ -306,6 +291,6 @@ export default function Panel({ userId, open, section, onOpen, onClose, filter, 
       </div>
 
       {hidden}
-    </aside>
+    </Sidebar>
   )
 }

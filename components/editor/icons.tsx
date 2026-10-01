@@ -1,7 +1,7 @@
 /**
- * The editor's icons: a rail of steps, two panels that fold, a menu that
- * drops. Drawn here rather than pulled from a library because there are
- * seven of them, one weight, one size, and a library would bring six
+ * The editor's icons: a rail of steps and sections, two sides that fold, a
+ * menu that drops. Drawn here rather than pulled from a library because there
+ * are eleven of them, one weight, one size, and a library would bring six
  * hundred more with their own idea of a stroke.
  *
  * Every one is decorative: the button that carries it says its name.
@@ -36,6 +36,26 @@ export const TranslateIcon = () => (
 /** An arrow into a tray: what gets delivered. */
 export const DeliverIcon = () => (
   <Svg><path d="M8 1.5v8M5 6.5l3 3 3-3" /><path d="M2.5 11v3h11v-3" /></Svg>
+)
+
+/** An eye: the translation, read against the original. */
+export const ReviewIcon = () => (
+  <Svg><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" /><circle cx="8" cy="8" r="2" /></Svg>
+)
+
+/** Layers: a correction applied to every cue at once. */
+export const BatchIcon = () => (
+  <Svg><path d="M8 1.5 1.5 5 8 8.5 14.5 5z" /><path d="M1.5 8 8 11.5 14.5 8M1.5 11 8 14.5 14.5 11" /></Svg>
+)
+
+/** Two sliders: the sequence's settings and the glossary. */
+export const PropsIcon = () => (
+  <Svg><path d="M2 4.5h1.75M7.25 4.5H14M2 11.5h6.75M12.25 11.5H14" /><circle cx="5.5" cy="4.5" r="1.75" /><circle cx="10.5" cy="11.5" r="1.75" /></Svg>
+)
+
+/** A speech bubble: the comments. */
+export const CommentIcon = () => (
+  <Svg><path d="M2.5 3h11v7.5H7.5L4.5 13v-2.5h-2z" /></Svg>
 )
 
 /** A pane with its left third marked: the sidebar. */

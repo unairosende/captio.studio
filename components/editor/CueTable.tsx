@@ -9,7 +9,6 @@ import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Subtitle } from '@/types/subtitle'
 
 import s from './editor.module.css'
-import { PanelRightIcon } from './icons'
 import { langCode, sourceLabel } from './useJobs'
 
 export type Filter = 'warn' | 'error' | 'noted' | null
@@ -20,9 +19,6 @@ interface Props {
   onFilter: (f: Filter) => void
   /** The table is empty and somebody has to be sent to the first step. */
   onImport: () => void
-  /** Whether the panel on the right is showing; the toolbar carries its switch. */
-  panel: boolean
-  onPanel: () => void
 }
 
 /** The column a text belongs to: the original, or a language. */
@@ -42,7 +38,7 @@ interface Editing { index: number; col: Col; caret: number }
  * reading speed, red past it — and the selected row is neutral, so the two
  * can never be confused.
  */
-export default function CueTable({ userId, filter, onFilter, onImport, panel, onPanel }: Props) {
+export default function CueTable({ userId, filter, onFilter, onImport }: Props) {
   const {
     subtitles, translations, activeTab, viewMode, outputMode, srcLang, glossary, comments, reviewNotes, translateJob, sequenceId,
     selected, select, switchToTab, closeTab, setViewMode, updateSubtitle, updateSource, pushUndo, splitSubtitle, deleteSubtitle, setComments,
@@ -365,7 +361,6 @@ export default function CueTable({ userId, filter, onFilter, onImport, panel, on
         <span className={s.keys}>
           <span className="kbd">↑↓</span> moverse · <span className="kbd">⏎</span> editar · <span className="kbd">⌘K</span> acciones
         </span>
-        <button className="btn btn-quiet btn-icon" aria-label={panel ? 'Plegar el panel' : 'Abrir el panel'} aria-pressed={panel} onClick={onPanel}><PanelRightIcon /></button>
       </div>
 
       <div className={s.tableWrap} onKeyDown={onKey}>

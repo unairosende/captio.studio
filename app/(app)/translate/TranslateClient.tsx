@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 
 import CueTable, { type Filter } from '@/components/editor/CueTable'
 import Header from '@/components/editor/Header'
-import Panel, { type Section } from '@/components/editor/Panel'
-import Steps, { type Step } from '@/components/editor/Steps'
+import Panel from '@/components/editor/Panel'
+import Steps, { type Pane } from '@/components/editor/Steps'
 import s from '@/components/editor/editor.module.css'
 import CommandPalette from '@/components/palette/CommandPalette'
 import Shortcuts from '@/components/editor/Shortcuts'
@@ -49,10 +49,11 @@ interface Props {
 }
 
 /**
- * The editor: a rail of steps down the left edge with their sidebar, the
- * cues in the middle with a tab per language and the text corrected in
- * place, a panel on the right, and the waveform along the bottom — the
- * instrument timing depends on. Both sides fold.
+ * The editor: a rail down the left edge — the four steps, a rule, then
+ * review, batches, properties and comments — with the sidebar each icon
+ * opens, the cues in the middle with a tab per language and the text
+ * corrected in place, and the waveform along the bottom — the instrument
+ * timing depends on.
  *
  * Structure B from the redesign, twice reviewed by Unai. The logic
  * underneath is the one that was already here; what changed is where each
@@ -64,12 +65,9 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   const [palette, setPalette] = useState(false)
   const [shortcuts, setShortcuts] = useState(false)
   const [filter, setFilter] = useState<Filter>(null)
-  // The panel starts open and the sidebar folded: the steps are a rail of
-  // icons, and the empty table has its own button to the first one.
-  const [step, setStep] = useState<Step | null>(null)
-  const [panel, setPanel] = useState(true)
-  const [section, setSection] = useState<Section>('review')
-  const openPanel = (sec: Section) => { setSection(sec); setPanel(true) }
+  // The sidebar starts folded: the rail is icons, and the empty table has
+  // its own button to the first step.
+  const [pane, setPane] = useState<Pane | null>(null)
 
   /**
    * Seed the store from what the server already resolved.
@@ -145,9 +143,10 @@ export default function TranslateClient({ user, entitlement, project, sequence }
 
       <Header user={user} project={project} onPalette={() => setPalette(true)} onTeam={() => setTeam(true)} onShortcuts={() => setShortcuts(true)} />
 
-      <Steps entitlement={entitlement} step={step} onStep={setStep} />
-      <CueTable userId={user.id} filter={filter} onFilter={setFilter} onImport={() => setStep('import')} panel={panel} onPanel={() => setPanel(p => !p)} />
-      <Panel userId={user.id} open={panel} section={section} onOpen={openPanel} onClose={() => setPanel(false)} filter={filter} onFilter={setFilter} />
+      {/* In the order they sit, left to right, so Tab walks them as they are seen. */}
+      <Steps entitlement={entitlement} open={pane} onOpen={setPane} />
+      <Panel userId={user.id} open={pane} onOpen={setPane} filter={filter} onFilter={setFilter} />
+      <CueTable userId={user.id} filter={filter} onFilter={setFilter} onImport={() => setPane('import')} />
       <div className={s.wave}><Timeline /></div>
     </div>
   )

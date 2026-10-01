@@ -1,6 +1,6 @@
-/* La composición del editor: cabecera, raíl de pasos, barra lateral, tabla,
-   panel y onda. Solo maquetación de esta pantalla; las piezas viven en
-   app/ui.css y los tokens en app/tokens.css. */
+/* La composición del editor: cabecera, raíl, barra lateral, tabla y onda.
+   Solo maquetación de esta pantalla; las piezas viven en app/ui.css y los
+   tokens en app/tokens.css. */
 
 .editor {
   display: grid;
@@ -87,8 +87,10 @@
 /* ── Raíl y barra lateral ───────────────────────────────────────────────── */
 
 /* Los pasos, como iconos en un raíl: importar, transcribir, traducir,
-   entregar. El nombre aparece al pasar por encima; pulsar uno abre la barra
-   lateral con sus mandos, y pulsar el que está abierto la pliega. */
+   entregar; bajo una raya, lo que no es un paso: revisar, lotes,
+   propiedades, comentarios. El nombre aparece al pasar por encima; pulsar
+   uno abre la barra lateral con lo suyo, y pulsar el que está abierto la
+   pliega. */
 .rail {
   grid-area: rail;
   display: flex;
@@ -116,6 +118,9 @@
 .railBtn:hover { background: var(--hover); color: var(--ink); }
 .railBtn[aria-pressed="true"] { background: var(--select); color: var(--ink); }
 .railBtn:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
+
+/* La raya entre los pasos y lo demás. */
+.railSep { width: 20px; margin: var(--sp-2) 0; border: 0; border-top: 1px solid var(--line-2); }
 
 /* El nombre, al pasar por encima: a la derecha del icono, sin esperar. */
 .railBtn::after {
@@ -157,8 +162,8 @@
   animation: spin .6s linear infinite;
 }
 
-/* La barra lateral: los mandos del paso abierto. Se queda hasta que se
-   pliega; el trabajo que lanza se ve aquí mientras dura. */
+/* La barra lateral: los mandos del paso abierto, o la sección. Se queda
+   hasta que se pliega; el trabajo que lanza se ve aquí mientras dura. */
 .left {
   grid-area: left;
   width: 300px;
@@ -168,7 +173,7 @@
   border-right: 1px solid var(--line);
 }
 
-.leftHead, .sideHead {
+.leftHead {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -311,19 +316,8 @@
 /* ── Panel ──────────────────────────────────────────────────────────────── */
 
 /* Lo que no es la tabla ni un paso: revisar, corregir en lote, las
-   propiedades, los comentarios. Cerrado por defecto; la tabla es el editor. */
-.side {
-  grid-area: side;
-  width: 320px;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  border-left: 1px solid var(--line);
-}
-
-.sideHead { padding-left: var(--sp-2); }
-.sideHead > :global(.seg) { flex: 1; }
-.sideHead > :global(.seg) > button { flex: 1; }
+   propiedades, los comentarios. Llena la misma barra lateral que un paso, en
+   bloques separados por una raya. */
 .sideBody { flex: 1; min-height: 0; overflow-y: auto; }
 
 .section { padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--line); display: grid; gap: var(--sp-2); }
@@ -379,7 +373,6 @@
 
 @media (max-width: 1100px) {
   .left { width: 260px; }
-  .side { width: 280px; }
   .keys { display: none; }
 }
 

@@ -10,10 +10,16 @@ import { formatDuration } from '@/lib/usage'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
-import { DeliverIcon, FileIcon, MicIcon, PanelLeftIcon, TranslateIcon } from './icons'
+import {
+  BatchIcon, CommentIcon, DeliverIcon, FileIcon, MicIcon, PanelLeftIcon, PropsIcon, ReviewIcon, TranslateIcon,
+} from './icons'
 import { langCode, useExport, useImport, useTranscribe, useTranslate } from './useJobs'
 
 export type Step = 'import' | 'transcribe' | 'translate' | 'deliver'
+/** What is not a step, because it never ends. Its controls are Panel.tsx. */
+export type Section = 'review' | 'batch' | 'props' | 'comments'
+/** Whatever fills the sidebar. */
+export type Pane = Step | Section
 
 const STEPS: { id: Step; name: string; icon: ReactNode }[] = [
   { id: 'import', name: 'Importar', icon: <FileIcon /> },
@@ -22,27 +28,50 @@ const STEPS: { id: Step; name: string; icon: ReactNode }[] = [
   { id: 'deliver', name: 'Entregar', icon: <DeliverIcon /> },
 ]
 
+export const SECTIONS: { id: Section; name: string; icon: ReactNode }[] = [
+  { id: 'review', name: 'Revisar', icon: <ReviewIcon /> },
+  { id: 'batch', name: 'Lotes', icon: <BatchIcon /> },
+  { id: 'props', name: 'Propiedades', icon: <PropsIcon /> },
+  { id: 'comments', name: 'Comentarios', icon: <CommentIcon /> },
+]
+
 interface Props {
   entitlement: Entitlement
-  /** The step whose controls fill the sidebar, or null while it is folded. */
-  step: Step | null
-  onStep: (step: Step | null) => void
+  /** What fills the sidebar — a step, or one of the panel's sections — or null while it is folded. */
+  open: Pane | null
+  onOpen: (pane: Pane | null) => void
 }
 
 /**
- * The work, as four icons down a rail: import, transcribe, translate,
- * deliver. The name shows on hover; pressing one fills the sidebar next to
- * it with that step's controls, and the sidebar stays until it is folded,
- * so a job launched from it can be watched from it. Reviewing is not a
- * step — it is what the panel on the right is for, because it never ends.
+ * The sidebar beside the rail: what one icon opened, under its name, until
+ * it is folded. A step fills it with its controls, a section with the panel's.
+ */
+export function Sidebar({ name, onFold, children }: { name: string; onFold: () => void; children: ReactNode }) {
+  return (
+    <aside className={s.left} aria-label={name}>
+      <div className={s.leftHead}>
+        <h2>{name}</h2>
+        <button className="btn btn-quiet btn-icon" aria-label="Plegar la barra lateral" onClick={onFold}><PanelLeftIcon /></button>
+      </div>
+      {children}
+    </aside>
+  )
+}
+
+/**
+ * The work, as icons down a rail: import, transcribe, translate, deliver —
+ * then, under a rule, what is not a step because it never ends: review,
+ * batches, properties, comments. The name shows on hover; pressing one fills
+ * the sidebar next to it, and the sidebar stays until it is folded, so a job
+ * launched from it can be watched from it.
  *
  * Every control here is also reachable from ⌘K whether the sidebar shows
  * it or not, so the rail can stay this quiet.
  */
-export default function Steps({ entitlement, step: open, onStep }: Props) {
+export default function Steps({ entitlement, open, onOpen }: Props) {
   const {
     subtitles, translations, activeTab, outputMode, srcLang, tgtLang, allowRephrase,
-    translateJob, transcribeJob,
+    translateJob, transcribeJob, reviewJob, backTranslateJob,
     setSrcLang, setTgtLang, setOutputMode, setAllowRephrase, clearAll,
   } = useSubtitleStore()
 
@@ -69,30 +98,34 @@ export default function Steps({ entitlement, step: open, onStep }: Props) {
 
   const targetLang = showCustom ? custom.trim() : tgtLang
   const meter = allowanceOf(entitlement)
-  const jobOf = (st: Step) => (st === 'transcribe' ? transcribeJob : st === 'translate' ? translateJob : null)
+  const step = STEPS.find(st => st.id === open)
+  const jobOf = (id: Pane) =>
+    id === 'transcribe' ? transcribeJob
+    : id === 'translate' ? translateJob
+    : id === 'review' ? { running: reviewJob.running || backTranslateJob.running, error: reviewJob.error ?? backTranslateJob.error }
+    : null
+
+  const railBtn = ({ id, name, icon }: { id: Pane; name: string; icon: ReactNode }) => {
+    const job = jobOf(id)
+    return (
+      <button key={id} className={s.railBtn} data-tip={name} aria-label={name} aria-pressed={open === id}
+        aria-busy={job?.running || undefined} data-tone={job?.error ? 'danger' : undefined}
+        onClick={() => onOpen(open === id ? null : id)}>
+        {icon}
+      </button>
+    )
+  }
 
   return (
     <>
-      <nav className={s.rail} aria-label="Pasos">
-        {STEPS.map(({ id, name, icon }) => {
-          const job = jobOf(id)
-          return (
-            <button key={id} className={s.railBtn} data-tip={name} aria-label={name} aria-pressed={open === id}
-              aria-busy={job?.running || undefined} data-tone={job?.error ? 'danger' : undefined}
-              onClick={() => onStep(open === id ? null : id)}>
-              {icon}
-            </button>
-          )
-        })}
+      <nav className={s.rail} aria-label="Pasos y paneles">
+        {STEPS.map(railBtn)}
+        <hr className={s.railSep} />
+        {SECTIONS.map(railBtn)}
       </nav>
 
-      {open && (
-        <aside className={s.left} aria-label={STEPS.find(st => st.id === open)!.name}>
-          <div className={s.leftHead}>
-            <h2>{STEPS.find(st => st.id === open)!.name}</h2>
-            <button className="btn btn-quiet btn-icon" aria-label="Plegar la barra lateral" onClick={() => onStep(null)}><PanelLeftIcon /></button>
-          </div>
-
+      {step && (
+        <Sidebar name={step.name} onFold={() => onOpen(null)}>
           <div className={s.leftBody}>
             {/* 01 · Importar */}
             {open === 'import' && (
@@ -243,20 +276,20 @@ export default function Steps({ entitlement, step: open, onStep }: Props) {
               </>
             )}
           </div>
-        </aside>
+        </Sidebar>
       )}
 
       {/* The palette reads every [data-cmd] on the page, and a folded step
           still has things it can do. These are the same actions, unseen,
           rendered only while their step is not showing so nothing is listed twice. */}
       <span hidden>
-        {open !== 'import' && <button data-cmd="Abrir un archivo de subtítulos" data-cmd-hint="SRT · VTT · TXT · CSV" onClick={() => { onStep('import'); setTimeout(() => fileRef.current?.click(), 0) }} />}
-        {open !== 'transcribe' && <button data-cmd="Transcribir el audio" onClick={() => onStep('transcribe')} />}
+        {open !== 'import' && <button data-cmd="Abrir un archivo de subtítulos" data-cmd-hint="SRT · VTT · TXT · CSV" onClick={() => { onOpen('import'); setTimeout(() => fileRef.current?.click(), 0) }} />}
+        {open !== 'transcribe' && <button data-cmd="Transcribir el audio" onClick={() => onOpen('transcribe')} />}
         {open !== 'translate' && hasSubs && !!targetLang && !translateJob.running && <button data-cmd="Traducir al idioma de destino" data-cmd-hint={langCode(targetLang)} onClick={() => void translate.start(targetLang)} />}
-        {open !== 'translate' && <button data-cmd="Elegir el idioma de destino" onClick={() => onStep('translate')} />}
+        {open !== 'translate' && <button data-cmd="Elegir el idioma de destino" onClick={() => onOpen('translate')} />}
         {open !== 'deliver' && hasSubs && <button data-cmd="Exportar la pestaña en pantalla" data-cmd-hint={exportFmt.toUpperCase()} onClick={() => exporter.tab(exportFmt)} />}
         {open !== 'deliver' && langs.length > 0 && <button data-cmd="Exportar todos los idiomas en una hoja" data-cmd-hint={allFmt.toUpperCase()} onClick={() => exporter.all(allFmt)} />}
-        {open ? <button data-cmd="Plegar la barra lateral" onClick={() => onStep(null)} /> : <button data-cmd="Abrir la barra lateral" onClick={() => onStep(hasSubs ? 'translate' : 'import')} />}
+        {open ? <button data-cmd="Plegar la barra lateral" onClick={() => onOpen(null)} /> : <button data-cmd="Abrir la barra lateral" onClick={() => onOpen(hasSubs ? 'translate' : 'import')} />}
       </span>
     </>
   )
