@@ -2,10 +2,11 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { parseAnchorOps } from '@/lib/db/comments'
-import { markSequencePaid } from '@/lib/db/billing'
+import { markDerivativesPaid, markSequencePaid } from '@/lib/db/billing'
 import { attachMedia } from '@/lib/db/media'
 import { ConflictError, deleteSequence, getSequence, updateSequence } from '@/lib/db/sequences'
 import { sequencePlayback } from '@/lib/storage/playback'
+import { readOutputMode } from '@/lib/subtitles/layout'
 
 /**
  * One sequence: read it, save over it, throw it away.
@@ -47,6 +48,11 @@ export async function PATCH(req: NextRequest, { params }: Params) {
   const { id } = await params
   const body = await req.json().catch(() => null)
 
+  const outputMode = body?.outputMode === undefined ? undefined : readOutputMode(body.outputMode)
+  if (outputMode === null) {
+    return NextResponse.json({ error: 'outputMode must be horizontal or vertical' }, { status: 400 })
+  }
+
   try {
     const sequence = await updateSequence(
       ctx.orgId,
@@ -57,6 +63,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
         targetLangs: Array.isArray(body?.targetLangs) ? body.targetLangs : undefined,
         fps: typeof body?.fps === 'number' ? body.fps : undefined,
         data: body?.data,
+        outputMode,
         // Moving it to another project. The target is verified against the same
         // organisation inside the UPDATE — see lib/db/sequences.ts.
         projectId: typeof body?.projectId === 'string' ? body.projectId : undefined,
@@ -83,6 +90,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     const mediaId = typeof body?.mediaId === 'string' ? body.mediaId : ''
     if (mediaId && sequence && (await attachMedia(ctx.orgId, mediaId, sequence.id))) {
       await markSequencePaid(ctx.orgId, sequence.id)
+      await markDerivativesPaid(ctx.orgId, sequence.id)
     }
 
     return NextResponse.json({ sequence })

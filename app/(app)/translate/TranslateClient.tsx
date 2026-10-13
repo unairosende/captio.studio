@@ -13,6 +13,7 @@ import TeamPanel from '@/components/team/TeamPanel'
 import Timeline from '@/components/timeline/Timeline'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { Entitlement } from '@/lib/entitlement'
+import type { OutputMode } from '@/lib/subtitles/layout'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
 import type { Playback } from '@/types/media'
@@ -40,6 +41,8 @@ interface Props {
     id: string
     name: string
     version: number
+    /** What it is cut for, as stored — the editor checks and exports against it. */
+    outputMode: OutputMode
     subtitles: Subtitle[]
     translations: TranslationStore
     comments: ProjectComment[]
@@ -95,6 +98,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
         id: sequence.id,
         name: sequence.name,
         version: sequence.version,
+        outputMode: sequence.outputMode,
         subtitles: sequence.subtitles,
         translations: sequence.translations,
         playback: sequence.playback,

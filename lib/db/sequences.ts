@@ -1,4 +1,5 @@
 import { applyTextEdits, readCues, type TextEdit } from '../subtitles/data.ts'
+import type { OutputMode } from '../subtitles/layout.ts'
 import { isUuid, query, queryOne, requireOrg, transaction } from './client.ts'
 import { applyAnchorOps, type AnchorOp } from './comments.ts'
 
@@ -20,6 +21,13 @@ export interface SequenceRow {
   target_langs: string[]
   fps: string
   data: unknown
+  /** What it is cut for. Decides the line length it is checked and exported at — see 0014. */
+  output_mode: OutputMode
+  /**
+   * The sequence this one was cut from, when one material was delivered in two
+   * formats. It plays that one's upload and is paid for with it.
+   */
+  derived_from: string | null
   /** Bumped by trigger on every update; the token for optimistic locking. */
   version: number
   created_by: string | null
@@ -51,8 +59,8 @@ const CUE_COUNT = `case
    end as cue_count`
 
 const SUMMARY_COLS =
-  `id, org_id, project_id, name, source_lang, target_langs, fps, version, created_by,
-   created_at, updated_at,
+  `id, org_id, project_id, name, source_lang, target_langs, fps, output_mode, derived_from,
+   version, created_by, created_at, updated_at,
    ${CUE_COUNT}`
 
 /**
@@ -134,12 +142,18 @@ export async function createSequence(
     fps?: number
     data?: unknown
     createdBy?: string | null
+    outputMode?: OutputMode
+    /** The sequence this one is cut from: the same material in another format. */
+    derivedFrom?: string | null
   },
 ): Promise<SequenceRow> {
   const rows = await query<SequenceRow>(
-    `insert into sequences (org_id, project_id, name, source_lang, target_langs, fps, data, created_by)
-     select $1, $2, $3, $4, $5, $6, $7, $8
+    `insert into sequences (org_id, project_id, name, source_lang, target_langs, fps, data, created_by,
+                            output_mode, derived_from)
+     select $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
       where exists (select 1 from projects where id = $2 and org_id = $1)
+        and ($10::uuid is null
+             or exists (select 1 from sequences where org_id = $1 and id = $10 and project_id = $2))
      returning *`,
     [
       requireOrg(orgId),
@@ -150,6 +164,8 @@ export async function createSequence(
       input.fps ?? 25,
       JSON.stringify(input.data ?? {}),
       input.createdBy ?? null,
+      input.outputMode ?? 'horizontal',
+      input.derivedFrom ?? null,
     ],
   )
 
@@ -157,6 +173,12 @@ export async function createSequence(
   // rather than in a SELECT before it. The foreign key alone would happily
   // accept another organisation's project id, and checking beforehand leaves a
   // gap between the check and the write.
+  //
+  // The origin is held to the same rule, and to the same project: a cut is the
+  // same material in another format, and a sequence in another organisation's
+  // project is neither. Being derived is what pays for a sequence (see
+  // inheritPayment), so an origin taken from anywhere else would be a way to
+  // have somebody else's minutes cover your own.
   if (!rows[0]) throw new UnknownProjectError()
   return rows[0]
 }
@@ -186,6 +208,7 @@ export async function updateSequence(
     targetLangs?: string[]
     fps?: number
     data?: unknown
+    outputMode?: OutputMode
     /** Moving it to another project, which must belong to the same organisation. */
     projectId?: string
   },
@@ -220,6 +243,7 @@ export async function updateSequence(
     if (patch.targetLangs !== undefined) push('target_langs', patch.targetLangs)
     if (patch.fps !== undefined) push('fps', patch.fps)
     if (patch.data !== undefined) push('data', JSON.stringify(patch.data))
+    if (patch.outputMode !== undefined) push('output_mode', patch.outputMode)
 
     if (patch.projectId !== undefined) {
       // Resolved through a scoped SELECT for the same reason as in
@@ -339,8 +363,8 @@ export async function duplicateSequence(
   createdBy?: string | null,
 ): Promise<SequenceRow | null> {
   const rows = await query<SequenceRow>(
-    `insert into sequences (org_id, project_id, name, source_lang, target_langs, fps, data, created_by)
-     select org_id, project_id, $3, source_lang, target_langs, fps, data, $4
+    `insert into sequences (org_id, project_id, name, source_lang, target_langs, fps, data, created_by, output_mode)
+     select org_id, project_id, $3, source_lang, target_langs, fps, data, $4, output_mode
        from sequences where org_id = $1 and id = $2
      returning *`,
     [requireOrg(orgId), id, name, createdBy ?? null],

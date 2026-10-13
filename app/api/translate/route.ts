@@ -14,12 +14,11 @@ import {
   type ReviewNote,
 } from '@/lib/ai/prompt'
 import { askInHalves } from '@/lib/ai/halves'
-import { billSequence, logUsage } from '@/lib/db/billing'
+import { billSequenceMaterial, logUsage } from '@/lib/db/billing'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
 import { getMedia } from '@/lib/db/media'
-import { getSequence } from '@/lib/db/sequences'
-import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL, materialSeconds, reflowText } from '@/lib/subtitles'
+import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL, reflowText } from '@/lib/subtitles'
 
 export const maxDuration = 300
 
@@ -396,13 +395,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unknown media' }, { status: 404 })
     }
   } else if (sequenceId) {
-    const sequence = await getSequence(ctx.orgId, sequenceId)
-    if (!sequence) return NextResponse.json({ error: 'Unknown sequence' }, { status: 404 })
-
-    // Computed from what is stored, never from the request. A duration the
-    // browser supplies is a duration the browser can set to one second.
-    const data = sequence.data as { subtitles?: unknown } | null
-    await billSequence(ctx.orgId, sequenceId, materialSeconds(data?.subtitles))
+    // Measured from what is stored, and charged against the sequence the
+    // material came in as: a vertical cut of an imported file is the same
+    // minutes as its horizontal original. See billSequenceMaterial.
+    if (!(await billSequenceMaterial(ctx.orgId, sequenceId))) {
+      return NextResponse.json({ error: 'Unknown sequence' }, { status: 404 })
+    }
   } else {
     return NextResponse.json(
       {

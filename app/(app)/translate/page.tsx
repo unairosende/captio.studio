@@ -70,6 +70,7 @@ export default async function TranslatePage({ searchParams }: Props) {
           id: sequence.id,
           name: sequence.name,
           version: sequence.version,
+          outputMode: sequence.output_mode,
           ...readCues(sequence.data),
           comments,
           playback,

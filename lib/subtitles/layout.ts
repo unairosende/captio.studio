@@ -92,6 +92,11 @@ export function reflowText(text: string, limit: number): string {
 
 export type OutputMode = 'horizontal' | 'vertical'
 
+/** A format named in a request: one of the two, or null for anything else. */
+export function readOutputMode(value: unknown): OutputMode | null {
+  return value === 'horizontal' || value === 'vertical' ? value : null
+}
+
 /** Characters that fit on a line, by delivery format. */
 export const MAX_CHARS_HORIZONTAL = 42
 export const MAX_CHARS_VERTICAL = 32

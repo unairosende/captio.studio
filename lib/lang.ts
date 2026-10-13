@@ -15,10 +15,17 @@ export const shortLang = (lang: string): string =>
 export const knownSource = (lang: string | null): string | null =>
   lang && lang !== 'Auto-detect' ? lang : null
 
-export function describeSequence(q: { cue_count: number; source_lang: string | null; target_langs: string[] }): string {
+export function describeSequence(q: {
+  cue_count: number
+  source_lang: string | null
+  target_langs: string[]
+  /** Said only when vertical: horizontal is what a sequence is unless told otherwise. */
+  output_mode?: string
+}): string {
   const src = knownSource(q.source_lang)
   const from = src ? shortLang(src) : null
   const targets = q.target_langs.map(shortLang).join(' · ')
   const langs = from && targets ? `${from} → ${targets}` : (from ?? targets)
-  return [`${q.cue_count.toLocaleString('es-ES')} cues`, langs].filter(Boolean).join(' · ')
+  const format = q.output_mode === 'vertical' ? 'vertical' : ''
+  return [`${q.cue_count.toLocaleString('es-ES')} cues`, langs, format].filter(Boolean).join(' · ')
 }
