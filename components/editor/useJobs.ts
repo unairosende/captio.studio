@@ -3,10 +3,10 @@
 import { useRouter } from 'next/navigation'
 
 import { useSubtitleStore } from '@/store/useSubtitleStore'
-import { api, must } from '@/lib/api'
-import { decodeAudio } from '@/lib/audio/decode'
-import { LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
-import { MAX_UPLOAD_BYTES } from '@/lib/upload'
+import { must } from '@/lib/api'
+import { translateCues } from '@/lib/jobs/translate'
+import { uploadMedia } from '@/lib/jobs/upload'
+import { LANG_CODES } from '@/lib/providers'
 import {
   type ParseHint,
   type SubtitleFormat,
@@ -83,61 +83,23 @@ export function useTranslate() {
       useSubtitleStore.getState()
     if (!lang || !subtitles.length) return
 
-    const BATCH = TRANSLATION_BATCH
-    const PAUSE = TRANSLATION_PAUSE_MS
-    const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-    const result: Subtitle[] = []
-
     setTranslateJob({ running: true, progress: 0, message: 'Traduciendo…', error: null })
 
-    for (let i = 0; i < subtitles.length; i += BATCH) {
-      if (i > 0) {
-        for (let c = Math.round(PAUSE / 1000); c > 0; c--) {
-          setTranslateJob({ message: `Traduciendo… ${i}/${subtitles.length} — siguiente lote en ${c} s` })
-          await sleep(1000)
-        }
-      }
-      const batch = subtitles.slice(i, i + BATCH)
-
-      try {
-        // Cues, not prose. The server composes the prompt, so a subscription
-        // cannot be turned into a general-purpose model.
-        const data = await must('/api/translate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            task: 'translate',
-            cues: batch.map(s => s.text),
-            // The anchor each cue travels under, so a reply short by one can
-            // say which one is missing.
-            cueNumbers: batch.map(s => s.index),
-            targetLang: lang,
-            sourceLang: srcLang,
-            outputMode,
-            // Which material this belongs to. Plans are sold in minutes, so a
-            // translation that names neither an upload nor a saved sequence
-            // has nothing the server can charge — and is refused.
-            sequenceId,
-            mediaId,
-            // Sent with every batch: each request is its own conversation.
-            glossary,
-          }),
-        })
-        if (data.error) throw new Error(data.error)
-        // No falling back to the source text. A cue left in the original
-        // language but presented as translated ships as finished work.
-        const parsed = data.translations as string[]
-        batch.forEach((s, j) => result.push({ ...s, text: parsed[j] ?? s.text }))
-        setTranslateJob({
-          progress: Math.round((i + batch.length) / subtitles.length * 100),
-          message: `Traduciendo… ${Math.min(i + BATCH, subtitles.length)}/${subtitles.length}`,
-        })
-      } catch (e: unknown) {
-        setTranslateJob({ running: false, error: e instanceof Error ? e.message : 'Error', message: '' })
-        // The batches before this one were paid for.
-        spent()
-        return
-      }
+    let result: Subtitle[]
+    try {
+      result = await translateCues(
+        { cues: subtitles, lang, sourceLang: srcLang, outputMode, sequenceId, mediaId, glossary },
+        p => setTranslateJob(
+          p.waiting
+            ? { message: `Traduciendo… ${p.done}/${p.total} — siguiente lote en ${p.waiting} s` }
+            : { progress: Math.round(p.done / p.total * 100), message: `Traduciendo… ${p.done}/${p.total}` },
+        ),
+      )
+    } catch (e: unknown) {
+      setTranslateJob({ running: false, error: e instanceof Error ? e.message : 'Error', message: '' })
+      // The batches before this one were paid for.
+      spent()
+      return
     }
 
     setTranslation(lang, result)
@@ -168,60 +130,23 @@ export function useTranscribe() {
     setTranscribeJob({ running: true, progress: 30, message: 'Preparando el archivo…', error: null })
 
     try {
-      const isVideo = playback.contentType.startsWith('video/')
-
-      // Whole, so it plays back from the bucket later — unless it is a master
-      // that would not fit, in which case the audio alone goes, as it always
-      // did, and playback stays local to this session.
-      let upload: Blob = file
-      let uploadName = file.name
-      let uploadType = playback.contentType
-      if (file.size > MAX_UPLOAD_BYTES) {
-        setTranscribeJob({ message: 'Demasiado grande para subir entero — extrayendo el audio…', progress: 40 })
-        // Decoded again rather than held since loading: a feature's samples
-        // kept in memory for a transcription nobody may ask for is the wrong
-        // way round, and only a master this size needs them twice.
-        const decoded = await decodeAudio(file)
-        if (!decoded) throw new Error('El archivo pasa de 1 GB y no se pudo extraer el audio para subirlo')
-        upload = new Blob([audioBufferToWav(decoded.buffer)], { type: 'audio/wav' })
-        uploadName = file.name.replace(/\.[^.]+$/, '.wav')
-        uploadType = 'audio/wav'
-      }
-
-      setTranscribeJob({ message: isVideo && upload === file ? 'Subiendo el vídeo…' : 'Subiendo el audio…', progress: 55 })
-
-      const grantData = await must('/api/media', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          filename: uploadName,
-          contentType: uploadType,
-          bytes: upload.size,
-          // Read off the file when it was loaded; absent when it would not decode.
-          durationSeconds: playback.durationSeconds ?? undefined,
-          peaks: playback.peaks.length ? playback.peaks : undefined,
-        }),
-      })
-
-      // Remembered rather than used and forgotten: the save attaches it to the
-      // sequence, and a translation names it as the material it belongs to.
-      setMediaId(grantData.mediaId as string)
-
-      // Straight to object storage. Routing this through our own API would
-      // cap the file at the platform's request-body limit.
-      const put = await api(grantData.uploadUrl as string, {
-        method:  'PUT',
-        body:    upload,
-        headers: { 'Content-Type': uploadType },
-      })
-      if (!put.ok) throw new Error(put.status ? `La subida falló (HTTP ${put.status})` : put.error)
+      const mediaId = await uploadMedia(
+        file,
+        { contentType: playback.contentType, durationSeconds: playback.durationSeconds, peaks: playback.peaks },
+        {
+          onStage: setTranscribeJob,
+          // Remembered rather than used and forgotten: the save attaches it to the
+          // sequence, and a translation names it as the material it belongs to.
+          onGrant: setMediaId,
+        },
+      )
 
       setTranscribeJob({ message: 'Transcribiendo…', progress: 75 })
       const data = await must('/api/transcribe', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          mediaId:  grantData.mediaId,
+          mediaId,
           language: language !== 'auto' ? language : undefined,
           outputMode,
         }),
@@ -242,27 +167,6 @@ export function useTranscribe() {
   }
 
   return { start }
-}
-
-/** 16-bit mono PCM of the first channel, for a master too big to upload whole. */
-function audioBufferToWav(buffer: AudioBuffer): ArrayBuffer {
-  const samples    = buffer.getChannelData(0)
-  const dataLength = samples.length * 2
-  const wav        = new ArrayBuffer(44 + dataLength)
-  const v          = new DataView(wav)
-  const ws  = (off: number, s: string) => { for (let i = 0; i < s.length; i++) v.setUint8(off + i, s.charCodeAt(i)) }
-  const w32 = (off: number, n: number) => v.setUint32(off, n, true)
-  const w16 = (off: number, n: number) => v.setUint16(off, n, true)
-  ws(0, 'RIFF'); w32(4, 36 + dataLength); ws(8, 'WAVE')
-  ws(12, 'fmt '); w32(16, 16); w16(20, 1); w16(22, 1)
-  w32(24, buffer.sampleRate); w32(28, buffer.sampleRate * 2); w16(32, 2); w16(34, 16)
-  ws(36, 'data'); w32(40, dataLength)
-  let off = 44
-  for (let i = 0; i < samples.length; i++) {
-    const s = Math.max(-1, Math.min(1, samples[i]))
-    v.setInt16(off, s < 0 ? s * 0x8000 : s * 0x7FFF, true); off += 2
-  }
-  return wav
 }
 
 /* ── Exportar ───────────────────────────────────────────────────────────── */
