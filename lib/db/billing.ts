@@ -108,7 +108,12 @@ export async function upsertSubscription(input: {
 
 // ── Usage ──────────────────────────────────────────────────────────────────
 
-export type UsageKind = 'translate' | 'transcribe'
+/**
+ * What an AI call was for. `assistant` is the chat on /projects/new: metered
+ * like the others so its cost is visible, though it spends no minutes — the
+ * material it sets up is charged when it is transcribed or translated.
+ */
+export type UsageKind = 'translate' | 'transcribe' | 'assistant'
 
 export interface UsageEventInput {
   orgId: string

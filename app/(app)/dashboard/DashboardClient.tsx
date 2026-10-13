@@ -382,6 +382,9 @@ export default function DashboardClient({
           <h2>Proyectos</h2>
           <span className="muted">{projects.length}</span>
           <div className={s.spacer} />
+          {/* The same thing by conversation: attach the material, say what is
+              needed, and the project arrives transcribed and translated. */}
+          <Link href="/projects/new" className="btn btn-lg">Con el asistente</Link>
           <button className="btn btn-primary btn-lg" disabled={naming} onClick={() => setNaming(true)}>
             Nuevo proyecto
           </button>
