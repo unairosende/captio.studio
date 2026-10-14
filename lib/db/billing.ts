@@ -308,6 +308,41 @@ export async function billSequenceMaterial(orgId: string, sequenceId: string): P
 }
 
 /**
+ * Whether the material a translation names has already been charged.
+ *
+ * An upload is paid when it is transcribed; a sequence when it, or the one it
+ * was cut from, is. The same precedence the translate route uses: an upload,
+ * when named, is the material.
+ *
+ * False for anything that is not this organisation's, which then meets the
+ * allowance like any new material would.
+ */
+export async function materialPaid(
+  orgId: string,
+  material: { mediaId?: string; sequenceId?: string },
+): Promise<boolean> {
+  if (material.mediaId) {
+    if (!isUuid(material.mediaId)) return false
+    const row = await queryOne<{ paid: boolean }>(
+      `select billed_at is not null as paid from media where org_id = $1 and id = $2`,
+      [requireOrg(orgId), material.mediaId],
+    )
+    return row?.paid ?? false
+  }
+  if (!material.sequenceId || !isUuid(material.sequenceId)) return false
+  const row = await queryOne<{ paid: boolean }>(
+    `select s.billed_at is not null
+            or exists (select 1 from sequences o
+                        where o.org_id = $1 and o.id = s.derived_from and o.billed_at is not null)
+            as paid
+       from sequences s
+      where s.org_id = $1 and s.id = $2`,
+    [requireOrg(orgId), material.sequenceId],
+  )
+  return row?.paid ?? false
+}
+
+/**
  * Mark a sequence as already paid for, because its audio was.
  *
  * Called when a saved sequence is attached to an upload. Without it the same

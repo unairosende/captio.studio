@@ -6,8 +6,10 @@ import {
   billSequenceMaterial,
   currentMonthMediaSeconds,
   inheritPayment,
+  billMedia,
   markDerivativesPaid,
   markSequencePaid,
+  materialPaid,
 } from '../../lib/db/billing.ts'
 import { db, query, queryOne } from '../../lib/db/client.ts'
 import { attachMedia, playableMedia } from '../../lib/db/media.ts'
@@ -188,6 +190,37 @@ describe('one material in two formats', { skip: !HAS_DB && 'DATABASE_URL not set
     await attachMedia(org, own, v.id)
     assert.equal((await playableMedia(org, v.id))?.id, own)
     assert.equal((await playableMedia(org, h.id))?.id, first, 'the origin keeps its own')
+  })
+
+  it('knows a material is paid once either of its cuts was charged', async () => {
+    // What lets the second language of a file through when the first one spent
+    // the last of the minutes: the translate route asks this before the counter.
+    const h = await createSequence(org, { projectId, name: 'H', data: MINUTE })
+    const v = await createSequence(org, { projectId, name: 'V', outputMode: 'vertical', derivedFrom: h.id })
+    assert.equal(await materialPaid(org, { sequenceId: h.id }), false)
+    assert.equal(await materialPaid(org, { sequenceId: v.id }), false)
+
+    await billSequenceMaterial(org, h.id)
+    assert.equal(await materialPaid(org, { sequenceId: h.id }), true)
+    assert.equal(await materialPaid(org, { sequenceId: v.id }), true)
+
+    // Not across the boundary, and not for something that is not an id.
+    assert.equal(await materialPaid(other, { sequenceId: h.id }), false)
+    assert.equal(await materialPaid(org, { sequenceId: 'nada' }), false)
+  })
+
+  it('knows an upload is paid once it is transcribed', async () => {
+    const row = await queryOne<{ id: string }>(
+      `insert into media (org_id, storage_key, filename, content_type)
+       values ($1, $2, 'entrevista.mp4', 'video/mp4') returning id`,
+      [org, `test/${randomBytes(8).toString('hex')}.mp4`],
+    )
+    const media = row!.id
+    assert.equal(await materialPaid(org, { mediaId: media }), false)
+
+    await billMedia(org, media, 90)
+    assert.equal(await materialPaid(org, { mediaId: media }), true)
+    assert.equal(await materialPaid(other, { mediaId: media }), false)
   })
 
   it('leaves a cut standing on its own when the origin goes', async () => {

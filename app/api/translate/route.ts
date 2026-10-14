@@ -14,7 +14,7 @@ import {
   type ReviewNote,
 } from '@/lib/ai/prompt'
 import { askInHalves } from '@/lib/ai/halves'
-import { billSequenceMaterial, logUsage } from '@/lib/db/billing'
+import { billSequenceMaterial, logUsage, materialPaid } from '@/lib/db/billing'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
 import { getMedia } from '@/lib/db/media'
@@ -363,10 +363,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'unknown task' }, { status: 400 })
   }
 
+  const sequenceId = typeof body.sequenceId === 'string' ? body.sequenceId : ''
+  const mediaId = typeof body.mediaId === 'string' ? body.mediaId : ''
+
   // Last thing before spending money, and after every validation: a malformed
   // request should hear why it is malformed, not that the trial is over.
-  const allowance = await checkAllowance(ctx.orgId, 'translate')
-  if (!allowance.allowed) return paywallResponse(allowance)
+  //
+  // Not asked of a translation whose material is already charged. The minutes
+  // bought that material in every language, and a job may overshoot what was
+  // left (see allowanceFor) — but an imported file is charged by the first
+  // batch of its first translation, so a check placed after that charge walled
+  // the job's own next batch, and every other language of the same material:
+  // half a translation, and the minutes gone anyway. Asking the material
+  // instead of the counter keeps the wall where it belongs, in front of new
+  // material. The other tasks rework text without naming material, and stay
+  // behind it.
+  const continuing = task === 'translate' && (await materialPaid(ctx.orgId, { mediaId, sequenceId }))
+  if (!continuing) {
+    const allowance = await checkAllowance(ctx.orgId, 'translate')
+    if (!allowance.allowed) return paywallResponse(allowance)
+  }
 
   // WHICH MATERIAL THIS BELONGS TO.
   //
@@ -384,9 +400,6 @@ export async function POST(req: NextRequest) {
   // charged when the material arrived. Demanding an identifier from those would
   // have broken the overlength auto-fix, the QA pass, the correction pass and
   // the review for nothing.
-  const sequenceId = typeof body.sequenceId === 'string' ? body.sequenceId : ''
-  const mediaId = typeof body.mediaId === 'string' ? body.mediaId : ''
-
   if (task !== 'translate') {
     // Nothing to charge, nothing to identify.
   } else if (mediaId) {
