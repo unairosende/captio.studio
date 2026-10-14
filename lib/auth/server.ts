@@ -43,6 +43,23 @@ const google =
     : {}
 
 /**
+ * The addresses a Vercel preview answers on, which are not BETTER_AUTH_URL.
+ *
+ * The URL is set once for every environment, so a preview checked each sign-in
+ * against production's origin and refused its own page with "Invalid origin":
+ * nobody could log in to test a pull request. These are this deployment's own
+ * hostnames, read from Vercel's system variables — never a pattern. Trusting
+ * `*.vercel.app` would trust every site anybody hosts there, which is the
+ * cross-site request the check exists to stop. Production sets nothing here.
+ */
+const previewOrigins =
+  process.env.VERCEL_ENV === 'preview'
+    ? [process.env.VERCEL_URL, process.env.VERCEL_BRANCH_URL]
+        .filter((host): host is string => Boolean(host))
+        .map(host => `https://${host}`)
+    : []
+
+/**
  * Kept as a named object so `db/auth-schema.ts` can hand the exact same options
  * to Better Auth's schema generator. If the generator saw different options
  * from the running app, the migration it produced would not match the tables
@@ -52,6 +69,7 @@ export const authOptions = {
   database: db(),
   secret: process.env.BETTER_AUTH_SECRET,
   baseURL: process.env.BETTER_AUTH_URL ?? appUrl,
+  trustedOrigins: previewOrigins,
 
   // Email and password stays on: requiring a Google account would lock out every
   // productora that runs on Microsoft, which is a lot of them.
