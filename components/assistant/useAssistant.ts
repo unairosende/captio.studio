@@ -196,7 +196,7 @@ export function useAssistant() {
 
     try {
       if (!d.projectId) {
-        job('project', { label: 'Crear el proyecto', state: 'running', progress: 50 })
+        job('project', { label: 'Crear el proyecto', state: 'running', progress: 50, detail: '' })
         const r = await send<{ project: { id: string } }>('/api/projects', { name: plan.projectName })
         if (!r.ok) throw new Error(r.error)
         d.projectId = r.json.project.id
@@ -210,7 +210,7 @@ export function useAssistant() {
         if (probe.media) {
           const media = probe.media
           if (!d.mediaId) {
-            job('upload', { label: 'Subir el archivo', state: 'running', progress: 10 })
+            job('upload', { label: 'Subir el archivo', state: 'running', progress: 10, detail: '' })
             d.mediaId = await uploadMedia(file, media, {
               onStage: s => job('upload', { detail: s.message, progress: s.progress }),
             })
@@ -244,7 +244,7 @@ export function useAssistant() {
       for (const [i, q] of plan.sequences.entries()) {
         if (d.made[i]) continue
         const key = `sequence-${i}`
-        job(key, { label: `Crear «${q.name}»`, state: 'running', progress: 50 })
+        job(key, { label: `Crear «${q.name}»`, state: 'running', progress: 50, detail: '' })
         const cues = d.cuesByFormat[q.format] ?? d.cuesByFormat[formats[0]] ?? []
         const r = await send<{ sequence: { id: string; version: number } }>('/api/sequences', {
           projectId: d.projectId,
@@ -270,8 +270,11 @@ export function useAssistant() {
         job(key, { state: 'done', progress: 100, detail: `${cues.length} subtítulos · ${formatName(q.format)}` })
       }
     } catch (e: unknown) {
-      push({ role: 'error', text: e instanceof Error ? e.message : 'Algo falló al crear el proyecto.' })
-      setJobs(all => all.map(j => (j.state === 'running' ? { ...j, state: 'failed', progress: 100 } : j)))
+      const message = e instanceof Error ? e.message : 'Algo falló al crear el proyecto.'
+      push({ role: 'error', text: message })
+      // The step that stopped says why, rather than what it was doing when it
+      // stopped: a red bar reading "Subiendo el audio…" looks like it still is.
+      setJobs(all => all.map(j => (j.state === 'running' ? { ...j, state: 'failed', progress: 100, detail: message } : j)))
       // Back to where the plan can be carried out again; what was finished
       // stays finished (see Progress), so trying again resumes.
       setStage('scope')
@@ -338,7 +341,7 @@ export function useAssistant() {
     let failed = false
     await pool(tasks, PARALLEL, async ({ m, lang }) => {
       const key = `${m.id}:${lang}`
-      job(key, { state: 'running', progress: 0 })
+      job(key, { state: 'running', progress: 0, detail: '' })
       try {
         const out = await translateCues(
           {
