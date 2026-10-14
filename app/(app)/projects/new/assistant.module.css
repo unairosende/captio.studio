@@ -73,10 +73,11 @@
 
 .prose { margin: 0; white-space: pre-wrap; font-size: var(--fs-md); }
 
-.job { display: grid; grid-template-columns: 1fr auto; gap: var(--sp-1) var(--sp-3); align-items: baseline; }
+.job { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--sp-1) var(--sp-3); align-items: baseline; }
 .job :global(.meter) { grid-column: 1 / -1; }
 .jobDetail { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink-3); }
-.job[data-state="failed"] .jobDetail { color: var(--danger); }
+/* Un fallo es una frase entera: va en su línea, sin estrujar el nombre en una columna. */
+.job[data-state="failed"] .jobDetail { grid-column: 1 / -1; color: var(--danger); }
 
 /* ── Escribir ───────────────────────────────────────────────────────────── */
 
