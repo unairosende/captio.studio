@@ -63,9 +63,10 @@ Hosting, database and media storage are all in the EU — compute in Stockholm,
 database in Stockholm, media in an EU-jurisdiction bucket. Transactional email
 goes through Resend in Ireland. Payments go through Stripe.
 
-Transcription and translation are done by AI providers, and some of them are
-outside the EU: **[PROVIDER TRANSFER BASIS — see review-checklist.md item 2]**.
-The audio you upload and the subtitle text you translate are sent to those
+Transcription, translation and the assistant that sets up a new project are
+done by AI providers, and some of them are outside the EU: **[PROVIDER TRANSFER
+BASIS — see review-checklist.md item 2]**. The audio you upload, the subtitle
+text you translate and what you write to the assistant are sent to those
 providers to be processed.
 
 **[TRAINING CLAUSE — see review-checklist.md item 1. Do not fill this in until

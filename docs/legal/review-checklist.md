@@ -26,6 +26,11 @@ marketing page:
 - **ElevenLabs** — audio. Recorded voices, which is the more sensitive half.
 - **Groq** — subtitle text, but only when Gemini is unavailable. Still needs an
   answer: "rarely" is not "never".
+- **Anthropic** (Claude) — the project assistant: what is written in the chat,
+  the file's name and measurements, and a sample of the subtitle text (up to
+  1,200 cues). The key comes from a Claude Console organisation; check which
+  terms that organisation is under before relying on the answer, since a
+  consumer claude.ai account carries different ones.
 
 OpenRouter, Mistral and OpenAI were removed from the product, so they no longer
 need answering.
@@ -40,8 +45,9 @@ a claim. Do not fill it in optimistically.
 
 ## 2 · What legal basis covers sending audio to the United States?
 
-Groq, OpenAI and Google are US companies. The recorded voices of everybody in an
-interview go to them.
+ElevenLabs, Google, Groq and Anthropic are US companies. The recorded voices of
+everybody in an interview go to the first of them; subtitle text, and what is
+written to the assistant, to the rest.
 
 Confirm for each: certification under the EU–US Data Privacy Framework, or
 Standard Contractual Clauses in their terms, and whether a transfer impact

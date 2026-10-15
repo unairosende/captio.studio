@@ -7,7 +7,7 @@ instead of trusted.
 **Status: draft. Not reviewed by a lawyer.** See `review-checklist.md` for the
 questions that have to be answered before any of this is published.
 
-Last verified against the codebase: 2026-08-10.
+Last verified against the codebase: 2026-10-15.
 
 ---
 
@@ -39,11 +39,13 @@ interview asks the production company, not us.
 | **ElevenLabs** | Transcription | United States | Audio |
 | **Google** (Gemini) | Translation | United States / global | Subtitle text |
 | **Groq** | Translation, only when Gemini is unavailable | United States | Subtitle text |
+| **Anthropic** (Claude) | The assistant that sets up a new project | United States | What is written to the assistant, the file's name and measurements, and a sample of its subtitle text |
 
 Sources: `vercel.json` (`regions`), the `DATABASE_URL` host, `lib/storage/r2.ts`
 with `R2_JURISDICTION`, the MX record on `send.captio.studio`, `lib/stripe.ts`,
 the endpoints in `app/api/translate/route.ts` and `app/api/transcribe/route.ts`,
-and `lib/providers.ts`.
+`app/api/assistant/route.ts` with `lib/assistant/prompt.ts` for what a turn
+carries, and `lib/providers.ts`.
 
 ### Nothing else
 
@@ -78,8 +80,9 @@ model dropdown — which asked a production company to choose between
 ## Still to decide: audio and subtitle text leave the EU
 
 Storage, database and compute were all deliberately placed in the EU. The AI
-providers undo part of that: ElevenLabs, Google and Groq are US companies, and a
-transcription hands them the recorded voices of everybody in the room.
+providers undo part of that: ElevenLabs, Google, Groq and Anthropic are US
+companies, and a transcription hands them the recorded voices of everybody in
+the room. Anthropic receives text, never audio.
 
 Not automatically a problem, but it is the first thing a European production
 company will ask about, and the answer has to be specific. See

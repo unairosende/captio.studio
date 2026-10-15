@@ -104,8 +104,9 @@ trabajo corre en la pestaña por las mismas rutas que el editor, así que saldo,
 tenencia y cobro único se aplican igual. Cada turno es una petición sin
 historial (la conversación viaja como datos) para que el prompt de sistema,
 cacheado, no cambie nunca. La clave es `ANTHROPIC_API_KEY` de una organización
-de Console, nunca el login de una suscripción de claude.ai. Antes de activarlo
-en producción, Anthropic va en `docs/legal/subprocessors.md`.
+de Console, nunca el login de una suscripción de claude.ai. Anthropic figura
+como subencargado en `docs/legal/subprocessors.md`: si cambia lo que un turno
+le envía, esa fila cambia con él.
 
 **Una vista previa de Vercel no es producción con otra dirección.**
 `BETTER_AUTH_URL` apunta a producción, así que `lib/auth/server.ts` confía
