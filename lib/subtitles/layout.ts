@@ -92,6 +92,11 @@ export function reflowText(text: string, limit: number): string {
 
 export type OutputMode = 'horizontal' | 'vertical'
 
+/** A format named in a request: one of the two, or null for anything else. */
+export function readOutputMode(value: unknown): OutputMode | null {
+  return value === 'horizontal' || value === 'vertical' ? value : null
+}
+
 /** Characters that fit on a line, by delivery format. */
 export const MAX_CHARS_HORIZONTAL = 42
 export const MAX_CHARS_VERTICAL = 32
@@ -140,6 +145,23 @@ export function splitForVertical(subs: Subtitle[], cfg: QcConfig = DEFAULT_QC): 
   }
 
   return result
+}
+
+/**
+ * Re-break the lines that run past a format's length, and touch nothing else.
+ *
+ * For subtitles that arrive as a file and are set up in a format they were not
+ * written for — the vertical cut of a horizontal SRT. A line over the limit is
+ * a line nobody will deliver, so it is reflowed; a cue whose lines already fit
+ * keeps its breaks exactly as written, because a break that looks arbitrary is
+ * often the one that separates two speakers. A cue too long for two lines
+ * stays too long: that is a second cue, and the quality check says so.
+ */
+export function fitToFormat(subs: Subtitle[], mode: OutputMode): Subtitle[] {
+  const limit = mode === 'vertical' ? MAX_CHARS_VERTICAL : MAX_CHARS_HORIZONTAL
+  return subs.map(s =>
+    s.text.split('\n').some(line => line.length > limit) ? { ...s, text: reflowText(s.text, limit) } : s,
+  )
 }
 
 /** What the viewer actually gets, once the output mode is applied. */

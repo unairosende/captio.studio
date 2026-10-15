@@ -26,7 +26,7 @@ export interface MonthUsage {
   transcribeSeconds: number
   /** Subtitles translated. */
   translatedCues: number
-  /** AI calls made, both kinds together. */
+  /** AI calls made, every kind together — the project assistant's included. */
   calls: number
 }
 
@@ -54,7 +54,7 @@ export function summariseUsage(rows: UsageByMonth[]): MonthUsage[] {
     // touches: `cues` is zero on a transcribe row, and `units_in` is seconds on
     // that row alone.
     if (row.kind === 'transcribe') month.transcribeSeconds += num(row.units_in)
-    else month.translatedCues += num(row.cues)
+    else if (row.kind === 'translate') month.translatedCues += num(row.cues)
 
     month.calls += num(row.calls)
     months.set(row.month, month)

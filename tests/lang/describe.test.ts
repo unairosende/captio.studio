@@ -14,6 +14,12 @@ describe('a sequence in one line', () => {
     )
   })
 
+  it('says vertical, and only vertical', () => {
+    const q = { cue_count: 8, source_lang: 'Spanish', target_langs: ['English'] }
+    assert.equal(describeSequence({ ...q, output_mode: 'vertical' }), '8 cues · ES → EN · vertical')
+    assert.equal(describeSequence({ ...q, output_mode: 'horizontal' }), '8 cues · ES → EN')
+  })
+
   it('leaves the source out while it is still to be detected', () => {
     assert.equal(describeSequence({ cue_count: 8, source_lang: 'Auto-detect', target_langs: ['English'] }), '8 cues · EN')
     assert.equal(describeSequence({ cue_count: 8, source_lang: null, target_langs: [] }), '8 cues')

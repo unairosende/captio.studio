@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { DEFAULT_QC, type Subtitle } from '../../lib/subtitles/types.ts'
-import { finalSubs, reflowText, splitForVertical } from '../../lib/subtitles/layout.ts'
+import { finalSubs, fitToFormat, reflowText, splitForVertical } from '../../lib/subtitles/layout.ts'
 import { wordDiff } from '../../lib/subtitles/diff.ts'
 
 const cue = (over: Partial<Subtitle> = {}): Subtitle => ({
@@ -110,6 +110,28 @@ describe('splitForVertical', () => {
     const subs = [cue({ text: 'x'.repeat(80) })]
     assert.deepEqual(finalSubs(subs, 'horizontal', narrow), subs)
     assert.equal(finalSubs(subs, 'vertical', narrow).length, 2)
+  })
+})
+
+describe('fitToFormat', () => {
+  const cue = (text: string): Subtitle => ({ index: 1, start: '00:00:01,000', end: '00:00:03,000', text })
+
+  it('re-breaks a line too long for the format', () => {
+    const [out] = fitToFormat([cue('Hoy hablamos de cómo subtitular más rápido.')], 'vertical')
+    assert.ok(out.text.split('\n').every(l => l.length <= 32), out.text)
+    assert.equal(out.text.replace('\n', ' '), 'Hoy hablamos de cómo subtitular más rápido.')
+  })
+
+  it('keeps the breaks of a cue that already fits, speakers included', () => {
+    const dialogue = cue('- ¿Vienes?\n- Ahora voy.')
+    assert.deepEqual(fitToFormat([dialogue], 'vertical'), [dialogue])
+  })
+
+  it('measures each format by its own length', () => {
+    const forty = cue('Sí, y en vertical también para las redes')
+    assert.equal(forty.text.length, 40)
+    assert.deepEqual(fitToFormat([forty], 'horizontal'), [forty])
+    assert.notDeepEqual(fitToFormat([forty], 'vertical'), [forty])
   })
 })
 

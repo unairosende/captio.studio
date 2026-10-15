@@ -79,12 +79,21 @@ export async function listSequenceMedia(orgId: string, sequenceId: string): Prom
  * one whose cues are on screen. Typed, because a row from before 0012 is
  * extracted audio with no waveform saved — playable in principle, but nothing
  * in the editor would be any better for it, and it stands in front of nothing.
+ *
+ * A cut made from another sequence (`derived_from`, 0014) is the same
+ * recording in another format, and the upload belongs to the origin: it plays
+ * that one's when it has none of its own. Its own comes first, so transcribing
+ * the cut again still puts the newer picture in front.
  */
 export async function playableMedia(orgId: string, sequenceId: string): Promise<MediaRow | null> {
   return queryOne<MediaRow>(
     `select * from media
-      where org_id = $1 and sequence_id = $2 and content_type is not null
-      order by created_at desc
+      where org_id = $1 and content_type is not null
+        and sequence_id in (
+          select id from sequences where org_id = $1 and id = $2
+          union
+          select derived_from from sequences where org_id = $1 and id = $2 and derived_from is not null)
+      order by sequence_id = $2 desc, created_at desc
       limit 1`,
     [requireOrg(orgId), sequenceId],
   )

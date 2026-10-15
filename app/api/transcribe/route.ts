@@ -6,7 +6,7 @@ import { getMedia } from '@/lib/db/media'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
 import { StorageNotConfiguredError, presign } from '@/lib/storage/r2'
-import { cuesFromWords, qcForMode, type TimedWord } from '@/lib/subtitles'
+import { cuesFromWords, qcForMode, readOutputMode, type OutputMode, type Subtitle, type TimedWord } from '@/lib/subtitles'
 
 export const maxDuration = 300
 
@@ -53,6 +53,13 @@ export async function POST(req: NextRequest) {
   const language = typeof body?.language === 'string' ? body.language : ''
   const sequenceId = typeof body?.sequenceId === 'string' && body.sequenceId ? body.sequenceId : null
   const outputMode = body?.outputMode === 'vertical' ? 'vertical' : 'horizontal'
+
+  // More cuts of the same words, for a recording delivered in both formats.
+  // The words are what costs money; cutting them twice costs nothing, so the
+  // second format is never a second transcription.
+  const outputModes: OutputMode[] = Array.isArray(body?.outputModes)
+    ? [...new Set((body.outputModes as unknown[]).map(readOutputMode).filter((m): m is OutputMode => m !== null))]
+    : []
 
   const key = process.env.ELEVENLABS_API_KEY
   if (!key) {
@@ -116,6 +123,14 @@ export async function POST(req: NextRequest) {
 
   const segments = cuesFromWords(words, qcForMode(outputMode))
 
+  // Each requested format cut by its own line length: a vertical cue holds
+  // fewer words, so the boundaries fall in different places, not just the
+  // line breaks.
+  const byMode: Partial<Record<OutputMode, Subtitle[]>> = {}
+  for (const mode of outputModes) {
+    byMode[mode] = mode === outputMode ? segments : cuesFromWords(words, qcForMode(mode))
+  }
+
   // Billed by audio duration, which Scribe does not report. The last word ends
   // where the speech does, and silence at the tail is not worth charging for.
   const seconds = Math.round(words.at(-1)?.end ?? 0)
@@ -137,6 +152,7 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     segments,
+    ...(outputModes.length ? { byMode } : {}),
     language: data?.language_code ?? null,
     text: data?.text ?? '',
   })

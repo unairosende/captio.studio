@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
-import { markSequencePaid } from '@/lib/db/billing'
+import { isUuid } from '@/lib/db/client'
+import { inheritPayment, markDerivativesPaid, markSequencePaid } from '@/lib/db/billing'
 import { attachMedia } from '@/lib/db/media'
 import {
   UnknownProjectError,
@@ -9,6 +10,7 @@ import {
   listAllSequences,
   listSequences,
 } from '@/lib/db/sequences'
+import { readOutputMode } from '@/lib/subtitles/layout'
 
 /**
  * The subtitle tracks themselves.
@@ -66,6 +68,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'data must be an object' }, { status: 400 })
   }
 
+  const outputMode = body?.outputMode === undefined ? undefined : readOutputMode(body.outputMode)
+  if (outputMode === null) {
+    return NextResponse.json({ error: 'outputMode must be horizontal or vertical' }, { status: 400 })
+  }
+
+  // Refused when malformed rather than ignored: a cut that silently lost its
+  // origin would be charged as material of its own, which is exactly what
+  // naming the origin is for.
+  const derivedFrom = typeof body?.derivedFrom === 'string' ? body.derivedFrom : null
+  if (body?.derivedFrom !== undefined && (!derivedFrom || !isUuid(derivedFrom))) {
+    return NextResponse.json({ error: 'derivedFrom must be a sequence id' }, { status: 400 })
+  }
+
   try {
     // The whole track travels as one JSON body, which the platform caps at a few
     // megabytes — a feature in three languages before it bites. Past that,
@@ -81,6 +96,8 @@ export async function POST(req: NextRequest) {
       fps: typeof body?.fps === 'number' ? body.fps : undefined,
       data: body?.data ?? {},
       createdBy: ctx.userId,
+      outputMode,
+      derivedFrom,
     })
 
 
@@ -91,7 +108,12 @@ export async function POST(req: NextRequest) {
     const mediaId = typeof body?.mediaId === 'string' ? body.mediaId : ''
     if (mediaId && sequence && (await attachMedia(ctx.orgId, mediaId, sequence.id))) {
       await markSequencePaid(ctx.orgId, sequence.id)
+      await markDerivativesPaid(ctx.orgId, sequence.id)
     }
+
+    // A cut of material that is already paid for is paid for. One that is not
+    // yet will be when its origin is — see markDerivativesPaid.
+    if (derivedFrom) await inheritPayment(ctx.orgId, sequence.id, derivedFrom)
 
     return NextResponse.json({ sequence }, { status: 201 })
   } catch (err) {

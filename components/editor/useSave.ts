@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { api, send } from '@/lib/api'
+import type { OutputMode } from '@/lib/subtitles/layout'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
 import type { Playback } from '@/types/media'
@@ -20,6 +21,7 @@ interface Saved {
   name: string
   version: number
   project_id: string
+  output_mode?: OutputMode
   data?: {
     subtitles?: Subtitle[]
     translations?: TranslationStore
@@ -37,7 +39,7 @@ interface Saved {
  */
 export function useSave() {
   const {
-    subtitles, translations, srcLang, glossary, glossaryDirty,
+    subtitles, translations, srcLang, glossary, glossaryDirty, outputMode,
     projectId, projectName,
     sequenceId, sequenceName, sequenceVersion, dirty, anchorOps, mediaId,
     openSequence, markSaved, newSequence, setComments,
@@ -73,6 +75,7 @@ export function useSave() {
       name: sequenceName.trim() || 'Sin título',
       sourceLang: srcLang,
       targetLangs: Object.keys(translations),
+      outputMode,
       data: { subtitles, translations },
       ...(sequenceId ? {} : { projectId }),
       ...(sequenceId && !force ? { version: sequenceVersion } : {}),
@@ -108,6 +111,7 @@ export function useSave() {
       id: s.id,
       name: s.name,
       version: s.version,
+      outputMode: s.output_mode,
       projectId: s.project_id,
       projectName,
       subtitles: s.data?.subtitles ?? [],

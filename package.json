@@ -13,6 +13,7 @@
     "migrate": "node --env-file=.env.local db/migrate.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@stripe/stripe-js": "^9.3.1",
     "better-auth": "^1.6.26",
     "next": "^16.3.0",

@@ -8,7 +8,8 @@ sigue vivo dando servicio a la oficina. **Aquel no se toca**; su núcleo ya est�
 portado aquí.
 
 Next 16 (App Router) · React 19 · TypeScript · Postgres con el driver `pg` a pelo
-· Better Auth con el plugin `organization` · R2 para media · Stripe · Vercel.
+· Better Auth con el plugin `organization` · R2 para media · Stripe · Vercel ·
+Claude (API de Anthropic) para el asistente de proyecto nuevo.
 
 ## Comandos
 
@@ -23,6 +24,12 @@ npm run migrate  # runner propio, tabla schema_migrations
 El servidor de desarrollo se arranca con la herramienta de vista previa, no con
 `npm run dev` a mano: `.claude/launch.json` define `captio-dev` en el puerto 3000.
 
+`migrate` y `test:db` leen `.env.local`. Sin ese archivo (una sesión en la nube)
+se llaman a pelo: `DATABASE_URL=… node db/migrate.ts` y
+`DATABASE_URL=… node --test "tests/**/*.test.ts"`. Sobre un Postgres vacío, la
+0010 exige antes los roles de Supabase (`anon`, `authenticated`,
+`service_role`), y los tests piden la fila de `deployment_environment`.
+
 **Base del lint: 0 avisos.** Si tras un cambio sale uno, es tuyo. Eran 5
 hasta que el rediseño del editor se llevó por delante `EditorArea` y
 `SequenceBar`, y el último vivía en la página de precios vieja.
@@ -31,12 +38,14 @@ hasta que el rediseño del editor se llevó por delante `EditorArea` y
 
 ```
 app/            rutas y páginas; app/api/** son route handlers
-components/     interfaz por área (editor, timeline, comments, team, palette…)
+components/     interfaz por área (editor, timeline, comments, team, assistant…)
 lib/db/         acceso a datos, TODO filtrado por organización
 lib/auth/       Better Auth (server/client), sesión, plazos de caducidad
 lib/subtitles/  núcleo puro: timecodes, parsers, QC, formatos, hoja multi-idioma
 lib/timeline/   vista, arrastre, transporte, cabezal, lectura de "ir a"
 lib/email/      plantillas y envío por Resend
+lib/jobs/       subir, leer un archivo y traducir por tandas; los usan editor y asistente
+lib/assistant/  el asistente: instrucciones, turno, esquema de respuesta y su validación
 db/migrations/  SQL numerado + db/migrate.ts
 store/          zustand: cues, traducciones, deshacer, anclas de comentarios
 tests/          *.test.ts puros; *.db.test.ts exigen base de datos
@@ -78,6 +87,35 @@ servidor — `getLinkByToken` es la única consulta sin `org_id` permitida en
 puede tocar son las rutas que llaman a `requireActor` (`lib/auth/actor.ts`);
 `tests/tenancy/guest-surface.test.ts` fija esa lista. Añadir `requireActor` a
 `translate` o `transcribe` dejaría a un desconocido gastar los minutos de la org.
+
+**Un corte vertical es el mismo material que su original.** Cada secuencia
+guarda su formato (`output_mode`) y, si se cortó de otra, de cuál
+(`derived_from`, migración 0014). El corte reproduce la subida del original y se
+cobra con él (`billSequenceMaterial`, `markDerivativesPaid`, `inheritPayment`):
+los minutos se cobran una vez por material, en todos los formatos e idiomas. Por
+eso `/api/translate` pregunta `materialPaid` antes que el saldo: traducir
+material ya cobrado pasa aunque no queden minutos; el material nuevo y las demás
+tareas, no. Con el saldo primero, el cobro de la primera tanda bloqueaba la
+segunda y los demás idiomas: media traducción, y los minutos ya gastados.
+
+**El asistente (`/projects/new`) no crea nada por su cuenta.** El modelo
+responde en un esquema JSON que `lib/assistant/reply.ts` vuelve a validar, y el
+trabajo corre en la pestaña por las mismas rutas que el editor, así que saldo,
+tenencia y cobro único se aplican igual. Cada turno es una petición sin
+historial (la conversación viaja como datos) para que el prompt de sistema,
+cacheado, no cambie nunca. La clave es `ANTHROPIC_API_KEY` de una organización
+de Console, nunca el login de una suscripción de claude.ai. Anthropic figura
+como subencargado en `docs/legal/subprocessors.md`: si cambia lo que un turno
+le envía, esa fila cambia con él.
+
+**Una vista previa de Vercel no es producción con otra dirección.**
+`BETTER_AUTH_URL` apunta a producción, así que `lib/auth/server.ts` confía
+además en las dos direcciones de la propia vista previa (`VERCEL_URL`,
+`VERCEL_BRANCH_URL`), nunca en `*.vercel.app`, que sería confiar en cualquier
+web alojada allí. Las variables van por entorno: lo que una PR necesita
+(Anthropic, Gemini, Groq, R2, ElevenLabs) se activa también para Preview y se
+redespliega después; subir desde una vista previa exige su origen en el CORS
+del bucket.
 
 **Cada guardado de cues es una versión** (`sequence_versions`, dentro de la
 misma transacción). Los guardados del mismo autor en 10 minutos se aplastan en

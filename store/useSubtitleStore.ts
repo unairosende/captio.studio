@@ -231,6 +231,8 @@ interface AppState {
     id: string
     name: string
     version: number
+    /** What it is cut for. Absent opens it horizontal, as everything was before 0014. */
+    outputMode?: OutputMode
     subtitles: Subtitle[]
     translations: TranslationStore
     /** The project it lives in, whose glossary comes with it. */
@@ -354,6 +356,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     glossary: s.glossary ?? [],
     glossaryDirty: false,
     activeTab: 'source',
+    outputMode: s.outputMode ?? 'horizontal',
     projectId: s.projectId,
     projectName: s.projectName,
     sequenceId: s.id,
@@ -589,7 +592,13 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   switchToTab: tab => set({ activeTab: tab }),
   selected: null,
   select: index => set({ selected: index }),
-  setOutputMode:    mode => set({ outputMode: mode }),
+  // The format is saved with the sequence now (migration 0014), so changing it
+  // is a change to the work: the unsaved dot appears and the save carries it.
+  // An empty editor has nothing to save, and the switch is only a preference.
+  setOutputMode: mode => set(s => ({
+    outputMode: mode,
+    dirty: s.dirty || (mode !== s.outputMode && s.subtitles.length > 0),
+  })),
   setViewMode:      mode => set({ viewMode: mode }),
   setSrcLang:       l    => set({ srcLang: l }),
   setTgtLang:       l    => set({ tgtLang: l }),
