@@ -117,6 +117,29 @@ export async function countPendingInvitations(orgId: string): Promise<number> {
   return row?.count ?? 0
 }
 
+/**
+ * Whether an owner of this organisation holds a verified address at one of
+ * these domains.
+ *
+ * Verified, or anybody could register a mailbox they do not own at the domain
+ * and inherit what it grants. Owners only, so a member of the domain invited
+ * into a customer's organisation does not carry the grant in with them.
+ */
+export async function ownedByDomain(orgId: string, domains: readonly string[]): Promise<boolean> {
+  const row = await queryOne<{ ok: number }>(
+    `select 1 as ok
+       from member m
+       join "user" u on u.id = m."userId"
+      where m."organizationId" = $1
+        and m.role = 'owner'
+        and u."emailVerified"
+        and lower(split_part(u.email, '@', 2)) = any($2)
+      limit 1`,
+    [requireOrg(orgId), domains],
+  )
+  return row !== null
+}
+
 export interface Membership {
   organizationId: string
   role: string

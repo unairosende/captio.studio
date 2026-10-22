@@ -6,7 +6,8 @@ import {
   trialMediaSeconds,
   type UsageKind,
 } from './db/billing.ts'
-import { PLANS, TRIAL } from './plans.ts'
+import { ownedByDomain } from './db/organizations.ts'
+import { PLANS, TRIAL, UNLIMITED_DOMAINS } from './plans.ts'
 
 /**
  * Whether an organisation may run another AI job, and why not.
@@ -99,6 +100,14 @@ export type Entitlement =
   | { status: 'trial'; plan: 'free'; remaining: TrialRemaining; monthly: null }
 
 export async function getEntitlement(orgId: string): Promise<Entitlement> {
+  // A subscription with no monthly figure is already the uncapped case — the
+  // walls, the editor's meter and the dashboard all read it that way — so our
+  // own organisations need nothing new downstream. Checked before the
+  // subscription, so subscribing once to try the checkout does not cap them.
+  if (await ownedByDomain(orgId, UNLIMITED_DOMAINS)) {
+    return { status: 'subscribed', plan: 'ilimitado', remaining: null, monthly: null }
+  }
+
   const subscription = await getLiveSubscription(orgId)
   if (subscription) {
     const plan = PLANS.find(p => p.id === subscription.plan)

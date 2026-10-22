@@ -33,6 +33,15 @@ export const TRIAL = {
 } as const
 
 /**
+ * Our own people, who build and run the product and should not meet its wall.
+ *
+ * Granted to an organisation whose owner has a verified address here — see
+ * `ownedByDomain` for why the owner and why verified. Lower case: the address
+ * is compared lower-cased.
+ */
+export const UNLIMITED_DOMAINS = ['keweke.com'] as const
+
+/**
  * What a subscription buys.
  *
  * `monthlyMediaMinutes` is enforced, not decoration: lib/entitlement.ts refuses

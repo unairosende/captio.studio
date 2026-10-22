@@ -91,6 +91,8 @@ export default function DashboardClient({
   const thisMonth = usage.find(m => m.month === currentMonth)
 
   const trial = entitlement.status === 'trial' ? entitlement.remaining : null
+  // Uncapped without paying: our own organisations (UNLIMITED_DOMAINS).
+  const unlimited = !subscription && entitlement.status === 'subscribed'
 
   async function create() {
     const name = newName.trim()
@@ -329,7 +331,7 @@ export default function DashboardClient({
             </div>
 
             <div className={s.planName}>
-              {subscription ? subscription.plan : 'Prueba gratuita'}
+              {subscription ? subscription.plan : unlimited ? 'Ilimitado' : 'Prueba gratuita'}
             </div>
 
             {subscription ? (
@@ -356,6 +358,10 @@ export default function DashboardClient({
                   <div className={`err ${s.status}`}>Estado: {subscription.status}</div>
                 )}
               </>
+            ) : unlimited ? (
+              <div className={`muted ${s.planLine}`}>
+                Cuenta del equipo: sin tope de material.
+              </div>
             ) : (
               <div className={`muted ${s.planLine}`}>
                 Sin tarjeta registrada, y nada caduca — la prueba es una
@@ -370,7 +376,7 @@ export default function DashboardClient({
                 </button>
                 {portalError && <div className={`err ${s.actionErr}`}>{portalError}</div>}
               </>
-            ) : !subscription ? (
+            ) : !subscription && !unlimited ? (
               <a href="/pricing" className={`btn ${s.action}`}>
                 Suscribirse
               </a>
