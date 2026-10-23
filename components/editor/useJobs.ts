@@ -15,6 +15,7 @@ import {
   formatSubs,
   parseContent,
   qcForMode,
+  recall,
   rowsToCsv,
   rowsToXlsx,
   sheetRows,
@@ -79,7 +80,7 @@ export function useTranslate() {
   const spent = useSpent()
 
   async function start(lang: string) {
-    const { subtitles, srcLang, outputMode, sequenceId, mediaId, setTranslateJob, setTranslation } =
+    const { subtitles, srcLang, outputMode, sequenceId, mediaId, projectId, setTranslateJob, setTranslation } =
       useSubtitleStore.getState()
     const glossary = termsInForce(useSubtitleStore.getState())
     if (!lang || !subtitles.length) return
@@ -87,18 +88,35 @@ export function useTranslate() {
     const BATCH = TRANSLATION_BATCH
     const PAUSE = TRANSLATION_PAUSE_MS
     const sleep = (ms: number) => new Promise(r => setTimeout(r, ms))
-    const result: Subtitle[] = []
+    const translated = new Map<number, Subtitle>()
 
     setTranslateJob({ running: true, progress: 0, message: 'Traduciendo…', error: null })
 
-    for (let i = 0; i < subtitles.length; i += BATCH) {
+    // Lines somebody already corrected into this language, in this project or
+    // another of the client's, go as they were left instead of to the model.
+    // Without the memory the translation still runs, as it always did.
+    //
+    // shortcut: a track whose every line is remembered is translated without a
+    // request, so a never-billed import identical to earlier work costs no
+    // minutes — vanishingly rare; bill it here if it ever is not.
+    const memory = projectId
+      ? await api<{ memory?: Record<string, string> }>(`/api/projects/${projectId}/memory?lang=${encodeURIComponent(lang)}`)
+      : null
+    const remembered = memory?.ok ? memory.json.memory ?? {} : {}
+    for (const s of subtitles) {
+      const text = recall(remembered, s.text)
+      if (text !== undefined) translated.set(s.index, { ...s, text, machine: text })
+    }
+    const todo = subtitles.filter(s => !translated.has(s.index))
+
+    for (let i = 0; i < todo.length; i += BATCH) {
       if (i > 0) {
         for (let c = Math.round(PAUSE / 1000); c > 0; c--) {
-          setTranslateJob({ message: `Traduciendo… ${i}/${subtitles.length} — siguiente lote en ${c} s` })
+          setTranslateJob({ message: `Traduciendo… ${i}/${todo.length} — siguiente lote en ${c} s` })
           await sleep(1000)
         }
       }
-      const batch = subtitles.slice(i, i + BATCH)
+      const batch = todo.slice(i, i + BATCH)
 
       try {
         // Cues, not prose. The server composes the prompt, so a subscription
@@ -128,10 +146,11 @@ export function useTranslate() {
         // No falling back to the source text. A cue left in the original
         // language but presented as translated ships as finished work.
         const parsed = data.translations as string[]
-        batch.forEach((s, j) => result.push({ ...s, text: parsed[j] ?? s.text }))
+        // `machine` is the translation's own, not the source cue's it was spread from.
+        batch.forEach((s, j) => translated.set(s.index, { ...s, text: parsed[j] ?? s.text, machine: parsed[j] }))
         setTranslateJob({
-          progress: Math.round((i + batch.length) / subtitles.length * 100),
-          message: `Traduciendo… ${Math.min(i + BATCH, subtitles.length)}/${subtitles.length}`,
+          progress: Math.round((i + batch.length) / todo.length * 100),
+          message: `Traduciendo… ${Math.min(i + BATCH, todo.length)}/${todo.length}`,
         })
       } catch (e: unknown) {
         setTranslateJob({ running: false, error: e instanceof Error ? e.message : 'Error', message: '' })
@@ -141,8 +160,15 @@ export function useTranslate() {
       }
     }
 
+    const result = subtitles.map(s => translated.get(s.index) ?? s)
+    const recalled = subtitles.length - todo.length
     setTranslation(lang, result)
-    setTranslateJob({ running: false, progress: 100, message: `Listo — ${result.length} cues`, error: null })
+    setTranslateJob({
+      running: false,
+      progress: 100,
+      message: `Listo — ${result.length} cues${recalled ? `, ${recalled} de la memoria` : ''}`,
+      error: null,
+    })
     spent()
   }
 
