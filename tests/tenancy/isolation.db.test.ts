@@ -3,7 +3,8 @@ import { randomBytes } from 'node:crypto'
 import { after, before, describe, it } from 'node:test'
 
 import { db, query } from '../../lib/db/client.ts'
-import { createProject, deleteProject, getProject, listProjects } from '../../lib/db/projects.ts'
+import { createClient, getClient, listClients, updateClient } from '../../lib/db/clients.ts'
+import { createProject, deleteProject, getProject, listProjects, updateProject } from '../../lib/db/projects.ts'
 import {
   ConflictError,
   UnknownProjectError,
@@ -120,6 +121,35 @@ describe(
       // The row is untouched and still A's.
       const survivor = await getSequence(orgA, a.id)
       assert.equal(survivor?.name, 'Original')
+    })
+
+    it('keeps clients, and their glossaries, inside the organisation', async () => {
+      const clientA = await createClient(orgA, { name: 'Bodega A' })
+      await updateClient(orgA, clientA.id, { glossary: [{ term: 'Reserva de la Familia' }] })
+
+      assert.ok((await listClients(orgB)).every(c => c.id !== clientA.id))
+      assert.equal(await getClient(orgB, clientA.id), null)
+      assert.equal(await updateClient(orgB, clientA.id, { name: 'Hijacked' }), null)
+      assert.equal((await getClient(orgA, clientA.id))?.name, 'Bodega A')
+    })
+
+    it('refuses to file a project under another organisation’s client', async () => {
+      const clientA = await createClient(orgA, { name: 'Cliente A' })
+      const projectA = await createProject(orgA, { name: 'Del cliente' })
+      const projectB = await createProject(orgB, { name: 'Ajeno' })
+
+      // The foreign key would accept this: the client exists. The scoped lookup
+      // inside the UPDATE is what finds nothing and leaves B unassigned.
+      await updateProject(orgB, projectB.id, { clientId: clientA.id })
+      assert.equal((await getProject(orgB, projectB.id))?.client_id, null)
+
+      await updateProject(orgA, projectA.id, { clientId: clientA.id })
+      const filed = await getProject(orgA, projectA.id)
+      assert.equal(filed?.client_id, clientA.id)
+      assert.equal(filed?.client_name, 'Cliente A')
+
+      await updateProject(orgA, projectA.id, { clientId: null })
+      assert.equal((await getProject(orgA, projectA.id))?.client_id, null)
     })
 
     it('does not leak whether an id exists', async () => {

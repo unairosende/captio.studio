@@ -3,10 +3,10 @@
 import { useMemo, useState } from 'react'
 
 import CommentsPanel from '@/components/comments/CommentsPanel'
-import type { GlossaryEntry } from '@/lib/ai/prompt'
+import GlossaryRows from '@/components/glossary/GlossaryRows'
 import { SOURCE_LANGUAGES } from '@/lib/providers'
 import { qcForMode, qcTrack, wordDiff } from '@/lib/subtitles'
-import { useSubtitleStore } from '@/store/useSubtitleStore'
+import { termsInForce, useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
 import type { Filter } from './CueTable'
@@ -37,7 +37,7 @@ interface Props {
  */
 export default function Panel({ userId, open, onOpen, filter, onFilter }: Props) {
   const {
-    subtitles, translations, backTranslations, reviewNotes, activeTab, outputMode, srcLang, allowRephrase, glossary, comments, sequenceId,
+    subtitles, translations, backTranslations, reviewNotes, activeTab, outputMode, srcLang, allowRephrase, glossary, client, comments, sequenceId,
     selected, select, translateJob, reviewJob, backTranslateJob,
     setSrcLang, setOutputMode, setAllowRephrase, setGlossary, setComments, clearReviewNotes,
   } = useSubtitleStore()
@@ -46,7 +46,10 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
   const isSource = activeTab === 'source'
   const qc = useMemo(() => qcForMode(outputMode), [outputMode])
   const track = useMemo(() => (isSource ? subtitles : translations[activeTab] ?? []), [isSource, subtitles, translations, activeTab])
-  const quality = useMemo(() => qcTrack(track, qc, isSource ? [] : glossary), [track, qc, isSource, glossary])
+  const quality = useMemo(
+    () => qcTrack(track, qc, isSource ? [] : termsInForce({ glossary, client })),
+    [track, qc, isSource, glossary, client],
+  )
   const errs = [...quality.values()].filter(q => q.status === 'error').length
 
   const cue = selected === null ? undefined : track.find(c => c.index === selected)
@@ -79,9 +82,6 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
 
   const review = () => { onOpen('review'); void passes.review() }
   const backTranslate = () => { onOpen('review'); void passes.backTranslate() }
-
-  const updateTerm = (i: number, patch: Partial<GlossaryEntry>) =>
-    setGlossary(glossary.map((g, j) => (j === i ? { ...g, ...patch } : g)))
 
   /* Unseen: the same actions as the visible ones, listed only while those
      are off screen, so ⌘K names each thing exactly once. */
@@ -242,17 +242,13 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
             <div className={s.section}>
               <span className="caps"><span>Glosario del proyecto</span><span>{glossary.length}</span></span>
               <div className={s.hint}>Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual. La transcripción los espera, y sus variantes mal escritas se corrigen solas.</div>
-              <div className={s.glossary}>
-                {glossary.map((entry, i) => (
-                  <div key={i} className={s.term}>
-                    <input className="field" value={entry.term} onChange={e => updateTerm(i, { term: e.target.value })} placeholder="Término" spellCheck={false} aria-label="Término" />
-                    <input className="field" value={entry.translation ?? ''} onChange={e => updateTerm(i, { translation: e.target.value })} placeholder="Tal cual" spellCheck={false} aria-label="Traducción" />
-                    <button className="btn btn-quiet" aria-label="Quitar el término" onClick={() => setGlossary(glossary.filter((_, j) => j !== i))}>×</button>
-                    <input className={`field ${s.variants}`} value={(entry.variants ?? []).join(', ')} onChange={e => updateTerm(i, { variants: e.target.value.split(/\s*,\s*/) })} placeholder="Variantes, separadas por comas" spellCheck={false} aria-label="Variantes mal escritas" />
-                  </div>
-                ))}
-              </div>
+              <GlossaryRows entries={glossary} onChange={setGlossary} />
               <div><button className="btn" data-cmd="Añadir un término al glosario" onClick={() => setGlossary([...glossary, { term: '', translation: '' }])}>Añadir término</button></div>
+              {client && (
+                <div className={s.hint}>
+                  También rigen {client.glossary.length} {client.glossary.length === 1 ? 'término' : 'términos'} de {client.name}, que se editan en la página del proyecto. Donde coinciden, gana el del proyecto.
+                </div>
+              )}
             </div>
           </>
         )}

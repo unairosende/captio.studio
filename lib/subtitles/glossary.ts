@@ -10,6 +10,19 @@ interface Spelling {
 const fold = (s: string): string => s.trim().replace(/\s+/g, ' ').toLowerCase()
 
 /**
+ * The glossary in force: the project's terms, then its client's for whatever
+ * the project does not name itself.
+ *
+ * The project wins a clash because it is the narrower decision — a campaign
+ * may have a reason to depart from the house spelling. Coming first also makes
+ * it win `compileVariants`, where the first entry to claim a variant keeps it.
+ */
+export function mergeGlossaries<T extends Spelling>(project: readonly T[] = [], client: readonly T[] = []): T[] {
+  const named = new Set(project.map(e => fold(e?.term ?? '')).filter(Boolean))
+  return [...project, ...client.filter(e => !named.has(fold(e?.term ?? '')))]
+}
+
+/**
  * Respell what the glossary lists as a misspelling, as one pass over the text.
  *
  * Compiled once per transcription rather than per cue, like `compileGlossary`.

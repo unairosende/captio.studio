@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
+import { isUuid } from '@/lib/db/client'
+import { getClient } from '@/lib/db/clients'
 import { deleteProject, getProject, updateProject } from '@/lib/db/projects'
 import { listSequences } from '@/lib/db/sequences'
 
@@ -63,7 +65,20 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     glossary = parsed
   }
 
-  const project = await updateProject(ctx.orgId, id, { name, glossary })
+  // null unassigns. An id is looked up first so that one from another
+  // organisation is refused out loud rather than quietly leaving it unassigned.
+  let clientId: string | null | undefined
+  if (body?.clientId !== undefined) {
+    if (body.clientId !== null && !isUuid(body.clientId)) {
+      return NextResponse.json({ error: 'clientId is malformed' }, { status: 400 })
+    }
+    if (body.clientId && !(await getClient(ctx.orgId, body.clientId))) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+    clientId = body.clientId
+  }
+
+  const project = await updateProject(ctx.orgId, id, { name, glossary, clientId })
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
   return NextResponse.json({ project })

@@ -2,7 +2,7 @@
 
 import { useRouter } from 'next/navigation'
 
-import { useSubtitleStore } from '@/store/useSubtitleStore'
+import { termsInForce, useSubtitleStore } from '@/store/useSubtitleStore'
 import { api, must } from '@/lib/api'
 import { decodeAudio } from '@/lib/audio/decode'
 import { LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
@@ -79,8 +79,9 @@ export function useTranslate() {
   const spent = useSpent()
 
   async function start(lang: string) {
-    const { subtitles, srcLang, outputMode, sequenceId, mediaId, glossary, setTranslateJob, setTranslation } =
+    const { subtitles, srcLang, outputMode, sequenceId, mediaId, setTranslateJob, setTranslation } =
       useSubtitleStore.getState()
+    const glossary = termsInForce(useSubtitleStore.getState())
     if (!lang || !subtitles.length) return
 
     const BATCH = TRANSLATION_BATCH
@@ -162,7 +163,8 @@ export function useTranscribe() {
    * and is asked for one.
    */
   async function start(language: string) {
-    const { outputMode, playback, glossary, setTranscribeJob, setMediaId, loadSubtitles } = useSubtitleStore.getState()
+    const { outputMode, playback, setTranscribeJob, setMediaId, loadSubtitles } = useSubtitleStore.getState()
+    const glossary = termsInForce(useSubtitleStore.getState())
     const file = playback?.file
     if (!file) return
     setTranscribeJob({ running: true, progress: 30, message: 'Preparando el archivo…', error: null })

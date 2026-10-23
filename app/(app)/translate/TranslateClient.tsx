@@ -28,7 +28,13 @@ interface Props {
   user: { id: string; email: string; name: string; role: string }
   entitlement: Entitlement
   /** The project being worked inside. Always present: the page refuses without one. */
-  project: { id: string; name: string; glossary: GlossaryEntry[] }
+  project: {
+    id: string
+    name: string
+    glossary: GlossaryEntry[]
+    /** Who it is for, whose terms it inherits; null when it is for nobody in particular. */
+    client: { name: string; glossary: GlossaryEntry[] } | null
+  }
   /**
    * The sequence to open, when the URL named one.
    *
@@ -61,7 +67,7 @@ interface Props {
  * applies.
  */
 export default function TranslateClient({ user, entitlement, project, sequence }: Props) {
-  const { undo, redo, openSequence, newSequence, setComments } = useSubtitleStore()
+  const { undo, redo, openSequence, newSequence, setComments, setClient } = useSubtitleStore()
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
   const [shortcuts, setShortcuts] = useState(false)
@@ -90,6 +96,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
    * whatever is being typed.
    */
   useEffect(() => {
+    setClient(project.client)
     if (sequence) {
       openSequence({
         id: sequence.id,

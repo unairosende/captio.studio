@@ -33,9 +33,9 @@ export const MAX_VARIANTS = 20
  * Returns null for anything malformed and an array otherwise — including the
  * empty array, so callers must test for null rather than for falsiness.
  */
-export function parseGlossary(value: unknown): GlossaryEntry[] | null {
+export function parseGlossary(value: unknown, max = MAX_GLOSSARY): GlossaryEntry[] | null {
   if (value === undefined) return []
-  if (!Array.isArray(value) || value.length > MAX_GLOSSARY) return null
+  if (!Array.isArray(value) || value.length > max) return null
 
   const entries: GlossaryEntry[] = []
   for (const raw of value) {

@@ -1,7 +1,29 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { compileVariants, keyterms } from '../../lib/subtitles/glossary.ts'
+import { compileVariants, keyterms, mergeGlossaries } from '../../lib/subtitles/glossary.ts'
+
+describe('the project and client glossaries together', () => {
+  it('keeps the project’s entry where both name a term, and adds the rest', () => {
+    const merged = mergeGlossaries(
+      [{ term: 'Captio', translation: 'Captio Pro' }],
+      [{ term: ' captio ', translation: 'Captio' }, { term: 'Keweke' }],
+    )
+    assert.deepEqual(merged, [{ term: 'Captio', translation: 'Captio Pro' }, { term: 'Keweke' }])
+  })
+
+  it('lets the project win a variant both claim', () => {
+    const respell = compileVariants(
+      mergeGlossaries([{ term: 'Captio Pro', variants: ['Capccio'] }], [{ term: 'Captio', variants: ['Capccio'] }]),
+    )
+    assert.equal(respell('Capccio'), 'Captio Pro')
+  })
+
+  it('is either list alone when the other is empty', () => {
+    assert.deepEqual(mergeGlossaries([], [{ term: 'Keweke' }]), [{ term: 'Keweke' }])
+    assert.deepEqual(mergeGlossaries([{ term: 'Keweke' }]), [{ term: 'Keweke' }])
+  })
+})
 
 describe('respelling the glossary variants', () => {
   const respell = compileVariants([

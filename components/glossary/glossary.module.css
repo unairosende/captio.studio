@@ -1,0 +1,6 @@
+/* Una entrada son dos líneas — término y traducción, y debajo sus variantes —,
+   así que entre entradas hay más aire que dentro de una. */
+.rows { display: grid; gap: var(--sp-3); }
+.row { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-1); }
+/* Debajo del término y su traducción, a lo ancho de los dos. */
+.variants { grid-column: 1 / 3; }

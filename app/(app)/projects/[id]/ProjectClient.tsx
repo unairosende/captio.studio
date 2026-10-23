@@ -6,7 +6,9 @@ import { useState } from 'react'
 
 import { ago } from '@/lib/ago'
 import { api, send } from '@/lib/api'
+import GlossaryRows from '@/components/glossary/GlossaryRows'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
+import type { ClientOption } from '@/lib/db/clients'
 import type { ProjectSummary } from '@/lib/db/projects'
 import type { ReviewLinkSummary } from '@/lib/db/review-links'
 import type { SequenceSummary } from '@/lib/db/sequences'
@@ -19,6 +21,10 @@ interface Props {
   project: ProjectSummary
   sequences: SequenceSummary[]
   links: ReviewLinkSummary[]
+  /** Every client of the organisation, for the picker. */
+  clients: ClientOption[]
+  /** The one this project is filed under, with the glossary it inherits. */
+  client: { id: string; name: string; glossary: GlossaryEntry[] } | null
 }
 
 /**
@@ -29,15 +35,15 @@ interface Props {
  * is the thing the project exists to hold. Somebody setting up a job spells
  * the character names once, here, before anybody starts on reel one.
  */
-export default function ProjectClient({ project, sequences, links }: Props) {
+export default function ProjectClient({ project, sequences, links, clients, client }: Props) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(project.name)
-  const [terms, setTerms] = useState<GlossaryEntry[]>(project.glossary ?? [])
-  const [savingTerms, setSavingTerms] = useState(false)
-  const [savedTerms, setSavedTerms] = useState(false)
+  const [naming, setNaming] = useState(false)
+  const [clientName, setClientName] = useState('')
+  const [assigning, setAssigning] = useState(false)
 
   /**
    * Renaming, inline rather than through `prompt()`.
@@ -60,22 +66,35 @@ export default function ProjectClient({ project, sequences, links }: Props) {
     router.refresh()
   }
 
-  async function saveTerms(next: GlossaryEntry[]) {
-    setTerms(next)
-    setSavingTerms(true)
-    setSavedTerms(false)
+  /** File the project under a client, or under nobody. The page reloads with its glossary. */
+  async function assign(clientId: string | null) {
+    setAssigning(true)
     setError(null)
-
-    // Blank rows are dropped server-side; sending them keeps the row on
-    // screen while somebody is still typing into it.
-    const r = await send(`/api/projects/${project.id}`, { glossary: next }, 'PATCH')
-    setSavingTerms(false)
+    const r = await send(`/api/projects/${project.id}`, { clientId }, 'PATCH')
+    setAssigning(false)
 
     if (!r.ok) {
       setError(r.error)
       return
     }
-    setSavedTerms(true)
+    router.refresh()
+  }
+
+  async function createClient() {
+    const name = clientName.trim()
+    if (!name) return
+
+    setAssigning(true)
+    setError(null)
+    const r = await send<{ client: { id: string } }>('/api/clients', { name })
+    if (!r.ok) {
+      setAssigning(false)
+      setError(r.error)
+      return
+    }
+    setNaming(false)
+    setClientName('')
+    await assign(r.json.client.id)
   }
 
   async function removeSequence(sequence: SequenceSummary) {
@@ -131,6 +150,7 @@ export default function ProjectClient({ project, sequences, links }: Props) {
           )}
         </div>
         <div className={s.meta}>
+          {client && `Para ${client.name} · `}
           {sequences.length} {sequences.length === 1 ? 'secuencia' : 'secuencias'}
           {project.cue_count > 0 && ` · ${project.cue_count.toLocaleString('es-ES')} cues`}
           {project.target_langs.length > 0 && ` · ${project.target_langs.map(shortLang).join(' · ')}`}
@@ -178,62 +198,143 @@ export default function ProjectClient({ project, sequences, links }: Props) {
             them, and above the glossary because it is used far more often. */}
         <ReviewLinks projectId={project.id} initial={links} />
 
-        {/* ── Glosario ────────────────────────────────────────────────────
-            Here rather than only in the editor because it is what makes this
-            a project and not a folder: one list of terms, obeyed by every
-            sequence in it. Saved on blur rather than on every keystroke — this
-            is shared, and a PATCH per character would be a fight between two
-            people typing at once. */}
+        {/* ── Cliente ─────────────────────────────────────────────────────
+            Above the glossaries because it decides whether there are one or
+            two of them. Optional: plenty of work is one-off. */}
         <div className={s.sectionHead}>
-          <h2>Glosario</h2>
-          <span className={s.spacer} />
-          <span className="muted">
-            {savingTerms ? 'Guardando…' : savedTerms ? 'Guardado' : `${terms.length} ${terms.length === 1 ? 'término' : 'términos'}`}
-          </span>
+          <h2>Cliente</h2>
         </div>
         <div className={`card ${s.stack}`}>
           <div className={s.hint}>
-            Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual. La transcripción los espera, y sus variantes mal escritas se corrigen solas.
+            Los proyectos de un mismo cliente comparten su glosario: lo que se fija en uno vale en los siguientes.
           </div>
-          {terms.length > 0 && (
-            <div className={s.terms}>
-              {terms.map((entry, i) => (
-                <div key={i} className={s.term}>
-                  <input
-                    className="field"
-                    value={entry.term}
-                    placeholder="Término"
-                    aria-label="Término"
-                    spellCheck={false}
-                    onChange={e => setTerms(terms.map((t, j) => (j === i ? { ...t, term: e.target.value } : t)))}
-                    onBlur={() => void saveTerms(terms)}
-                  />
-                  <input
-                    className="field"
-                    value={entry.translation ?? ''}
-                    placeholder="Tal cual"
-                    aria-label="Traducción"
-                    spellCheck={false}
-                    onChange={e => setTerms(terms.map((t, j) => (j === i ? { ...t, translation: e.target.value } : t)))}
-                    onBlur={() => void saveTerms(terms)}
-                  />
-                  <button className="btn btn-danger" aria-label={`Quitar ${entry.term || 'el término'}`} onClick={() => void saveTerms(terms.filter((_, j) => j !== i))}>×</button>
-                  <input
-                    className={`field ${s.variants}`}
-                    value={(entry.variants ?? []).join(', ')}
-                    placeholder="Variantes, separadas por comas"
-                    aria-label="Variantes mal escritas"
-                    spellCheck={false}
-                    onChange={e => setTerms(terms.map((t, j) => (j === i ? { ...t, variants: e.target.value.split(/\s*,\s*/) } : t)))}
-                    onBlur={() => void saveTerms(terms)}
-                  />
-                </div>
-              ))}
+          <div className={s.client}>
+            <div className={`select-wrap ${s.pick}`}>
+              <select
+                className="field"
+                aria-label="Cliente"
+                value={naming ? NEW_CLIENT : project.client_id ?? ''}
+                disabled={assigning}
+                aria-busy={assigning || undefined}
+                onChange={e => {
+                  if (e.target.value === NEW_CLIENT) { setNaming(true); return }
+                  setNaming(false)
+                  void assign(e.target.value || null)
+                }}
+              >
+                <option value="">Sin cliente</option>
+                {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                <option value={NEW_CLIENT}>Nuevo cliente…</option>
+              </select>
             </div>
-          )}
-          <button className={`btn ${s.add}`} onClick={() => setTerms([...terms, { term: '', translation: '' }])}>Añadir término</button>
+            {naming && (
+              <>
+                <input
+                  className={`field ${s.pick}`}
+                  autoFocus
+                  value={clientName}
+                  placeholder="Nombre del cliente"
+                  aria-label="Nombre del cliente nuevo"
+                  onChange={e => setClientName(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') { e.preventDefault(); void createClient() }
+                    if (e.key === 'Escape') { setNaming(false); setClientName('') }
+                  }}
+                />
+                <button
+                  className="btn btn-primary"
+                  disabled={!clientName.trim() || assigning}
+                  aria-busy={assigning || undefined}
+                  onClick={() => void createClient()}
+                >
+                  Crear
+                </button>
+              </>
+            )}
+          </div>
         </div>
+
+        {/* ── Glosarios ───────────────────────────────────────────────────
+            Here rather than only in the editor because they are what make
+            this a project and not a folder: one list of terms, obeyed by every
+            sequence in it — and the client's, obeyed by every project of
+            theirs. */}
+        <GlossaryCard
+          title="Glosario"
+          hint="Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual. La transcripción los espera, y sus variantes mal escritas se corrigen solas."
+          initial={project.glossary ?? []}
+          url={`/api/projects/${project.id}`}
+          onError={setError}
+        />
+        {client && (
+          <GlossaryCard
+            // A different client is a different list, not an edit to this one.
+            key={client.id}
+            title={`Glosario de ${client.name}`}
+            hint={`Lo heredan todos los proyectos de ${client.name}. Donde un término coincide con el glosario del proyecto, gana el del proyecto.`}
+            initial={client.glossary ?? []}
+            url={`/api/clients/${client.id}`}
+            onError={setError}
+          />
+        )}
       </main>
     </div>
+  )
+}
+
+/** What the client picker answers when somebody wants one that does not exist yet. */
+const NEW_CLIENT = 'new'
+
+/**
+ * One glossary, saved where it lives.
+ *
+ * Saved on blur rather than on every keystroke — these lists are shared, and a
+ * PATCH per character would be a fight between two people typing at once.
+ */
+function GlossaryCard({ title, hint, initial, url, onError }: {
+  title: string
+  hint: string
+  initial: GlossaryEntry[]
+  /** The row it belongs to: a project or a client. Both take `{ glossary }`. */
+  url: string
+  onError: (message: string | null) => void
+}) {
+  const [terms, setTerms] = useState(initial)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+
+  async function save(next: GlossaryEntry[]) {
+    setTerms(next)
+    setSaving(true)
+    setSaved(false)
+    onError(null)
+
+    // Blank rows are dropped server-side; sending them keeps the row on
+    // screen while somebody is still typing into it.
+    const r = await send(url, { glossary: next }, 'PATCH')
+    setSaving(false)
+
+    if (!r.ok) {
+      onError(r.error)
+      return
+    }
+    setSaved(true)
+  }
+
+  return (
+    <>
+      <div className={s.sectionHead}>
+        <h2>{title}</h2>
+        <span className={s.spacer} />
+        <span className="muted">
+          {saving ? 'Guardando…' : saved ? 'Guardado' : `${terms.length} ${terms.length === 1 ? 'término' : 'términos'}`}
+        </span>
+      </div>
+      <div className={`card ${s.stack}`}>
+        <div className={s.hint}>{hint}</div>
+        <GlossaryRows entries={terms} onChange={setTerms} onCommit={next => void save(next)} />
+        <button className={`btn ${s.add}`} onClick={() => setTerms([...terms, { term: '', translation: '' }])}>Añadir término</button>
+      </div>
+    </>
   )
 }

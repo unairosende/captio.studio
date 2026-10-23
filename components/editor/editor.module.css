@@ -360,10 +360,6 @@
 .ins { color: var(--ok); }
 .del { color: var(--warn); text-decoration: line-through; opacity: .75; }
 
-.glossary { display: grid; gap: var(--sp-1); }
-.term { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-1); }
-/* Debajo del término y su traducción, a lo ancho de los dos. */
-.variants { grid-column: 1 / 3; }
 
 .hint { font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.45; }
 

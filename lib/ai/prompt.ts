@@ -88,7 +88,8 @@ const returnLine = (count: number, what: string) =>
  * the feature is; past these limits somebody is using a terminology table as a
  * text box.
  */
-const MAX_GLOSSARY_ENTRIES = 200
+// A project's 200 and its client's 200 (MAX_GLOSSARY in app/api/projects/route.ts).
+const MAX_GLOSSARY_ENTRIES = 400
 const MAX_GLOSSARY_CHARS = 200
 
 /**

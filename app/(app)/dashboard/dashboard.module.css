@@ -121,6 +121,15 @@
   font: inherit;
   color: inherit;
 }
+/* Para quién es, encima del nombre: cuando hay varios del mismo cliente, se leen juntos. */
+.projectClient {
+  margin-bottom: 2px;
+  font-size: var(--fs-sm);
+  color: var(--ink-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .projectName {
   font-size: var(--fs-lg);
   color: var(--ink);

@@ -28,6 +28,8 @@ export interface ProjectRow {
    * re-typing it per reel is how it stops surviving.
    */
   glossary: GlossaryEntry[]
+  /** Who the job is for, whose glossary it inherits. Optional — see lib/db/clients.ts. */
+  client_id: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -35,6 +37,7 @@ export interface ProjectRow {
 
 /** What a list needs in order to draw a project without opening it. */
 export type ProjectSummary = ProjectRow & {
+  client_name: string | null
   sequence_count: number
   /** Cues across every sequence, counted in the database rather than shipped. */
   cue_count: number
@@ -82,12 +85,14 @@ const CUE_COUNT = `coalesce(sum(case
              end), 0)::int`
 
 const SUMMARY = `
-  select p.id, p.org_id, p.name, p.glossary, p.created_by, p.created_at, p.updated_at,
+  select p.id, p.org_id, p.name, p.glossary, p.client_id, p.created_by, p.created_at, p.updated_at,
+         c.name                          as client_name,
          coalesce(s.sequence_count, 0)   as sequence_count,
          coalesce(s.cue_count, 0)        as cue_count,
          coalesce(l.target_langs, '{}')  as target_langs,
          greatest(p.updated_at, s.last_activity) as last_activity
     from projects p
+    left join clients c on c.id = p.client_id and c.org_id = p.org_id
     left join lateral (
       select count(*)::int as sequence_count,
              ${CUE_COUNT} as cue_count,
@@ -129,7 +134,7 @@ export async function createProject(
 }
 
 /**
- * Rename a project, or replace its glossary.
+ * Rename a project, replace its glossary, or say which client it is for.
  *
  * No version guard, unlike a sequence. What is stored here is a name and a short
  * list of terms, edited a field at a time by people who see each other's changes
@@ -142,7 +147,7 @@ export async function createProject(
 export async function updateProject(
   orgId: string,
   id: string,
-  patch: { name?: string; glossary?: GlossaryEntry[] },
+  patch: { name?: string; glossary?: GlossaryEntry[]; clientId?: string | null },
 ): Promise<ProjectRow | null> {
   const sets: string[] = []
   const params: unknown[] = [requireOrg(orgId), id]
@@ -154,6 +159,14 @@ export async function updateProject(
   if (patch.glossary !== undefined) {
     params.push(JSON.stringify(patch.glossary))
     sets.push(`glossary = $${params.length}`)
+  }
+  if (patch.clientId === null) {
+    sets.push('client_id = null')
+  } else if (patch.clientId !== undefined) {
+    // Resolved within the organisation, as sequences resolve their project: an
+    // id from somewhere else finds nothing here and leaves the project unassigned.
+    params.push(patch.clientId)
+    sets.push(`client_id = (select id from clients where id = $${params.length} and org_id = $1)`)
   }
 
   if (!sets.length) {

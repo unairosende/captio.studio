@@ -419,6 +419,7 @@ export default function DashboardClient({
                 {/* A button rather than a clickable div: this is the way into the
                     project, and the way in should answer the keyboard. */}
                 <button className={s.projectOpen} onClick={() => router.push(`/projects/${p.id}`)}>
+                  {p.client_name && <div className={s.projectClient}>{p.client_name}</div>}
                   <div className={s.projectName}>{p.name}</div>
                   <div className={s.projectMeta}>
                     {p.sequence_count} secuencia{p.sequence_count === 1 ? '' : 's'}

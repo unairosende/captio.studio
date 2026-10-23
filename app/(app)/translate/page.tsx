@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 
 import { requireOrgContext, requireUser } from '@/lib/auth/session'
+import { getClient } from '@/lib/db/clients'
 import { listComments } from '@/lib/db/comments'
 import { getProject } from '@/lib/db/projects'
 import { getSequence } from '@/lib/db/sequences'
@@ -60,11 +61,20 @@ export default async function TranslatePage({ searchParams }: Props) {
   // found — and lands in the same place as one that never existed.
   if (!project) redirect('/dashboard')
 
+  // Its own round trip, after the project: which client is only known once the
+  // project row is read.
+  const client = project.client_id ? await getClient(orgId, project.client_id) : null
+
   return (
     <TranslateClient
       user={{ id: userId, email: user.email, name: user.name, role }}
       entitlement={entitlement}
-      project={{ id: project.id, name: project.name, glossary: project.glossary }}
+      project={{
+        id: project.id,
+        name: project.name,
+        glossary: project.glossary,
+        client: client && { name: client.name, glossary: client.glossary },
+      }}
       sequence={
         sequence && {
           id: sequence.id,

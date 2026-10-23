@@ -12,7 +12,7 @@ import type { GlossaryEntry, ReviewNote } from '../lib/ai/prompt.ts'
 import type { AnchorEdit, AnchorOp, ProjectComment } from '../types/comment.ts'
 import type { Playback } from '../types/media.ts'
 import { deleteAnchors, splitAnchors } from '../types/comment.ts'
-import { deleteCue, finalSubs, qcForMode, splitCue } from '../lib/subtitles/index.ts'
+import { deleteCue, finalSubs, mergeGlossaries, qcForMode, splitCue } from '../lib/subtitles/index.ts'
 
 /**
  * Deep enough to cover a session's worth of second thoughts, shallow enough
@@ -145,6 +145,14 @@ interface AppState {
    * while they had the editor open.
    */
   glossaryDirty: boolean
+  /**
+   * Who the project is for, and the terms it inherits from them.
+   *
+   * Read-only here: it is edited on the project page, because changing it
+   * changes every project the client has. Never written back on save.
+   */
+  client: { name: string; glossary: GlossaryEntry[] } | null
+  setClient: (client: { name: string; glossary: GlossaryEntry[] } | null) => void
 
   // UI state
   activeTab: 'source' | string
@@ -327,6 +335,8 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   past: [],
   future: [],
   glossaryDirty: false,
+  client: null,
+  setClient: client => set({ client }),
   projectId: null,
   projectName: '',
   mediaId: null,
@@ -614,3 +624,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     return finalSubs(subs, outputMode, qcForMode(outputMode))
   },
 }))
+
+/** The project's terms and its client's: what every check and every request obeys. */
+export const termsInForce = (s: Pick<AppState, 'glossary' | 'client'>): GlossaryEntry[] =>
+  mergeGlossaries(s.glossary, s.client?.glossary)

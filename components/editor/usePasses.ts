@@ -2,7 +2,7 @@
 
 import type { ReviewNote } from '@/lib/ai/prompt'
 import { charStatus, qcForMode, reflowText } from '@/lib/subtitles'
-import { useSubtitleStore } from '@/store/useSubtitleStore'
+import { termsInForce, useSubtitleStore } from '@/store/useSubtitleStore'
 
 import { must } from '@/lib/api'
 
@@ -81,7 +81,8 @@ export function usePasses() {
    */
   async function revise(instructions: string) {
     const s = useSubtitleStore.getState()
-    const { activeTab, translations, subtitles, outputMode, glossary, translateJob } = s
+    const { activeTab, translations, subtitles, outputMode, translateJob } = s
+    const glossary = termsInForce(s)
     if (activeTab === 'source' || !translations[activeTab] || !instructions.trim() || translateJob.running) return
     const lang = activeTab
     const subs = translations[lang]
@@ -140,7 +141,8 @@ export function usePasses() {
    */
   async function review() {
     const s = useSubtitleStore.getState()
-    const { activeTab, translations, subtitles, srcLang, glossary, reviewJob } = s
+    const { activeTab, translations, subtitles, srcLang, reviewJob } = s
+    const glossary = termsInForce(s)
     if (activeTab === 'source' || !translations[activeTab] || reviewJob.running) return
     const lang = activeTab
     const subs = translations[lang]

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties, type Keyboard
 import CommentsPanel from '@/components/comments/CommentsPanel'
 import { cueCps, qcForMode, qcTrack, srtToSec } from '@/lib/subtitles'
 import { playheadSeconds, seekTo } from '@/lib/timeline/playhead'
-import { useSubtitleStore } from '@/store/useSubtitleStore'
+import { termsInForce, useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Subtitle } from '@/types/subtitle'
 
 import s from './editor.module.css'
@@ -44,7 +44,7 @@ interface Editing { index: number; col: Col; caret: number }
  */
 export default function CueTable({ userId, filter, onFilter, onImport, viewer, onViewer }: Props) {
   const {
-    subtitles, translations, activeTab, viewMode, outputMode, srcLang, glossary, comments, reviewNotes, translateJob, sequenceId,
+    subtitles, translations, activeTab, viewMode, outputMode, srcLang, glossary, client, comments, reviewNotes, translateJob, sequenceId,
     selected, select, switchToTab, closeTab, setViewMode, updateSubtitle, updateSource, pushUndo, splitSubtitle, deleteSubtitle, setComments,
   } = useSubtitleStore()
 
@@ -77,11 +77,12 @@ export default function CueTable({ userId, filter, onFilter, onImport, viewer, o
      long cue at export, and a table that showed the split would number its
      rows differently from the ones being edited. */
   const qcByLang = useMemo(() => {
+    const terms = termsInForce({ glossary, client })
     const m = new Map<Col, ReturnType<typeof qcTrack>>()
     m.set('source', qcTrack(subtitles, qc, []))
-    for (const l of Object.keys(translations)) m.set(l, qcTrack(translations[l] ?? [], qc, glossary))
+    for (const l of Object.keys(translations)) m.set(l, qcTrack(translations[l] ?? [], qc, terms))
     return m
-  }, [subtitles, translations, qc, glossary])
+  }, [subtitles, translations, qc, glossary, client])
   const byLang = useMemo(
     () => new Map(Object.keys(translations).map(l => [l, new Map((translations[l] ?? []).map(c => [c.index, c]))])),
     [translations],

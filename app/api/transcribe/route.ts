@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { parseGlossary } from '@/app/api/projects/route'
+import { MAX_GLOSSARY, parseGlossary } from '@/app/api/projects/route'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { billMedia, logUsage } from '@/lib/db/billing'
 import { getMedia } from '@/lib/db/media'
@@ -65,10 +65,10 @@ export async function POST(req: NextRequest) {
   const sequenceId = typeof body?.sequenceId === 'string' && body.sequenceId ? body.sequenceId : null
   const outputMode = body?.outputMode === 'vertical' ? 'vertical' : 'horizontal'
 
-  // The project's terms as the editor holds them, unsaved edits included — the
-  // same list the translation is sent. It steers what Scribe hears, and its
-  // variants respell what Scribe still gets wrong.
-  const glossary = parseGlossary(body?.glossary)
+  // The project's terms and its client's, as the editor holds them, unsaved
+  // edits included — the same list the translation is sent. It steers what
+  // Scribe hears, and its variants respell what Scribe still gets wrong.
+  const glossary = parseGlossary(body?.glossary, MAX_GLOSSARY * 2)
   if (!glossary) {
     return NextResponse.json({ error: 'glossary is malformed' }, { status: 400 })
   }

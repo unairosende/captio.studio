@@ -108,10 +108,9 @@
 
 /* ── Glosario ───────────────────────────────────────────────────────────── */
 
-.terms { display: grid; gap: var(--sp-1); }
-.term { display: grid; grid-template-columns: 1fr 1fr auto; gap: var(--sp-2); }
-/* Debajo del término y su traducción, a lo ancho de los dos. */
-.variants { grid-column: 1 / 3; }
+/* El selector y, al crear uno, el nombre del cliente nuevo al lado. */
+.client { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
+.pick { flex: 1 1 220px; }
 /* Un botón dentro de la pila: a su ancho, no al de la tarjeta. */
 .add { justify-self: start; }
 

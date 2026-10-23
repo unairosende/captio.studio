@@ -37,6 +37,7 @@ const TENANT_TABLES = [
   'subscriptions',
   'review_links',
   'review_guests',
+  'clients',
 ]
 
 /**
