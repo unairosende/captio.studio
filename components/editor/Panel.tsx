@@ -241,13 +241,14 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
             </div>
             <div className={s.section}>
               <span className="caps"><span>Glosario del proyecto</span><span>{glossary.length}</span></span>
-              <div className={s.hint}>Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual.</div>
+              <div className={s.hint}>Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual. La transcripción los espera, y sus variantes mal escritas se corrigen solas.</div>
               <div className={s.glossary}>
                 {glossary.map((entry, i) => (
                   <div key={i} className={s.term}>
                     <input className="field" value={entry.term} onChange={e => updateTerm(i, { term: e.target.value })} placeholder="Término" spellCheck={false} aria-label="Término" />
                     <input className="field" value={entry.translation ?? ''} onChange={e => updateTerm(i, { translation: e.target.value })} placeholder="Tal cual" spellCheck={false} aria-label="Traducción" />
                     <button className="btn btn-quiet" aria-label="Quitar el término" onClick={() => setGlossary(glossary.filter((_, j) => j !== i))}>×</button>
+                    <input className={`field ${s.variants}`} value={(entry.variants ?? []).join(', ')} onChange={e => updateTerm(i, { variants: e.target.value.split(/\s*,\s*/) })} placeholder="Variantes, separadas por comas" spellCheck={false} aria-label="Variantes mal escritas" />
                   </div>
                 ))}
               </div>

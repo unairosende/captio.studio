@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { createProject, listProjects } from '@/lib/db/projects'
 
@@ -23,28 +24,45 @@ export const MAX_NAME = 200
  */
 export const MAX_GLOSSARY = 200
 
+/** Misspellings per term. A handful is what a recogniser invents; more is a list of something else. */
+export const MAX_VARIANTS = 20
+
 /**
  * Accept only the shape lib/ai/prompt.ts knows how to turn into a prompt.
  *
  * Returns null for anything malformed and an array otherwise — including the
  * empty array, so callers must test for null rather than for falsiness.
  */
-export function parseGlossary(value: unknown): { term: string; translation?: string }[] | null {
+export function parseGlossary(value: unknown): GlossaryEntry[] | null {
   if (value === undefined) return []
   if (!Array.isArray(value) || value.length > MAX_GLOSSARY) return null
 
-  const entries: { term: string; translation?: string }[] = []
+  const entries: GlossaryEntry[] = []
   for (const raw of value) {
     if (!raw || typeof raw !== 'object') return null
-    const { term, translation } = raw as Record<string, unknown>
+    const { term, translation, variants } = raw as Record<string, unknown>
     if (typeof term !== 'string' || term.length > MAX_NAME) return null
     if (translation !== undefined && translation !== null && typeof translation !== 'string') {
+      return null
+    }
+    if (
+      variants !== undefined &&
+      variants !== null &&
+      !(Array.isArray(variants) && variants.every(v => typeof v === 'string' && v.length <= MAX_NAME))
+    ) {
       return null
     }
     // Blank rows are what the panel leaves behind when somebody adds a line and
     // then changes their mind. Dropping them here keeps them out of every prompt.
     if (!term.trim()) continue
-    entries.push({ term, ...(translation ? { translation: translation as string } : {}) })
+    // Typed as one comma-separated field, so stray spaces and empty slots arrive here.
+    const spelt = ((variants ?? []) as string[]).map(v => v.trim()).filter(Boolean)
+    if (spelt.length > MAX_VARIANTS) return null
+    entries.push({
+      term,
+      ...(translation ? { translation: translation as string } : {}),
+      ...(spelt.length ? { variants: spelt } : {}),
+    })
   }
   return entries
 }
@@ -78,7 +96,7 @@ export async function POST(req: NextRequest) {
   const glossary = parseGlossary(body?.glossary)
   if (!glossary) {
     return NextResponse.json(
-      { error: `glossary must be up to ${MAX_GLOSSARY} { term, translation } entries` },
+      { error: `glossary must be up to ${MAX_GLOSSARY} { term, translation, variants } entries` },
       { status: 400 },
     )
   }

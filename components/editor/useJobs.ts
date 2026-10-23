@@ -162,7 +162,7 @@ export function useTranscribe() {
    * and is asked for one.
    */
   async function start(language: string) {
-    const { outputMode, playback, setTranscribeJob, setMediaId, loadSubtitles } = useSubtitleStore.getState()
+    const { outputMode, playback, glossary, setTranscribeJob, setMediaId, loadSubtitles } = useSubtitleStore.getState()
     const file = playback?.file
     if (!file) return
     setTranscribeJob({ running: true, progress: 30, message: 'Preparando el archivo…', error: null })
@@ -224,6 +224,7 @@ export function useTranscribe() {
           mediaId:  grantData.mediaId,
           language: language !== 'auto' ? language : undefined,
           outputMode,
+          glossary,
         }),
       })
 

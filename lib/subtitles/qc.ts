@@ -100,7 +100,7 @@ export interface GlossaryPattern {
   re: RegExp
 }
 
-const escapeRe = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+export const escapeRe = (t: string): string => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
  * Prepare the glossary for checking.

@@ -2,6 +2,11 @@ export interface GlossaryEntry {
   term: string
   /** Empty means "leave this term exactly as written". */
   translation?: string
+  /**
+   * How the transcription gets the term wrong — "Capccio" for "Captio".
+   * Respelled to the term after transcribing; never shown to a model.
+   */
+  variants?: string[]
 }
 
 export interface TranslationRequest {

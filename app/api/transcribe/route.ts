@@ -1,12 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import { parseGlossary } from '@/app/api/projects/route'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { billMedia, logUsage } from '@/lib/db/billing'
 import { getMedia } from '@/lib/db/media'
 import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
 import { StorageNotConfiguredError, presign } from '@/lib/storage/r2'
-import { cuesFromWords, qcForMode, type TimedWord } from '@/lib/subtitles'
+import {
+  compileVariants,
+  cuesFromWords,
+  keyterms,
+  qcForMode,
+  reflowText,
+  type TimedWord,
+} from '@/lib/subtitles'
 
 export const maxDuration = 300
 
@@ -21,6 +29,9 @@ const MODEL = 'scribe_v2'
 
 /** Long enough for the provider to fetch a large object and start working. */
 const READ_WINDOW = 15 * 60
+
+/** Scribe charges 20% over the base rate for a request that carries keyterms. */
+const KEYTERM_SURCHARGE = 1.2
 
 /**
  * Transcribe an object that is already in the bucket.
@@ -54,6 +65,15 @@ export async function POST(req: NextRequest) {
   const sequenceId = typeof body?.sequenceId === 'string' && body.sequenceId ? body.sequenceId : null
   const outputMode = body?.outputMode === 'vertical' ? 'vertical' : 'horizontal'
 
+  // The project's terms as the editor holds them, unsaved edits included — the
+  // same list the translation is sent. It steers what Scribe hears, and its
+  // variants respell what Scribe still gets wrong.
+  const glossary = parseGlossary(body?.glossary)
+  if (!glossary) {
+    return NextResponse.json({ error: 'glossary is malformed' }, { status: 400 })
+  }
+  const terms = keyterms(glossary)
+
   const key = process.env.ELEVENLABS_API_KEY
   if (!key) {
     return NextResponse.json({ error: 'Transcription is not configured' }, { status: 500 })
@@ -86,6 +106,8 @@ export async function POST(req: NextRequest) {
   form.append('diarize', 'true')
   form.append('timestamps_granularity', 'word')
   if (language) form.append('language_code', language)
+  // A list in multipart is the field repeated, once per term.
+  for (const term of terms) form.append('keyterms', term)
 
   const res = await fetch(ENDPOINT, {
     method: 'POST',
@@ -114,7 +136,14 @@ export async function POST(req: NextRequest) {
       speakerId: w.speaker_id ?? null,
     }))
 
-  const segments = cuesFromWords(words, qcForMode(outputMode))
+  // Respelled after the cues are cut, and reflowed where the text changed: the
+  // right spelling is rarely the same length as the wrong one.
+  const qc = qcForMode(outputMode)
+  const respell = compileVariants(glossary)
+  const segments = cuesFromWords(words, qc).map(cue => {
+    const text = respell(cue.text)
+    return text === cue.text ? cue : { ...cue, text: reflowText(text, qc.maxChars) }
+  })
 
   // Billed by audio duration, which Scribe does not report. The last word ends
   // where the speech does, and silence at the tail is not worth charging for.
@@ -132,12 +161,13 @@ export async function POST(req: NextRequest) {
     kind: 'transcribe',
     model: MODEL,
     unitsIn: seconds,
-    costUsd: costUsd(MODEL, { unitsIn: seconds }),
+    // The surcharge is ours, not the customer's: their minutes are the audio's.
+    costUsd: costUsd(MODEL, { unitsIn: terms.length ? seconds * KEYTERM_SURCHARGE : seconds }),
   })
 
   return NextResponse.json({
     segments,
     language: data?.language_code ?? null,
-    text: data?.text ?? '',
+    text: respell(data?.text ?? ''),
   })
 }

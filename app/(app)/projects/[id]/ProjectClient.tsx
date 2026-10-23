@@ -193,7 +193,7 @@ export default function ProjectClient({ project, sequences, links }: Props) {
         </div>
         <div className={`card ${s.stack}`}>
           <div className={s.hint}>
-            Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual.
+            Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual. La transcripción los espera, y sus variantes mal escritas se corrigen solas.
           </div>
           {terms.length > 0 && (
             <div className={s.terms}>
@@ -218,6 +218,15 @@ export default function ProjectClient({ project, sequences, links }: Props) {
                     onBlur={() => void saveTerms(terms)}
                   />
                   <button className="btn btn-danger" aria-label={`Quitar ${entry.term || 'el término'}`} onClick={() => void saveTerms(terms.filter((_, j) => j !== i))}>×</button>
+                  <input
+                    className={`field ${s.variants}`}
+                    value={(entry.variants ?? []).join(', ')}
+                    placeholder="Variantes, separadas por comas"
+                    aria-label="Variantes mal escritas"
+                    spellCheck={false}
+                    onChange={e => setTerms(terms.map((t, j) => (j === i ? { ...t, variants: e.target.value.split(/\s*,\s*/) } : t)))}
+                    onBlur={() => void saveTerms(terms)}
+                  />
                 </div>
               ))}
             </div>

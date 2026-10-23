@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
+import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { deleteProject, getProject, updateProject } from '@/lib/db/projects'
 import { listSequences } from '@/lib/db/sequences'
@@ -53,7 +54,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     }
   }
 
-  let glossary: { term: string; translation?: string }[] | undefined
+  let glossary: GlossaryEntry[] | undefined
   if (body?.glossary !== undefined) {
     const parsed = parseGlossary(body.glossary)
     if (!parsed) {
