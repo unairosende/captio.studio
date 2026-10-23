@@ -3,6 +3,8 @@ export interface Subtitle {
   start: string // HH:MM:SS,mmm
   end: string
   text: string
+  /** What the machine wrote, before anybody corrected it. See lib/subtitles/types.ts. */
+  machine?: string
 }
 
 export type TranslationStore = Record<string, Subtitle[]>

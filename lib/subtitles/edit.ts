@@ -60,10 +60,12 @@ export function splitCue(
   const words = cue.text.replace(/\n/g, ' ').split(/\s+/).filter(Boolean)
   const at = Math.min(Math.max(1, Math.round(words.length * fraction)), Math.max(1, words.length - 1))
 
+  // Neither half is what the machine wrote any more, and comparing either
+  // with the whole would read the other half's words as a correction.
   return renumber([
     ...subs.slice(0, pos),
-    { ...cue, end: cut, text: words.slice(0, at).join(' ') },
-    { ...cue, start: cut, text: words.slice(at).join(' ') },
+    { ...cue, end: cut, text: words.slice(0, at).join(' '), machine: undefined },
+    { ...cue, start: cut, text: words.slice(at).join(' '), machine: undefined },
     ...subs.slice(pos + 1),
   ])
 }

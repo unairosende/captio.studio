@@ -1,7 +1,22 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { compileVariants, keyterms, mergeGlossaries } from '../../lib/subtitles/glossary.ts'
+import { addVariant, compileVariants, keyterms, mergeGlossaries } from '../../lib/subtitles/glossary.ts'
+
+describe('filing a misspelling under its term', () => {
+  it('adds it to the entry that already writes the term', () => {
+    assert.deepEqual(addVariant([{ term: 'Captio', translation: 'Captio', variants: ['Kaptio'] }], 'captio', 'Capccio'), [
+      { term: 'Captio', translation: 'Captio', variants: ['Kaptio', 'Capccio'] },
+    ])
+  })
+
+  it('opens a new entry when none does, and does not list a variant twice', () => {
+    assert.deepEqual(addVariant([], 'Keweke', 'Cuaco'), [{ term: 'Keweke', variants: ['Cuaco'] }])
+    assert.deepEqual(addVariant([{ term: 'Keweke', variants: ['Cuaco'] }], 'Keweke', 'cuaco'), [
+      { term: 'Keweke', variants: ['Cuaco'] },
+    ])
+  })
+})
 
 describe('the project and client glossaries together', () => {
   it('keeps the project’s entry where both name a term, and adds the rest', () => {

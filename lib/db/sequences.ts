@@ -72,6 +72,34 @@ export async function listSequences(orgId: string, projectId: string): Promise<S
   )
 }
 
+/** One track's cues, with when it last changed and the project it belongs to. */
+export interface TrackData {
+  project_id: string
+  updated_at: string
+  data: unknown
+}
+
+/**
+ * Every track whose corrections this project can learn from, oldest first:
+ * its own, and those of every other project filed under the same client.
+ *
+ * The whole `data`, because the terms a client uses are spread over every
+ * line anybody corrected. shortcut: reads every cue of every related sequence
+ * on each call — fine for dozens of sequences; past that, keep the corrections
+ * in a table written on save.
+ */
+export async function listRelatedTracks(orgId: string, projectId: string): Promise<TrackData[]> {
+  return query<TrackData>(
+    `select s.project_id, s.updated_at, s.data
+       from sequences s
+       join projects p on p.id = s.project_id and p.org_id = s.org_id
+      where s.org_id = $1
+        and (p.id = $2 or p.client_id = (select client_id from projects where org_id = $1 and id = $2))
+      order by s.updated_at`,
+    [requireOrg(orgId), projectId],
+  )
+}
+
 /** Everything an organisation has, newest first — for recent work and search. */
 export async function listAllSequences(orgId: string, limit = 200): Promise<SequenceSummary[]> {
   return query<SequenceSummary>(

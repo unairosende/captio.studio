@@ -4,6 +4,15 @@ export interface Subtitle {
   start: string
   end: string
   text: string
+  /**
+   * What the transcription or the translation wrote, before anybody touched it.
+   *
+   * Kept beside the text rather than in a version: saves by the same author
+   * are squashed together, so the first version is gone by the second edit.
+   * Comparing the two is how the product learns what the team corrects — see
+   * lib/subtitles/corrections.ts. Absent on anything imported or split.
+   */
+  machine?: string
 }
 
 export type SubtitleFormat = 'srt' | 'vtt' | 'ass' | 'ttml' | 'csv' | 'txt'

@@ -140,9 +140,12 @@ export async function POST(req: NextRequest) {
   // right spelling is rarely the same length as the wrong one.
   const qc = qcForMode(outputMode)
   const respell = compileVariants(glossary)
+  // Each cue remembers what was written for it here, so the hand corrections
+  // that follow can be told apart — see lib/subtitles/corrections.ts.
   const segments = cuesFromWords(words, qc).map(cue => {
-    const text = respell(cue.text)
-    return text === cue.text ? cue : { ...cue, text: reflowText(text, qc.maxChars) }
+    const respelled = respell(cue.text)
+    const text = respelled === cue.text ? cue.text : reflowText(respelled, qc.maxChars)
+    return { ...cue, text, machine: text }
   })
 
   // Billed by audio duration, which Scribe does not report. The last word ends

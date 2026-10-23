@@ -67,6 +67,17 @@ export function parseGlossary(value: unknown, max = MAX_GLOSSARY): GlossaryEntry
   return entries
 }
 
+/**
+ * A suggestion being accepted: one misspelling and the term it belongs to.
+ * Null for anything else, so the caller can say it is malformed.
+ */
+export function parseVariant(value: unknown): { term: string; variant: string } | null {
+  const { term, variant } = (value ?? {}) as Record<string, unknown>
+  if (typeof term !== 'string' || typeof variant !== 'string') return null
+  if (!term.trim() || !variant.trim() || term.length > MAX_NAME || variant.length > MAX_NAME) return null
+  return { term, variant }
+}
+
 export async function GET() {
   let ctx
   try {

@@ -6,8 +6,12 @@ import { isUuid } from '@/lib/db/client'
 import { getClient } from '@/lib/db/clients'
 import { deleteProject, getProject, updateProject } from '@/lib/db/projects'
 import { listSequences } from '@/lib/db/sequences'
+import { addVariant } from '@/lib/subtitles'
 
-import { MAX_NAME, parseGlossary } from '../route'
+import { MAX_NAME, parseGlossary, parseVariant } from '../route'
+
+/** Declined suggestions kept per project. Far more than anybody will decline. */
+const MAX_DISMISSED = 500
 
 /**
  * One project: what is in it, what it is called, and the terms it agrees on.
@@ -78,7 +82,34 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     clientId = body.clientId
   }
 
-  const project = await updateProject(ctx.orgId, id, { name, glossary, clientId })
+  // A suggestion accepted or declined. Both read the row as it is now rather
+  // than as the page last saw it, so a term a colleague added since is kept.
+  const accepting = body?.addVariant !== undefined
+  const declining = body?.dismissVariant !== undefined
+  let dismissedVariants: string[] | undefined
+  if (accepting || declining) {
+    const current = await getProject(ctx.orgId, id)
+    if (!current) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
+
+    if (accepting) {
+      const pick = parseVariant(body.addVariant)
+      if (!pick) return NextResponse.json({ error: 'addVariant is malformed' }, { status: 400 })
+      const next = parseGlossary(addVariant(glossary ?? current.glossary, pick.term, pick.variant))
+      if (!next) return NextResponse.json({ error: 'The glossary is full' }, { status: 400 })
+      glossary = next
+    }
+
+    if (declining) {
+      const key = body.dismissVariant
+      if (typeof key !== 'string' || !key || key.length > MAX_NAME * 2 + 1) {
+        return NextResponse.json({ error: 'dismissVariant is malformed' }, { status: 400 })
+      }
+      // The newest refusals are the ones worth keeping if the list ever fills.
+      dismissedVariants = [...new Set([...current.dismissed_variants, key])].slice(-MAX_DISMISSED)
+    }
+  }
+
+  const project = await updateProject(ctx.orgId, id, { name, glossary, clientId, dismissedVariants })
   if (!project) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
   return NextResponse.json({ project })

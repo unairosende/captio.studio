@@ -12,6 +12,7 @@ import {
   deleteSequence,
   duplicateSequence,
   getSequence,
+  listRelatedTracks,
   listSequences,
   listVersions,
   snapshotSequence,
@@ -150,6 +151,21 @@ describe(
 
       await updateProject(orgA, projectA.id, { clientId: null })
       assert.equal((await getProject(orgA, projectA.id))?.client_id, null)
+    })
+
+    it('learns only from its own organisation’s tracks, and its client’s', async () => {
+      const client = await createClient(orgA, { name: 'Cliente con pistas' })
+      const one = await createProject(orgA, { name: 'Uno' })
+      const two = await createProject(orgA, { name: 'Dos' })
+      const loose = await createProject(orgA, { name: 'Suelto' })
+      await updateProject(orgA, one.id, { clientId: client.id })
+      await updateProject(orgA, two.id, { clientId: client.id })
+      for (const p of [one, two, loose]) await createSequence(orgA, { projectId: p.id, name: p.name })
+
+      const related = new Set((await listRelatedTracks(orgA, one.id)).map(t => t.project_id))
+      assert.deepEqual(related, new Set([one.id, two.id]))
+      assert.deepEqual((await listRelatedTracks(orgA, loose.id)).map(t => t.project_id), [loose.id])
+      assert.deepEqual(await listRelatedTracks(orgB, one.id), [])
     })
 
     it('does not leak whether an id exists', async () => {

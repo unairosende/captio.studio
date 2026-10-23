@@ -30,6 +30,8 @@ export interface ProjectRow {
   glossary: GlossaryEntry[]
   /** Who the job is for, whose glossary it inherits. Optional — see lib/db/clients.ts. */
   client_id: string | null
+  /** Variant suggestions somebody declined, by `suggestionKey`. See db/migrations/0015. */
+  dismissed_variants: string[]
   created_by: string | null
   created_at: string
   updated_at: string
@@ -85,7 +87,8 @@ const CUE_COUNT = `coalesce(sum(case
              end), 0)::int`
 
 const SUMMARY = `
-  select p.id, p.org_id, p.name, p.glossary, p.client_id, p.created_by, p.created_at, p.updated_at,
+  select p.id, p.org_id, p.name, p.glossary, p.client_id, p.dismissed_variants,
+         p.created_by, p.created_at, p.updated_at,
          c.name                          as client_name,
          coalesce(s.sequence_count, 0)   as sequence_count,
          coalesce(s.cue_count, 0)        as cue_count,
@@ -147,7 +150,7 @@ export async function createProject(
 export async function updateProject(
   orgId: string,
   id: string,
-  patch: { name?: string; glossary?: GlossaryEntry[]; clientId?: string | null },
+  patch: { name?: string; glossary?: GlossaryEntry[]; clientId?: string | null; dismissedVariants?: string[] },
 ): Promise<ProjectRow | null> {
   const sets: string[] = []
   const params: unknown[] = [requireOrg(orgId), id]
@@ -159,6 +162,10 @@ export async function updateProject(
   if (patch.glossary !== undefined) {
     params.push(JSON.stringify(patch.glossary))
     sets.push(`glossary = $${params.length}`)
+  }
+  if (patch.dismissedVariants !== undefined) {
+    params.push(JSON.stringify(patch.dismissedVariants))
+    sets.push(`dismissed_variants = $${params.length}`)
   }
   if (patch.clientId === null) {
     sets.push('client_id = null')

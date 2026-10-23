@@ -1,10 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { MAX_NAME, parseGlossary } from '@/app/api/projects/route'
+import { MAX_NAME, parseGlossary, parseVariant } from '@/app/api/projects/route'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { isUuid } from '@/lib/db/client'
-import { updateClient } from '@/lib/db/clients'
+import { getClient, updateClient } from '@/lib/db/clients'
+import { addVariant } from '@/lib/subtitles'
 
 interface Params {
   params: Promise<{ id: string }>
@@ -43,6 +44,18 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: 'glossary is malformed' }, { status: 400 })
     }
     glossary = parsed
+  }
+
+  // A suggestion accepted into the client's list, read as it is now rather
+  // than as the page last saw it.
+  if (body?.addVariant !== undefined) {
+    const pick = parseVariant(body.addVariant)
+    if (!pick) return NextResponse.json({ error: 'addVariant is malformed' }, { status: 400 })
+    const current = glossary ?? (await getClient(ctx.orgId, id))?.glossary
+    if (!current) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    const next = parseGlossary(addVariant(current, pick.term, pick.variant))
+    if (!next) return NextResponse.json({ error: 'The glossary is full' }, { status: 400 })
+    glossary = next
   }
 
   const client = await updateClient(ctx.orgId, id, { name, glossary })

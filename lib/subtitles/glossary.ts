@@ -56,6 +56,24 @@ export function compileVariants(entries: readonly Spelling[] = []): (text: strin
   return text => text.replace(re, match => canonical.get(fold(match)) ?? match)
 }
 
+/**
+ * The glossary with one more misspelling filed under its term: added to the
+ * entry that already writes the term that way, or as a new entry when none does.
+ * Unchanged when the entry already lists it.
+ */
+export function addVariant<T extends Spelling & { term: string }>(
+  entries: readonly T[],
+  term: string,
+  variant: string,
+): (T | { term: string; variants: string[] })[] {
+  const at = entries.findIndex(e => fold(e?.term ?? '') === fold(term))
+  if (at === -1) return [...entries, { term: term.trim(), variants: [variant.trim()] }]
+
+  const entry = entries[at]
+  if ((entry.variants ?? []).some(v => fold(v) === fold(variant))) return [...entries]
+  return entries.map((e, i) => (i === at ? { ...e, variants: [...(e.variants ?? []), variant.trim()] } : e))
+}
+
 /** Scribe's limits on one keyterm: under 50 characters, at most five words, none of these. */
 const KEYTERM_MAX_CHARS = 50
 const KEYTERM_MAX_WORDS = 5

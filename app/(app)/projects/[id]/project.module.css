@@ -111,6 +111,11 @@
 /* El selector y, al crear uno, el nombre del cliente nuevo al lado. */
 .client { display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center; }
 .pick { flex: 1 1 220px; }
+
+/* Cada sugerencia en una línea: lo que se corrigió y qué hacer con ello. */
+.suggestions { display: grid; gap: var(--sp-2); }
+.suggestion { display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2); }
+.suggestionText { flex: 1 1 220px; }
 /* Un botón dentro de la pila: a su ancho, no al de la tarjeta. */
 .add { justify-self: start; }
 

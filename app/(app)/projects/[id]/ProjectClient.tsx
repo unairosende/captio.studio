@@ -13,6 +13,7 @@ import type { ProjectSummary } from '@/lib/db/projects'
 import type { ReviewLinkSummary } from '@/lib/db/review-links'
 import type { SequenceSummary } from '@/lib/db/sequences'
 import { describeSequence, shortLang } from '@/lib/lang'
+import { suggestionKey, type VariantSuggestion } from '@/lib/subtitles'
 
 import ReviewLinks from './ReviewLinks'
 import s from './project.module.css'
@@ -25,6 +26,8 @@ interface Props {
   clients: ClientOption[]
   /** The one this project is filed under, with the glossary it inherits. */
   client: { id: string; name: string; glossary: GlossaryEntry[] } | null
+  /** Corrections the team keeps making to transcriptions, offered as variants. */
+  suggestions: VariantSuggestion[]
 }
 
 /**
@@ -35,7 +38,7 @@ interface Props {
  * is the thing the project exists to hold. Somebody setting up a job spells
  * the character names once, here, before anybody starts on reel one.
  */
-export default function ProjectClient({ project, sequences, links, clients, client }: Props) {
+export default function ProjectClient({ project, sequences, links, clients, client, suggestions }: Props) {
   const router = useRouter()
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -44,6 +47,8 @@ export default function ProjectClient({ project, sequences, links, clients, clie
   const [naming, setNaming] = useState(false)
   const [clientName, setClientName] = useState('')
   const [assigning, setAssigning] = useState(false)
+  // The suggestion being filed or declined, by its key.
+  const [deciding, setDeciding] = useState<string | null>(null)
 
   /**
    * Renaming, inline rather than through `prompt()`.
@@ -72,6 +77,29 @@ export default function ProjectClient({ project, sequences, links, clients, clie
     setError(null)
     const r = await send(`/api/projects/${project.id}`, { clientId }, 'PATCH')
     setAssigning(false)
+
+    if (!r.ok) {
+      setError(r.error)
+      return
+    }
+    router.refresh()
+  }
+
+  /**
+   * File a suggestion as a variant — into this project's glossary or the
+   * client's — or decline it for good. Either way it leaves the list.
+   */
+  async function decide(s: VariantSuggestion, into: 'project' | 'client' | 'dismiss') {
+    setDeciding(suggestionKey(s))
+    setError(null)
+    const pick = { term: s.term, variant: s.variant }
+    const r =
+      into === 'dismiss'
+        ? await send(`/api/projects/${project.id}`, { dismissVariant: suggestionKey(s) }, 'PATCH')
+        : into === 'client' && client
+          ? await send(`/api/clients/${client.id}`, { addVariant: pick }, 'PATCH')
+          : await send(`/api/projects/${project.id}`, { addVariant: pick }, 'PATCH')
+    setDeciding(null)
 
     if (!r.ok) {
       setError(r.error)
@@ -254,12 +282,59 @@ export default function ProjectClient({ project, sequences, links, clients, clie
           </div>
         </div>
 
+        {/* ── Sugerencias ─────────────────────────────────────────────────
+            Only when there are any. Above the glossaries because accepting
+            one changes them, and the change should land in view. */}
+        {suggestions.length > 0 && (
+          <>
+            <div className={s.sectionHead}>
+              <h2>Sugerencias</h2>
+              <span className={s.spacer} />
+              <span className="muted">{suggestions.length}</span>
+            </div>
+            <div className={`card ${s.stack}`}>
+              <div className={s.hint}>
+                Correcciones que el equipo ha hecho a mano más de una vez en las transcripciones
+                {client ? ` de ${client.name}` : ''}. Como variante, las próximas transcripciones ya saldrán bien escritas.
+              </div>
+              <div className={s.suggestions}>
+                {suggestions.map(sg => {
+                  const key = suggestionKey(sg)
+                  const busy = deciding === key
+                  return (
+                    <div key={key} className={s.suggestion}>
+                      <span className={s.suggestionText}>
+                        «{sg.variant}» → <strong>{sg.term}</strong>
+                        <span className="muted"> · {sg.count} veces</span>
+                      </span>
+                      <button className="btn" disabled={deciding !== null} aria-busy={busy || undefined} onClick={() => void decide(sg, 'project')}>
+                        Al proyecto
+                      </button>
+                      {client && (
+                        <button className="btn" disabled={deciding !== null} aria-busy={busy || undefined} onClick={() => void decide(sg, 'client')}>
+                          A {client.name}
+                        </button>
+                      )}
+                      <button className="btn btn-quiet" disabled={deciding !== null} onClick={() => void decide(sg, 'dismiss')}>
+                        Descartar
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )}
+
         {/* ── Glosarios ───────────────────────────────────────────────────
             Here rather than only in the editor because they are what make
             this a project and not a folder: one list of terms, obeyed by every
             sequence in it — and the client's, obeyed by every project of
             theirs. */}
         <GlossaryCard
+          // Remounted when the stored list changes under it — an accepted
+          // suggestion — and not when it is only re-rendered.
+          key={JSON.stringify(project.glossary)}
           title="Glosario"
           hint="Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual. La transcripción los espera, y sus variantes mal escritas se corrigen solas."
           initial={project.glossary ?? []}
@@ -268,8 +343,9 @@ export default function ProjectClient({ project, sequences, links, clients, clie
         />
         {client && (
           <GlossaryCard
-            // A different client is a different list, not an edit to this one.
-            key={client.id}
+            // A different client is a different list, not an edit to this one;
+            // and, as above, a stored list that changed is a fresh start.
+            key={`${client.id}:${JSON.stringify(client.glossary)}`}
             title={`Glosario de ${client.name}`}
             hint={`Lo heredan todos los proyectos de ${client.name}. Donde un término coincide con el glosario del proyecto, gana el del proyecto.`}
             initial={client.glossary ?? []}
