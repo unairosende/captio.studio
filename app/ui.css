@@ -49,10 +49,10 @@ button, input, select, textarea { font-family: inherit; }
 
 /* La etiqueta pequeña en mayúsculas que separa un grupo del siguiente. */
 .caps {
-  font-family: var(--mono);
+  font-family: var(--sans);
   font-size: var(--fs-xs);
-  font-weight: 500;
-  letter-spacing: .08em;
+  font-weight: 600;
+  letter-spacing: .05em;
   text-transform: uppercase;
   color: var(--ink-3);
 }
@@ -98,12 +98,12 @@ button, input, select, textarea { font-family: inherit; }
   height: 22px;
   padding: 0 8px;
   border: 1px solid var(--line-2);
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: var(--s0);
   color: var(--ink-2);
   font: inherit;
-  font-family: var(--mono);
   font-size: var(--fs-xs);
+  font-weight: 600;
   cursor: pointer;
   transition: background var(--t-fast), color var(--t-fast);
 }
@@ -120,9 +120,10 @@ button, input, select, textarea { font-family: inherit; }
   gap: var(--sp-2);
   height: var(--ctl);
   padding: 0 var(--sp-3);
-  border: 1px solid var(--line-2);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--s0);
+  box-shadow: var(--rest);
   color: var(--ink);
   font: inherit;
   font-size: var(--fs-md);
@@ -136,11 +137,12 @@ button, input, select, textarea { font-family: inherit; }
 .btn:active, .btn[data-state="active"], .btn[aria-pressed="true"] { background: var(--s0-active); }
 .btn-lg { height: var(--ctl-lg); padding: 0 var(--sp-4); }
 
-/* El único que lleva el acento como relleno: hay uno por superficie, o ninguno. */
-.btn-primary { background: var(--accent-fill); border-color: transparent; color: var(--on-accent); }
-.btn-primary:hover,  .btn-primary[data-state="hover"]  { background: color-mix(in srgb, var(--ink) 8%, var(--accent-fill)); }
-.btn-primary:active, .btn-primary[data-state="active"] { background: color-mix(in srgb, var(--ink) 16%, var(--accent-fill)); }
-.btn-primary .kbd { background: rgb(27 27 29 / .12); color: var(--on-accent); }
+/* El único relleno de tinta, como en Keweke: hay uno por superficie, o ninguno.
+   El naranja es marca, no mando. */
+.btn-primary { background: var(--ink); border-color: transparent; box-shadow: none; color: var(--s0); }
+.btn-primary:hover,  .btn-primary[data-state="hover"]  { background: color-mix(in srgb, var(--ink) 86%, var(--s0)); }
+.btn-primary:active, .btn-primary[data-state="active"] { background: color-mix(in srgb, var(--ink) 76%, var(--s0)); }
+.btn-primary .kbd { background: color-mix(in srgb, var(--s0) 18%, transparent); color: var(--s0); }
 
 .btn-danger { color: var(--danger); }
 .btn-danger:hover,  .btn-danger[data-state="hover"]  { color: var(--danger); background: var(--danger-bg); border-color: color-mix(in srgb, var(--danger) 40%, transparent); }
@@ -148,7 +150,7 @@ button, input, select, textarea { font-family: inherit; }
 
 /* Un botón que es solo un icono: cuadrado, sin texto, con su nombre en aria-label. */
 .btn-icon { width: var(--ctl); padding: 0; justify-content: center; }
-.btn-quiet { background: transparent; border-color: transparent; color: var(--ink-2); }
+.btn-quiet { background: transparent; border-color: transparent; box-shadow: none; color: var(--ink-2); }
 .btn-quiet:hover,  .btn-quiet[data-state="hover"]  { background: var(--hover); color: var(--ink); }
 .btn-quiet:active, .btn-quiet[data-state="active"] { background: var(--select); color: var(--ink); }
 
@@ -170,7 +172,7 @@ button, input, select, textarea { font-family: inherit; }
   border-radius: 50%;
   animation: spin .6s linear infinite;
 }
-.btn-primary[aria-busy="true"]::after { border-color: rgb(27 27 29 / .25); border-top-color: var(--on-accent); }
+.btn-primary[aria-busy="true"]::after { border-color: color-mix(in srgb, var(--s0) 30%, transparent); border-top-color: var(--s0); }
 
 /* ── Campo y desplegable ─────────────────────────────────────────────────── */
 
@@ -178,10 +180,11 @@ button, input, select, textarea { font-family: inherit; }
   display: block;
   width: 100%;
   height: var(--ctl);
-  padding: 0 var(--sp-2);
-  border: 1px solid var(--line-2);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--s0);
+  box-shadow: var(--rest);
   color: var(--ink);
   font: inherit;
   font-size: var(--fs-md);
@@ -398,6 +401,7 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
   background: var(--s0);
+  box-shadow: var(--rest);
   padding: var(--sp-4);
 }
 .card-head {

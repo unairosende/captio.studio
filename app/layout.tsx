@@ -1,5 +1,5 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Inter } from 'next/font/google'
 import Script from 'next/script'
 
 import './reset.css'
@@ -15,17 +15,12 @@ import './ui.css'
  * repeatedly found unlawful. Self-hosting removes the transfer rather than
  * disclosing it, and costs one import.
  */
-// Geist and Geist Mono, chosen on 2026-09-14 over a real cue row. tokens.css
-// reads them as --sans and --mono.
-const sans = Geist({
+// Inter, the typeface of the keweke-workspace design system, since
+// 2026-10-24 (Geist before). tokens.css reads it as --sans; monospace is the
+// system's own, as in keweke-workspace, so there is nothing to load for it.
+const sans = Inter({
   subsets: ['latin'],
   variable: '--font-sans',
-  display: 'swap',
-})
-
-const mono = Geist_Mono({
-  subsets: ['latin'],
-  variable: '--font-mono',
   display: 'swap',
 })
 
@@ -39,7 +34,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // suppressHydrationWarning: the theme script below stamps data-theme on
     // <html> before React hydrates, so the server's HTML and the client's
     // attributes differ on purpose. Scoped to this one element.
-    <html lang="es" className={`${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="es" className={sans.variable} suppressHydrationWarning>
       <body>
         {/* The theme, before anything paints. A preference read after
             hydration would draw the page in one theme and flip it a moment

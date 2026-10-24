@@ -36,7 +36,7 @@ const AA_TEXT = 4.5
 
 describe('the ink on the surfaces it sits on', () => {
   it('reads the tokens', () => {
-    for (const name of ['s0', 's1', 'ink', 'ink-2', 'ink-3', 'accent', 'ok', 'warn', 'danger', 'accent-fill']) {
+    for (const name of ['s0', 's1', 'ink', 'ink-2', 'ink-3', 'accent', 'ok', 'warn', 'danger']) {
       assert.ok(tokens[name], `${name} is declared with light-dark()`)
     }
   })
@@ -53,8 +53,9 @@ describe('the ink on the surfaces it sits on', () => {
   }
 
   it('the primary button can be read', () => {
+    // .btn-primary prints s0 on ink, as keweke-workspace does.
     for (const theme of [0, 1] as const) {
-      assert.ok(contrast('#1b1b1d', tokens['accent-fill'][theme]) >= AA_TEXT)
+      assert.ok(contrast(tokens.s0[theme], tokens.ink[theme]) >= AA_TEXT)
     }
   })
 

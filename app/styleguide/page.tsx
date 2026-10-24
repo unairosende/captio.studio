@@ -13,7 +13,8 @@ import s from './styleguide.module.css'
  * que se revisará todo lo demás: si algo no está aquí, no existe.
  *
  * La letra se eligió aquí mismo: dos candidatas sobre la misma fila de cue,
- * Plex frente a Geist, mirando la fila y no los nombres. Ganó Geist.
+ * Plex frente a Geist, mirando la fila y no los nombres. Ganó Geist. El 24 oct
+ * 2026 la piel pasó al sistema de keweke-workspace: Inter y la mono del sistema.
  */
 
 type Theme = 'light' | 'system' | 'dark'
@@ -118,16 +119,16 @@ export default function StyleguidePage() {
         <section className={s.section}>
           <div>
             <h2>Acento y semánticos</h2>
-            <p>El acento vive en la marca, el enlace y el botón primario, y <strong>cede dentro
-            del editor</strong>: la fila 1 está seleccionada y es neutra; la 2 tiene un aviso
-            y es ámbar. No se parecen, y eso es lo que había que comprobar.</p>
+            <p>El naranja de Keweke vive en la marca y el enlace; el botón primario es tinta.
+            Y <strong>cede dentro del editor</strong>: la fila 1 está seleccionada y es neutra;
+            la 2 tiene un aviso y es ámbar. No se parecen, y eso es lo que había que comprobar.</p>
           </div>
           <div>
             <div className={s.accentRow}>
               <button className={s.btnPrimary}>Exportar SRT</button>
               <button className={s.btnQuiet}>Retraducir</button>
               <a className={s.link} href="#acento">Ver el glosario</a>
-              <span className={s.label} style={{ marginLeft: 'auto' }}>accent · accent-fill</span>
+              <span className={s.label} style={{ marginLeft: 'auto' }}>ink · accent</span>
             </div>
             <div className={s.semantics}>
               <span className={`${s.pill} ${s.ok}`}>13,2 cps</span>
@@ -141,14 +142,14 @@ export default function StyleguidePage() {
         <section className={s.section}>
           <div>
             <h2>Tipografía</h2>
-            <p>Geist para la interfaz, Geist Mono para lo que se alinea en columna:
-            timecodes, cifras, fichas. Seis tamaños, ninguno por debajo de 11 px. La auditoría
-            contó quince, con 10 px como el más usado del editor.</p>
+            <p>Inter para la interfaz, rótulos y fichas incluidos; la mono del sistema para lo
+            que se alinea en columna: timecodes y cifras. Seis tamaños, ninguno por debajo de
+            11 px. La auditoría contó quince, con 10 px como el más usado del editor.</p>
           </div>
           <div className={s.cand}>
             <div className={s.candHead}>
-              <h3>Geist + Geist Mono</h3>
-              <span className={s.label}>elegida el 14 sep 2026 frente a Plex</span>
+              <h3>Inter + mono del sistema</h3>
+              <span className={s.label}>de keweke-workspace, 24 oct 2026 (antes Geist)</span>
             </div>
             <TypeScale />
             <CueTable className={s.candTable} />
@@ -159,7 +160,8 @@ export default function StyleguidePage() {
           <div>
             <h2>Espacio y forma</h2>
             <p>Rejilla de 4. Tres radios que se distinguen a simple vista: fichas, controles,
-            paneles. Una sombra, solo para lo que flota. Dos duraciones, 120 y 180 ms, saliendo
+            paneles. Dos sombras: una corta que asienta controles y tarjetas, y otra para lo que
+            flota. Dos duraciones, 150 y 180 ms, saliendo
             rápido: lo que aparece encima entra en su sitio, la fila que acaba de ocupar uno lo
             dice un momento, y lo que espera gira. Nada más se mueve; y nada de esto si el
             sistema pide menos movimiento.</p>
@@ -172,9 +174,9 @@ export default function StyleguidePage() {
               ))}
             </div>
             <div className={s.shapes}>
-              <div className={s.shape}><div className={s.rSm} /><small>r-sm · 2</small></div>
-              <div className={s.shape}><div className={s.rMd} /><small>r-md · 4</small></div>
-              <div className={s.shape}><div className={s.rLg} /><small>r-lg · 8</small></div>
+              <div className={s.shape}><div className={s.rSm} /><small>r-sm · 6</small></div>
+              <div className={s.shape}><div className={s.rMd} /><small>r-md · 10</small></div>
+              <div className={s.shape}><div className={s.rLg} /><small>r-lg · 16</small></div>
               <div className={s.shape}><div className={`${s.rLg} ${s.lifted}`} /><small>lift</small></div>
             </div>
           </div>

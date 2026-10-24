@@ -169,8 +169,8 @@
   padding: 5px 12px;
   border: 0;
   border-radius: var(--r-md);
-  background: var(--accent-fill);
-  color: var(--on-accent);
+  background: var(--ink);
+  color: var(--s0);
   cursor: pointer;
 }
 .btnPrimary:focus-visible { outline: 2px solid var(--ring); outline-offset: 2px; }

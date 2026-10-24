@@ -87,7 +87,9 @@ la forma del track — cues, timings, idiomas — nunca sale de una petición su
 ## Estilo
 
 El rediseño (dirección B · Consola, disciplina de Linear) es el producto desde
-el 19 de septiembre de 2026. Tokens en `app/tokens.css` (`light-dark()` para
+el 19 de septiembre de 2026; desde el 24 de octubre lleva la piel del sistema de
+`Keweke/keweke-workspace` (piedra cálida, Inter, radios 6·10·16, primario en
+tinta, naranja `#E8490A` solo como marca). Tokens en `app/tokens.css` (`light-dark()` para
 claro y oscuro; bordes y lavados con `color-mix()` sobre la tinta), piezas en
 `app/ui.css` (`.btn`, `.field`, `.panel`, `.row`, `.caps`, `.cues`…), y la
 maquetación de cada pantalla en su `*.module.css`. **`/styleguide` es la

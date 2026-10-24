@@ -3,6 +3,10 @@
    `.v2` mientras las pantallas migraban una a una; migrada la última, el
    bloque pasó a :root y el antiguo de globals.css se borró.
 
+   La piel —superficies de piedra, tinta cálida, naranja, Inter, radios
+   holgados— es la del sistema de keweke-workspace desde el 24 oct 2026
+   (styles/base.css allí). La estructura sigue siendo la de B.
+
    Claro y oscuro salen del mismo token con light-dark(); cambiar de tema es
    cambiar color-scheme, no duplicar la paleta. Bordes, lavados y anillos se
    derivan de la tinta con color-mix(), así un borde nunca es un gris elegido a
@@ -14,20 +18,21 @@
   /* Superficies: una escala, no unos roles. s0 es el extremo — la única
      superficie blanca a la vez (regla de foco de B): el área en la que se
      trabaja. s1 es el cromo; s2, lo anidado; s3, lo seleccionado. */
-  --s0: light-dark(#ffffff, #151517);
-  --s1: light-dark(#f5f5f2, #1c1c1f);
-  --s2: light-dark(#efefeb, #232327);
-  --s3: light-dark(#e9e9e4, #2c2c31);
-  --raised: light-dark(#ffffff, #303036);
+  --s0: light-dark(#ffffff, #151411);
+  --s1: light-dark(#f8f7f5, #1a1917);
+  --s2: light-dark(#f5f4f2, #1e1d1a);
+  --s3: light-dark(#f1efec, #262420);
+  --raised: light-dark(#ffffff, #262420);
 
-  --ink:   light-dark(#1b1b1d, #ecebe6);
-  --ink-2: light-dark(#5b5b60, #a3a19a);
+  --ink:   light-dark(#1c1b18, #f0ede8);
+  --ink-2: light-dark(#5e5b57, #9a9590);
   /* Medidas, no elegidas: cada tinta y cada semántico pasan de 4,5:1 sobre
      s0 y s1 en los dos temas (tests/design/contrast.test.ts lo comprueba). */
-  --ink-3: light-dark(#6e6e74, #888781);
+  --ink-3: light-dark(#6a6560, #8c8985);
 
-  --line:   color-mix(in srgb, var(--ink) 10%, transparent);
-  --line-2: color-mix(in srgb, var(--ink) 18%, transparent);
+  /* 8 y 16 % de la tinta dan, sobre blanco, los #eceae6 y #dad7d1 de Keweke. */
+  --line:   color-mix(in srgb, var(--ink) 8%, transparent);
+  --line-2: color-mix(in srgb, var(--ink) 16%, transparent);
   --hover:  color-mix(in srgb, var(--ink) 4%, transparent);
   --select: color-mix(in srgb, var(--ink) 8%, transparent);
   --ring:   color-mix(in srgb, var(--ink) 40%, transparent);
@@ -36,27 +41,27 @@
   --s0-hover:  color-mix(in srgb, var(--ink) 4%, var(--s0));
   --s0-active: color-mix(in srgb, var(--ink) 8%, var(--s0));
 
-  /* El acento cede dentro del editor: selección y foco son neutros (arriba).
-     Como texto necesita un valor más oscuro que como relleno para leerse
-     sobre blanco; en oscuro los dos coinciden. */
-  --accent:      light-dark(#a35e08, #f2a93b);
-  --accent-fill: light-dark(#e0951f, #f2a93b);
-  --on-accent:   #1b1b1d;
+  /* El naranja de Keweke es marca, no mando: el botón primario es tinta y el
+     acento queda para el enlace y lo que nombra. Cede dentro del editor:
+     selección y foco son neutros (arriba). El #e8490a de allí da 3,9:1 sobre
+     blanco; como texto, en claro se lee uno más oscuro. */
+  --accent: light-dark(#c2410c, #f26a33);
 
   /* Semánticos, reservados al control de calidad. No decoran: son datos. */
-  --ok:     light-dark(#297c50, #63c58f);
-  --warn:   light-dark(#8c690c, #e6c15a);
+  --ok:     light-dark(#047857, #10b981);
+  --warn:   light-dark(#b45309, #d97706);
 
-  --danger: light-dark(#c8412f, #ff6f5e);
+  --danger: light-dark(#dc2626, #f87171);
   --ok-bg:     color-mix(in srgb, var(--ok) 12%, transparent);
   --warn-bg:   color-mix(in srgb, var(--warn) 14%, transparent);
   --danger-bg: color-mix(in srgb, var(--danger) 12%, transparent);
 
-  /* Tipografía: Geist y Geist Mono, elegidas sobre una fila de cue real frente
-     a Plex. Seis tamaños y ninguno por debajo de 11: la auditoría contó quince
-     en el producto, con 10 px como el más usado del editor. */
-  --sans: var(--font-sans), system-ui, sans-serif;
-  --mono: var(--font-mono), ui-monospace, 'SF Mono', monospace;
+  /* Tipografía: Inter, la de keweke-workspace (antes Geist, elegida el 14 sep
+     frente a Plex), y la mono del sistema, como allí. Seis tamaños y ninguno
+     por debajo de 11: la auditoría contó quince en el producto, con 10 px
+     como el más usado del editor. */
+  --sans: var(--font-sans), -apple-system, system-ui, sans-serif;
+  --mono: ui-monospace, 'SF Mono', 'Fira Code', monospace;
   --fs-xs:  11px;
   --fs-sm:  12px;
   --fs-md:  13px;
@@ -75,21 +80,24 @@
   --sp-8: 32px;
 
   /* Tres radios que se distinguen a simple vista: fichas, controles, paneles. */
-  --r-sm: 2px;
-  --r-md: 4px;
-  --r-lg: 8px;
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 16px;
 
-  /* light-dark() solo acepta colores: la geometría de la sombra es una, y
-     solo cambia cuánto pesa según el fondo. */
-  --lift-color: light-dark(rgb(27 27 29 / .12), rgb(0 0 0 / .5));
-  --lift: 0 12px 32px var(--lift-color);
-  --scrim: light-dark(rgb(27 27 29 / .4), rgb(0 0 0 / .6));
+  /* light-dark() solo acepta colores: la geometría de cada sombra es una, y
+     solo cambia cuánto pesa según el fondo. Dos: rest asienta controles y
+     tarjetas sobre la página; lift es para lo que flota. */
+  --rest-color: light-dark(rgb(28 27 24 / .05), rgb(0 0 0 / .3));
+  --rest: 0 1px 2px var(--rest-color);
+  --lift-color: light-dark(rgb(28 27 24 / .2), rgb(0 0 0 / .6));
+  --lift: 0 12px 32px -8px var(--lift-color), 0 2px 6px var(--rest-color);
+  --scrim: light-dark(rgb(28 27 24 / .4), rgb(0 0 0 / .6));
 
-  --t-fast: 120ms;
+  --t-fast: 150ms;
   --t-base: 180ms;
   /* Sale rápido y llega despacio: lo que aparece está ya casi en su sitio
      desde el primer fotograma, y el ojo no lo sigue, lo encuentra. */
-  --ease-out: cubic-bezier(.2, 0, 0, 1);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
 
 
   /* La fila de cue: altura fija, decidida en B. Una lista que se recorre con
@@ -99,8 +107,8 @@
   /* Altura de control: botón, campo, desplegable, pestaña, fila de menú.
      Una sola, y otra para lo que debe pesar más (el botón primario de un
      diálogo, la caja de la paleta). */
-  --ctl: 28px;
-  --ctl-lg: 32px;
+  --ctl: 32px;
+  --ctl-lg: 36px;
 }
 
 @media (prefers-color-scheme: dark) {
