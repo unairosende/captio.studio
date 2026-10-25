@@ -4,6 +4,7 @@ import { after, before, describe, it } from 'node:test'
 
 import { billMedia } from '../../lib/db/billing.ts'
 import { db, query, queryOne } from '../../lib/db/client.ts'
+import { ownedByTeam } from '../../lib/db/organizations.ts'
 import { checkAllowance, getEntitlement } from '../../lib/entitlement.ts'
 import { TRIAL } from '../../lib/plans.ts'
 import { requireDisposableDatabase } from '../support/disposable-db.ts'
@@ -11,7 +12,7 @@ import { requireDisposableDatabase } from '../support/disposable-db.ts'
 /**
  * Our own organisations go uncapped, and nobody else's does.
  *
- * The grant is decided in SQL — owner, verified, domain — so only a database
+ * The grant is decided in SQL — owner, verified, domain or address — so only a database
  * can tell whether the wrong person gets it. Getting it wrong in that
  * direction is free provider spend for anybody who can type our domain.
  *
@@ -97,5 +98,22 @@ describe('unlimited organisations', { skip: !HAS_DB && 'DATABASE_URL not set' },
   it('matches the domain exactly, not as a suffix', async () => {
     const org = await newOrg([[await newUser(`eve.${tag}@notkeweke.com`, true), 'owner']])
     assert.equal((await getEntitlement(org)).status, 'trial')
+  })
+
+  // Through ownedByTeam with a list of our own: the real address may already
+  // have a row here, and "user".email is unique.
+  it('grants an exact address without granting the rest of its domain', async () => {
+    const listed = [`unai.${tag}@gmail.example`]
+    const ours = await newOrg([[await newUser(`Unai.${tag}@Gmail.example`, true), 'owner']])
+    const stranger = await newOrg([[await newUser(`otro.${tag}@gmail.example`, true), 'owner']])
+
+    assert.equal(await ownedByTeam(ours, [], listed), true)
+    assert.equal(await ownedByTeam(stranger, [], listed), false)
+  })
+
+  it('does not grant an exact address nobody has verified', async () => {
+    const listed = [`sinverificar.${tag}@gmail.example`]
+    const org = await newOrg([[await newUser(listed[0], false), 'owner']])
+    assert.equal(await ownedByTeam(org, [], listed), false)
   })
 })

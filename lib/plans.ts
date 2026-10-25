@@ -36,10 +36,17 @@ export const TRIAL = {
  * Our own people, who build and run the product and should not meet its wall.
  *
  * Granted to an organisation whose owner has a verified address here — see
- * `ownedByDomain` for why the owner and why verified. Lower case: the address
+ * `ownedByTeam` for why the owner and why verified. Lower case: the address
  * is compared lower-cased.
  */
 export const UNLIMITED_DOMAINS = ['keweke.com'] as const
+
+/**
+ * The same grant for team members who sign in from a domain that cannot be
+ * granted whole — anybody can open a Gmail account. Matched as the full
+ * address, under the same owner-and-verified rule. Lower case, as above.
+ */
+export const UNLIMITED_ADDRESSES = ['unairosende@gmail.com'] as const
 
 /**
  * What a subscription buys.

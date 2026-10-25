@@ -91,7 +91,7 @@ export default function DashboardClient({
   const thisMonth = usage.find(m => m.month === currentMonth)
 
   const trial = entitlement.status === 'trial' ? entitlement.remaining : null
-  // Uncapped without paying: our own organisations (UNLIMITED_DOMAINS).
+  // Uncapped without paying: our own organisations (UNLIMITED_DOMAINS, UNLIMITED_ADDRESSES).
   const unlimited = !subscription && entitlement.status === 'subscribed'
 
   async function create() {
