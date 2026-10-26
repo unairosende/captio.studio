@@ -99,7 +99,7 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
   const meter = allowanceOf(entitlement)
   const step = STEPS.find(st => st.id === open)
   // What Transcribir sends is what the viewer plays. Choosing a file here
-  // presses the viewer's own button, so media has one way in.
+  // presses the wave's own load button, so media has one way in.
   const media = playback?.file
   const loadMedia = () => document.querySelector<HTMLButtonElement>(`[data-cmd="${LOAD_MEDIA}"]`)?.click()
   const jobOf = (id: Pane) =>

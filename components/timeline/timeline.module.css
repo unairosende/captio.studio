@@ -22,21 +22,8 @@
 /* ── Visor ──────────────────────────────────────────────────────────────── */
 
 /* Lo de dentro del visor, que el editor coloca a la derecha de la tabla: la
-   imagen siempre a 16:9 (lo vertical y el audio solo, dentro de la misma
-   caja) y debajo qué archivo es, o qué le pasa, y cambiarlo. */
+   imagen siempre a 16:9, lo vertical y el audio solo dentro de la misma caja.
+   Qué archivo es va en la barra de la onda, que no se pliega con el visor. */
 .screen video { aspect-ratio: 16 / 9; }
-
-.source {
-  display: flex;
-  align-items: center;
-  gap: var(--sp-2);
-  padding: var(--sp-1) var(--sp-2) var(--sp-1) var(--sp-3);
-  border-bottom: 1px solid var(--line);
-  font-family: var(--mono);
-  font-size: var(--fs-xs);
-  color: var(--ink-3);
-}
-.source span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.source span[data-tone="danger"] { color: var(--danger); }
 
 .idle { padding: var(--sp-6) var(--sp-4); }

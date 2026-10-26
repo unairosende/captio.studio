@@ -766,12 +766,20 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
 
 /* ── Transporte de la onda ───────────────────────────────────────────────── */
 
-/* La barra sobre la forma de onda: reproducir, el reloj, el zoom. La onda
-   es el instrumento; esto son sus mandos, y pesan poco a propósito. La
-   imagen, el archivo y la carga están en el visor del editor. */
-.transport { background: var(--s1); }
+/* La barra sobre la forma de onda: reproducir, el reloj, qué archivo suena
+   y cambiarlo, el zoom y plegarla. La onda es el instrumento; esto son sus
+   mandos, y pesan poco a propósito. La imagen está en el visor del editor. */
+.transport { position: relative; background: var(--s1); }
 .transport-bar { display: flex; align-items: center; gap: var(--sp-2); padding: var(--sp-1) var(--sp-3); }
 .transport-clock { font-family: var(--mono); font-size: var(--fs-sm); color: var(--ink); font-variant-numeric: tabular-nums; }
+/* El nombre ocupa lo que sobra y se corta antes que empujar el zoom. */
+.transport-file { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
+.transport-file[data-tone="danger"] { color: var(--danger); }
+/* El borde de arriba, para darle alto: seis píxeles a caballo de la línea,
+   que no se ven hasta que el puntero o el foco los encuentran. */
+.transport-grip { position: absolute; top: -3px; left: 0; right: 0; height: 6px; z-index: 1; cursor: row-resize; }
+.transport-grip:hover, .transport-grip[data-state="hover"] { background: var(--line-2); }
+.transport-grip:focus-visible, .transport-grip[data-state="focus"] { outline-offset: -2px; }
 .transport-tools { margin-left: auto; display: flex; align-items: center; gap: var(--sp-1); }
 .transport-zoom { min-width: 40px; text-align: center; font-family: var(--mono); font-size: var(--fs-xs); color: var(--ink-3); }
 

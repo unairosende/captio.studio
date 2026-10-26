@@ -1,8 +1,18 @@
 'use client'
 
-import { type CSSProperties, type PointerEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  type CSSProperties,
+  type PointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { createPortal } from 'react-dom'
 
+import { PanelBottomIcon } from '@/components/editor/icons'
 import Caption from '@/components/video/Caption'
 import { decodeAudio, mediaType } from '@/lib/audio/decode'
 import { packPeaks, peakBetween } from '@/lib/audio/peaks'
@@ -54,16 +64,73 @@ import s from './timeline.module.css'
  * clock, and goes where the screen has room for it.
  */
 
-/** The viewer's load button, which the Transcribir step presses when it has nothing to send. */
+/** The load button on the wave's bar, which the Transcribir step presses when it has nothing to send. */
 export const LOAD_MEDIA = 'Cargar el vídeo o el audio de la secuencia'
 
 const RULER_H = 18
 const BLOCK_H = 38
 // The waveform is the instrument timing depends on — direction B's own words
 // for it — so it gets the room to read as one, not a thin strip under the
-// ruler and the cue blocks. Everything below (amplitude, hit-testing bands)
-// derives from this one number.
-const HEIGHT = 196
+// ruler and the cue blocks. Somebody can give it more or less, or fold it
+// away; everything drawn (amplitude, hit-testing bands) derives from the one
+// height in force.
+const DEFAULT_HEIGHT = 196
+const MIN_HEIGHT = 96
+const MAX_HEIGHT = 480
+
+const clampHeight = (h: number) =>
+  Number.isFinite(h) ? Math.round(Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, h))) : DEFAULT_HEIGHT
+
+interface Layout {
+  height: number
+  folded: boolean
+}
+
+/**
+ * The wave's height and whether it is folded.
+ *
+ * The viewer's layout, not the sequence's, so kept in this browser rather
+ * than saved with the work. Read through useSyncExternalStore so the server's
+ * render and the first client one agree on the default, and the stored layout
+ * follows straight after. A browser that refuses storage still folds and
+ * resizes; it only forgets on reload.
+ */
+const LAYOUT_KEY = 'captio.wave'
+let lastLayout = ''
+const layoutListeners = new Set<() => void>()
+
+function readLayout(): string {
+  if (lastLayout) return lastLayout
+  try {
+    return localStorage.getItem(LAYOUT_KEY) ?? ''
+  } catch {
+    return ''
+  }
+}
+
+function writeLayout(layout: Layout) {
+  lastLayout = JSON.stringify({ height: clampHeight(layout.height), folded: layout.folded })
+  try {
+    localStorage.setItem(LAYOUT_KEY, lastLayout)
+  } catch {}
+  layoutListeners.forEach(l => l())
+}
+
+function subscribeLayout(listener: () => void) {
+  layoutListeners.add(listener)
+  return () => {
+    layoutListeners.delete(listener)
+  }
+}
+
+function parseLayout(raw: string): Layout {
+  try {
+    const saved = JSON.parse(raw) as Partial<Layout>
+    return { height: clampHeight(Number(saved.height)), folded: saved.folded === true }
+  } catch {
+    return { height: DEFAULT_HEIGHT, folded: false }
+  }
+}
 
 /** Roughly one label per this many pixels, before rounding to a tidy interval. */
 const PX_PER_TICK = 78
@@ -190,8 +257,12 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, setPlayback, select } =
     useSubtitleStore()
 
+  const { height, folded } = parseLayout(useSyncExternalStore(subscribeLayout, readLayout, () => ''))
+
   const scrollRef = useRef<HTMLDivElement>(null)
   const trackRef = useRef<HTMLDivElement>(null)
+  /** Where a drag of the bar's top edge began, and the height it began at. */
+  const gripRef = useRef<{ y: number; from: number } | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -310,7 +381,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
 
     const dpr = window.devicePixelRatio || 1
     const W = scroller.clientWidth
-    const H = HEIGHT
+    const H = height
     if (canvas.width !== W * dpr || canvas.height !== H * dpr) {
       canvas.width = W * dpr
       canvas.height = H * dpr
@@ -404,7 +475,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       ctx.closePath()
       ctx.fill()
     }
-  }, [cues, currentView, duration, quality])
+  }, [cues, currentView, duration, height, quality])
 
   // Redraw when the cues, the tab, the zoom, the available width or the theme
   // change. The palette is read on every draw, so a theme switch only needs a
@@ -809,19 +880,13 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
         />
         <Caption text={active?.text} />
       </div>
-      <div className={s.source}>
-        <span title={playback.filename} data-tone={failed ? 'danger' : undefined}>
-          {failed ? 'Ese archivo no se pudo reproducir' : playback.filename}
-        </span>
-        <button className="btn btn-quiet" data-cmd={LOAD_MEDIA} aria-busy={loading || undefined} onClick={() => fileRef.current?.click()}>Cambiar</button>
-      </div>
     </>
   ) : (
     <div className={s.idle}>
       <div className="empty">
         <span className="empty-title">Sin vídeo ni audio</span>
         <p>Carga el de la secuencia: se ve aquí con la cue encima, su onda sale abajo para cuadrar tiempos y se transcribe sin volver a elegirlo.</p>
-        <button className="btn btn-primary" data-cmd={LOAD_MEDIA} aria-busy={loading || undefined} onClick={() => fileRef.current?.click()}>Cargar vídeo o audio</button>
+        <button className="btn btn-primary" aria-busy={loading || undefined} onClick={() => fileRef.current?.click()}>Cargar vídeo o audio</button>
       </div>
     </div>
   )
@@ -829,6 +894,45 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   return (
     <div className="transport">
       {screen && createPortal(viewer, screen)}
+
+      {/* The bar's top edge: dragged, it gives the wave more or less room, and
+          under half its smallest it folds, as a panel does in any editor. A
+          double click folds or unfolds; so does ⏎, and ↑↓ resize. */}
+      <div
+        className="transport-grip"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-label="Alto de la onda"
+        aria-valuemin={0}
+        aria-valuemax={MAX_HEIGHT}
+        aria-valuenow={folded ? 0 : height}
+        tabIndex={0}
+        onPointerDown={e => {
+          if (e.button !== 0) return
+          e.currentTarget.setPointerCapture(e.pointerId)
+          gripRef.current = { y: e.clientY, from: folded ? 0 : height }
+        }}
+        onPointerMove={e => {
+          const grip = gripRef.current
+          if (!grip) return
+          const h = grip.from + (grip.y - e.clientY)
+          // Folded on the way down, it keeps the height it had before the
+          // drag, not whatever it passed through: unfolding brings that back.
+          writeLayout(h < MIN_HEIGHT / 2 ? { height: grip.from || height, folded: true } : { height: h, folded: false })
+        }}
+        onPointerUp={e => {
+          gripRef.current = null
+          e.currentTarget.releasePointerCapture(e.pointerId)
+        }}
+        onDoubleClick={() => writeLayout({ height, folded: !folded })}
+        onKeyDown={e => {
+          if (e.key === 'Enter') writeLayout({ height, folded: !folded })
+          else if (e.key === 'ArrowUp' || e.key === 'ArrowDown')
+            writeLayout({ height: height + (e.key === 'ArrowUp' ? 16 : -16), folded: false })
+          else return
+          e.preventDefault()
+        }}
+      />
 
       <input
         ref={fileRef}
@@ -867,15 +971,32 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
           <span className="kbd">{speedLabel(transport)}</span>
         )}
 
+        {/* Which file this is, here rather than under the picture: the viewer
+            folds, and a WAV has no picture to put it under anyway. */}
+        <span className="transport-file" title={playback?.filename} data-tone={failed ? 'danger' : undefined}>
+          {!playback ? 'Sin vídeo ni audio' : failed ? 'Ese archivo no se pudo reproducir' : playback.filename}
+        </span>
+        <button className="btn btn-quiet" data-cmd={LOAD_MEDIA} aria-busy={loading || undefined} onClick={() => fileRef.current?.click()}>
+          {playback ? 'Cambiar' : 'Cargar'}
+        </button>
+
         <div className="transport-tools">
-          <button className="btn btn-quiet" onClick={() => changeZoom(zoom / ZOOM_STEP)} disabled={!ready} aria-label="Alejar">−</button>
-          <span className="transport-zoom">{zoom.toFixed(1)}×</span>
-          <button className="btn btn-quiet" onClick={() => changeZoom(zoom * ZOOM_STEP)} disabled={!ready} aria-label="Acercar">+</button>
+          {!folded && (
+            <>
+              <button className="btn btn-quiet" onClick={() => changeZoom(zoom / ZOOM_STEP)} disabled={!ready} aria-label="Alejar">−</button>
+              <span className="transport-zoom">{zoom.toFixed(1)}×</span>
+              <button className="btn btn-quiet" onClick={() => changeZoom(zoom * ZOOM_STEP)} disabled={!ready} aria-label="Acercar">+</button>
+            </>
+          )}
+          <button className="btn btn-quiet btn-icon" aria-label={folded ? 'Desplegar la onda' : 'Plegar la onda'}
+            data-cmd={folded ? 'Desplegar la onda' : 'Plegar la onda'}
+            aria-pressed={!folded} onClick={() => writeLayout({ height, folded: !folded })}><PanelBottomIcon /></button>
         </div>
       </div>
 
       <div
         ref={scrollRef}
+        hidden={folded}
         onScroll={draw}
         onPointerDown={e => {
           const { x, y, at } = pointerAt(e)
@@ -956,7 +1077,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
         }}
         className={s.scroll}
         data-ready={ready || undefined}
-        style={{ '--wave-h': `${HEIGHT}px` } as CSSProperties}
+        style={{ '--wave-h': `${height}px` } as CSSProperties}
       >
         {/* Empty, and there only to give the scrollbar something to measure. */}
         <div ref={trackRef} className={s.track} style={{ width: `${zoom * 100}%` }}>

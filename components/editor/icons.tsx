@@ -1,7 +1,7 @@
 /**
- * The editor's icons: a rail of steps and sections, two sides that fold, a
+ * The editor's icons: a rail of steps and sections, three sides that fold, a
  * menu that drops. Drawn here rather than pulled from a library because there
- * are eleven of them, one weight, one size, and a library would bring six
+ * are twelve of them, one weight, one size, and a library would bring six
  * hundred more with their own idea of a stroke.
  *
  * Every one is decorative: the button that carries it says its name.
@@ -66,6 +66,11 @@ export const PanelLeftIcon = () => (
 /** A pane with its right third marked: the panel. */
 export const PanelRightIcon = () => (
   <Svg><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M10 3v10" /></Svg>
+)
+
+/** A pane with its bottom third marked: the wave. */
+export const PanelBottomIcon = () => (
+  <Svg><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M2 9.5h12" /></Svg>
 )
 
 /** Down: a menu hangs from here. */

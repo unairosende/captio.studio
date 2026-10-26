@@ -2,6 +2,8 @@
 
 import type { CSSProperties, ReactNode } from 'react'
 
+import { PanelBottomIcon } from '@/components/editor/icons'
+
 import s from './styleguide.module.css'
 
 /**
@@ -436,20 +438,26 @@ export function Pieces() {
 
       <Grid
         title="Transporte"
-        note={<>La barra de la onda, bajo la tabla: reproducir, el reloj en mono y, a la derecha, el zoom. Qué archivo suena, la carga y la imagen con la cue encima están en el visor, a la derecha de la tabla.</>}
-        na={{ hover: 'sus botones', foco: 'sus botones', activo: 'reproduciendo: el botón cambia de signo', deshabilitado: 'sin archivo, el zoom y reproducir se apagan', cargando: 'lo dice el botón de carga del visor', error: 'lo dice el visor, bajo la imagen' }}
+        note={<>La barra de la onda, bajo la tabla: reproducir, el reloj en mono, qué archivo suena y cambiarlo, y a la derecha el zoom y plegarla. El nombre va aquí y no bajo la imagen porque el visor se pliega y un WAV no tiene imagen. Su borde de arriba se arrastra para darle alto; por debajo de la mitad del mínimo, o con doble clic, la onda se pliega y queda solo la barra.</>}
+        na={{ hover: 'sus botones; el borde de arriba se marca', foco: 'sus botones y el borde, con el anillo hacia dentro', activo: 'reproduciendo: el botón cambia de signo', deshabilitado: 'sin archivo, el zoom y reproducir se apagan', cargando: 'el botón de cargar', error: 'el nombre del archivo, en rojo' }}
         wide
       >
-        {() => (
+        {st => (
           <div className="transport">
+            <div className="transport-grip" role="separator" aria-orientation="horizontal" aria-label="Alto de la onda" tabIndex={0} {...atDiv(st)} />
             <div className="transport-bar">
               <button className="btn" aria-label="Reproducir">▶</button>
               <span className="transport-clock">00:08:14,320 <span className="muted">/ 00:52:10,000</span></span>
               <span className="kbd">2×</span>
+              <span className="transport-file" data-tone={st === 'error' ? 'danger' : undefined}>
+                {st === 'error' ? 'Ese archivo no se pudo reproducir' : 'bodega_entrevista_v3.wav'}
+              </span>
+              <button className="btn btn-quiet" aria-busy={st === 'cargando' || undefined}>Cambiar</button>
               <div className="transport-tools">
                 <button className="btn btn-quiet" aria-label="Alejar">−</button>
                 <span className="transport-zoom">1.0×</span>
                 <button className="btn btn-quiet" aria-label="Acercar">+</button>
+                <button className="btn btn-quiet btn-icon" aria-label="Plegar la onda" aria-pressed><PanelBottomIcon /></button>
               </div>
             </div>
           </div>
