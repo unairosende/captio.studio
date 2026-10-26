@@ -152,6 +152,10 @@ interface Palette {
   error: string
   text: string
   playhead: string
+  ghost: string
+  /** The interface's own typefaces, so the canvas does not read as a different program. */
+  font: string
+  mono: string
 }
 
 /**
@@ -187,6 +191,9 @@ function readPalette(el: HTMLElement): Palette {
     error: mix('--danger', 30, '#ff6f5e'),
     text: v('--ink-2', '#a3a19a'),
     playhead: v('--ink', '#ecebe6'),
+    ghost: mix('--ink', 35, '#ecebe6'),
+    font: getComputedStyle(el).fontFamily || 'system-ui, sans-serif',
+    mono: getComputedStyle(el).getPropertyValue('--mono').trim() || 'ui-monospace, monospace',
   }
   probe.remove()
   return palette
@@ -208,7 +215,6 @@ function roundRect(
   ctx.arcTo(x, y + h, x, y, radius)
   ctx.arcTo(x, y, x + w, y, radius)
   ctx.closePath()
-  ctx.fill()
 }
 
 /** Where the cue blocks live, for deciding what a pointer grabbed. */
@@ -254,7 +260,7 @@ export default function Timeline({ screen }: { screen: HTMLElement | null }) {
 }
 
 function Track({ playback, screen }: { playback: Playback | null; screen: HTMLElement | null }) {
-  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, setPlayback, select } =
+  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, setPlayback, selected, select } =
     useSubtitleStore()
 
   const { height, folded } = parseLayout(useSyncExternalStore(subscribeLayout, readLayout, () => ''))
@@ -276,6 +282,8 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   const pressRef = useRef<Press | null>(null)
   /** The zoom as last applied, which a pinch compounds on between renders. */
   const zoomRef = useRef(1)
+  /** Where the pointer rests over the wave, in canvas pixels: where a click would land. */
+  const hoverRef = useRef<number | null>(null)
   const transportRef = useRef<Transport | null>(null)
   /** When the picture was last told where a backwards scrub had got to. */
   const scrubSeekRef = useRef(0)
@@ -404,7 +412,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     // ── Ruler ──
     ctx.fillStyle = p.ruler
     ctx.fillRect(0, 0, W, RULER_H)
-    ctx.font = '9px system-ui, sans-serif'
+    ctx.font = `9px ${p.font}`
     ctx.textBaseline = 'middle'
     const every = tickEvery(view.span, Math.max(2, Math.floor(W / PX_PER_TICK)))
     // Started at the first tick inside the window rather than at zero, so the
@@ -454,13 +462,50 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       ctx.fillStyle =
         status === 'error' ? p.error : status === 'warn' ? p.warn : active ? p.blockActive : p.block
       roundRect(ctx, x0, RULER_H + 3, w, BLOCK_H - 6, 5)
+      ctx.fill()
+      // The table's selection, outlined in ink: neutral, so it can never be
+      // read as one of the quality colours that fill the block.
+      if (cue.index === selected) {
+        ctx.strokeStyle = p.playhead
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+      }
 
+      // The number, then the words, for as much as the block has room: the
+      // line is recognised on the wave without looking across to the table.
       if (w > 26) {
+        const mid = RULER_H + BLOCK_H / 2
+        const label = `#${cue.index}`
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(x0 + 4, RULER_H, w - 8, BLOCK_H)
+        ctx.clip()
+        ctx.font = `500 10px ${p.font}`
+        ctx.fillStyle = p.rulerText
+        ctx.fillText(label, x0 + 6, mid)
+        const after = x0 + 6 + ctx.measureText(label).width + 6
+        ctx.font = `${active ? '600' : '500'} 11px ${p.font}`
         ctx.fillStyle = p.text
-        ctx.font = `${active ? '600' : '500'} 10px system-ui, sans-serif`
-        ctx.fillText(`#${cue.index}`, x0 + 6, RULER_H + BLOCK_H / 2)
+        ctx.fillText(cue.text.replace(/\s*\n\s*/g, ' '), after, mid)
+        ctx.restore()
       }
     })
+
+    // ── Where a click would land ──
+    const ghost = hoverRef.current
+    if (ghost !== null) {
+      ctx.fillStyle = p.ghost
+      ctx.fillRect(Math.round(ghost), RULER_H, 1, H - RULER_H)
+      const label = clockLabel(view.start + (ghost / W) * view.span)
+      ctx.font = `9px ${p.mono}`
+      const tw = ctx.measureText(label).width
+      // Beside the line, and on its other side near the right edge.
+      const lx = ghost + 6 + tw > W ? ghost - 6 - tw : ghost + 6
+      ctx.fillStyle = p.ruler
+      ctx.fillRect(lx - 3, 0, tw + 6, RULER_H)
+      ctx.fillStyle = p.text
+      ctx.fillText(label, lx, RULER_H / 2)
+    }
 
     // ── Playhead ──
     const x = toPx(head)
@@ -475,7 +520,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       ctx.closePath()
       ctx.fill()
     }
-  }, [cues, currentView, duration, height, quality])
+  }, [cues, currentView, duration, height, quality, selected])
 
   // Redraw when the cues, the tab, the zoom, the available width or the theme
   // change. The palette is read on every draw, so a theme switch only needs a
@@ -1003,6 +1048,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
           // Below clientHeight is the scrollbar, which is the browser's.
           if (!ready || e.button !== 0 || y > e.currentTarget.clientHeight) return
           e.currentTarget.setPointerCapture(e.pointerId)
+          hoverRef.current = null
 
           if (y < RULER_H) {
             pressRef.current = { kind: 'ruler' }
@@ -1028,6 +1074,8 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
             el.style.cursor = over
               ? over.edge === 'body' ? 'grab' : 'col-resize'
               : y >= RULER_H && el.scrollWidth > el.clientWidth ? 'grab' : 'pointer'
+            hoverRef.current = y <= el.clientHeight ? x : null
+            draw()
             return
           }
 
@@ -1074,6 +1122,10 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
         }}
         onPointerCancel={() => {
           pressRef.current = null
+        }}
+        onPointerLeave={() => {
+          hoverRef.current = null
+          draw()
         }}
         className={s.scroll}
         data-ready={ready || undefined}
