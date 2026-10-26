@@ -46,6 +46,37 @@ export function visibleWindow(
 }
 
 /**
+ * Where the window starts once zoomed to `zoom` with the second `at` kept
+ * under the pixel `x`.
+ *
+ * Under the pointer for a pinch, under the middle for the buttons: whatever
+ * somebody was looking at stays where they were looking, rather than sliding
+ * off while the scale changes around it.
+ */
+export function anchoredStart(
+  duration: number,
+  zoom: number,
+  at: number,
+  x: number,
+  width: number,
+): number {
+  const span = duration / clampZoom(zoom)
+  return Math.max(0, Math.min(duration - span, at - (x / Math.max(1, width)) * span))
+}
+
+/**
+ * A pinch or a ⌘-wheel step, as a factor on the zoom.
+ *
+ * A pinch arrives as many small deltas and a mouse wheel as a few large ones,
+ * in pixels or — Firefox — in lines. Clamping each event keeps one notch of a
+ * wheel a step rather than a leap, while a pinch stays continuous.
+ */
+export function wheelZoom(deltaY: number, deltaMode: number): number {
+  const px = deltaMode === 1 ? deltaY * 16 : deltaMode === 2 ? deltaY * 400 : deltaY
+  return Math.exp(-Math.max(-40, Math.min(40, px)) * 0.01)
+}
+
+/**
  * Where to scroll so a moment is on screen.
  *
  * Returns null when it already is, so a playhead comfortably in view does not

@@ -8,6 +8,9 @@
   overflow-y: hidden;
   cursor: default;
   touch-action: none;
+  /* Two fingers swiping right with the wave at its start is, to Chrome on a
+     Mac, "go back a page" — out of the editor, mid-sentence. */
+  overscroll-behavior-x: contain;
 }
 .scroll[data-ready] { cursor: pointer; }
 

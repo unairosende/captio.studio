@@ -7,7 +7,7 @@ import Caption from '@/components/video/Caption'
 import { decodeAudio, mediaType } from '@/lib/audio/decode'
 import { packPeaks, peakBetween } from '@/lib/audio/peaks'
 import { cueAt, qcTrack, srtToSec } from '@/lib/subtitles'
-import { type Edge, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
+import { type Grab, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
 import { publishPlayhead, publishSeek } from '@/lib/timeline/playhead'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
 import {
@@ -16,7 +16,7 @@ import {
   nextTransport,
   speedLabel,
 } from '@/lib/timeline/transport'
-import { clampZoom, scrollToShow, visibleWindow } from '@/lib/timeline/view'
+import { anchoredStart, clampZoom, scrollToShow, visibleWindow, wheelZoom } from '@/lib/timeline/view'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Playback } from '@/types/media'
 import type { Subtitle } from '@/types/subtitle'
@@ -69,6 +69,9 @@ const HEIGHT = 196
 const PX_PER_TICK = 78
 
 const ZOOM_STEP = 1.6
+
+/** How far a press travels before it is a drag rather than a click. */
+const DRAG_PX = 4
 
 interface Palette {
   bg: string
@@ -144,20 +147,34 @@ function roundRect(
 /** Where the cue blocks live, for deciding what a pointer grabbed. */
 const BAND = { top: RULER_H, height: BLOCK_H }
 
-interface Drag {
-  index: number
-  edge: Edge
-  /** Where the pointer went down, in seconds. */
-  from: number
-  /**
-   * The track as it was when the drag began.
-   *
-   * Every move is computed against this rather than against the cue's current
-   * position. Clamping repeatedly against already-moved values lets a drag
-   * creep — each frame nudges the limit it was just clamped to.
-   */
-  track: Subtitle[]
-}
+/**
+ * What a press on the timeline is, decided by where it lands and whether it
+ * moves.
+ *
+ * The ruler is the playhead's handle: pressing puts the head there, dragging
+ * drags it. Everywhere else a press that never moves is a click — the head
+ * goes where it landed — and one that moves is a drag: of the cue it landed
+ * on, or of the view itself, the way a map is dragged.
+ */
+type Press =
+  | { kind: 'ruler' }
+  | { kind: 'wave'; x: number; left: number; moved: boolean }
+  | {
+      kind: 'cue'
+      grab: Grab
+      x: number
+      /** Where the pointer went down, in seconds. */
+      from: number
+      /**
+       * The track as it was when the drag began.
+       *
+       * Every move is computed against this rather than against the cue's
+       * current position. Clamping repeatedly against already-moved values
+       * lets a drag creep — each frame nudges the limit it was just clamped to.
+       */
+      track: Subtitle[]
+      moved: boolean
+    }
 
 /**
  * Remounted on new material, so every piece of state — duration, zoom, the
@@ -174,6 +191,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     useSubtitleStore()
 
   const scrollRef = useRef<HTMLDivElement>(null)
+  const trackRef = useRef<HTMLDivElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fileRef = useRef<HTMLInputElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -184,7 +202,9 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   const peaksRef = useRef<Float32Array>(Float32Array.from(playback?.peaks ?? []))
   const frameRef = useRef(0)
   const playheadRef = useRef(0)
-  const dragRef = useRef<Drag | null>(null)
+  const pressRef = useRef<Press | null>(null)
+  /** The zoom as last applied, which a pinch compounds on between renders. */
+  const zoomRef = useRef(1)
   const transportRef = useRef<Transport | null>(null)
   /** When the picture was last told where a backwards scrub had got to. */
   const scrubSeekRef = useRef(0)
@@ -528,24 +548,81 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     return () => window.removeEventListener('keydown', onKey)
   }, [duration, play, scrub, stop])
 
-  /** Zoom around the playhead, so the thing being worked on stays put. */
+  /**
+   * Zoom with one moment held still: the second under the pointer for a
+   * pinch, the playhead in the middle for the buttons.
+   *
+   * Laid out here and now rather than on React's next render. A pinch fires
+   * sixty times a second, and each step has to start from where the last one
+   * left the view — compounding on a stale zoom is what makes a pinch lurch.
+   */
   const changeZoom = useCallback(
-    (next: number) => {
+    (next: number, anchor?: { x: number; at: number }) => {
+      const el = scrollRef.current
+      const track = trackRef.current
+      if (!el || !track || duration <= 0) return
       const z = clampZoom(next)
+      zoomRef.current = z
+      track.style.width = `${z * 100}%`
+      const { x, at } = anchor ?? { x: el.clientWidth / 2, at: playheadRef.current }
+      // Reading scrollWidth lays the spacer out at its new width first.
+      el.scrollLeft = (anchoredStart(duration, z, at, x, el.clientWidth) / duration) * el.scrollWidth
       setZoom(z)
-
-      // After the spacer has been laid out at its new width, not before.
-      requestAnimationFrame(() => {
-        const el = scrollRef.current
-        if (!el || duration <= 0) return
-        const span = duration / z
-        const wanted = Math.max(0, Math.min(duration - span, playheadRef.current - span / 2))
-        el.scrollLeft = (wanted / duration) * el.scrollWidth
-        draw()
-      })
+      draw()
     },
     [draw, duration],
   )
+
+  /**
+   * The wheel, the trackpad and the pinch.
+   *
+   * Sideways is the browser's own scroll, momentum and all. A vertical wheel
+   * means sideways too — the wave has nothing to scroll up and down, and a
+   * mouse has no other way to move along it. ⌘ or a pinch zooms where the
+   * pointer is. Bound by hand rather than through React, whose wheel listener
+   * is passive and cannot stop the browser zooming the whole page instead.
+   */
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || duration <= 0) return
+
+    /** The zoom when a Safari pinch began; the gesture reports scale against it. */
+    let pinch: number | null = null
+    const anchor = (clientX: number) => {
+      const x = clientX - el.getBoundingClientRect().left
+      const view = currentView()
+      return { x, at: view.start + (x / el.clientWidth) * view.span }
+    }
+
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault()
+        if (pinch === null) changeZoom(zoomRef.current * wheelZoom(e.deltaY, e.deltaMode), anchor(e.clientX))
+      } else if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+        e.preventDefault()
+        el.scrollLeft += e.deltaMode === 1 ? e.deltaY * 16 : e.deltaY
+      }
+    }
+    // Safari reports a pinch as a gesture of its own rather than as a wheel.
+    type Gesture = Event & { scale: number; clientX: number }
+    const onGestureStart = (e: Event) => { e.preventDefault(); pinch = zoomRef.current }
+    const onGestureChange = (e: Event) => {
+      e.preventDefault()
+      if (pinch !== null) changeZoom(pinch * (e as Gesture).scale, anchor((e as Gesture).clientX))
+    }
+    const onGestureEnd = (e: Event) => { e.preventDefault(); pinch = null }
+
+    el.addEventListener('wheel', onWheel, { passive: false })
+    el.addEventListener('gesturestart', onGestureStart)
+    el.addEventListener('gesturechange', onGestureChange)
+    el.addEventListener('gestureend', onGestureEnd)
+    return () => {
+      el.removeEventListener('wheel', onWheel)
+      el.removeEventListener('gesturestart', onGestureStart)
+      el.removeEventListener('gesturechange', onGestureChange)
+      el.removeEventListener('gestureend', onGestureEnd)
+    }
+  }, [changeZoom, currentView, duration])
 
   /**
    * A file from disk, for a sequence whose upload is elsewhere or nowhere.
@@ -675,63 +752,86 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
         ref={scrollRef}
         onScroll={draw}
         onPointerDown={e => {
-          if (!ready) return
           const { x, y, at } = pointerAt(e)
-          const grab = hitTest(cues, x, y, e.currentTarget.clientWidth, currentView(), BAND)
+          // Below clientHeight is the scrollbar, which is the browser's.
+          if (!ready || e.button !== 0 || y > e.currentTarget.clientHeight) return
+          e.currentTarget.setPointerCapture(e.pointerId)
 
-          if (!grab) {
-            // Outside the cue band, or in a gap: the pointer is asking to move
-            // the playhead, not to retime anything.
+          if (y < RULER_H) {
+            pressRef.current = { kind: 'ruler' }
             seek(at)
             return
           }
-
-          // Marked once, here, rather than on each retime the drag will fire:
-          // undoing one pointer move is not undoing anything a person did.
-          pushUndo()
-          e.currentTarget.setPointerCapture(e.pointerId)
-          dragRef.current = { ...grab, from: at, track: cues }
+          const grab = hitTest(cues, x, y, e.currentTarget.clientWidth, currentView(), BAND)
+          pressRef.current = grab
+            ? { kind: 'cue', grab, x, from: at, track: cues, moved: false }
+            : { kind: 'wave', x, left: e.currentTarget.scrollLeft, moved: false }
         }}
         onPointerMove={e => {
           if (!ready) return
+          const el = e.currentTarget
           const { x, y, at } = pointerAt(e)
-          const drag = dragRef.current
+          const press = pressRef.current
 
-          if (!drag) {
+          if (!press) {
             // Only a cursor change, but it is the whole discoverability of the
-            // feature: nothing else says these edges can be pulled.
-            const over = hitTest(cues, x, y, e.currentTarget.clientWidth, currentView(), BAND)
-            e.currentTarget.style.cursor = !over
-              ? 'pointer'
-              : over.edge === 'body'
-                ? 'grab'
-                : 'col-resize'
+            // feature: nothing else says these edges can be pulled, or that
+            // the wave itself can be dragged along.
+            const over = y < RULER_H ? null : hitTest(cues, x, y, el.clientWidth, currentView(), BAND)
+            el.style.cursor = over
+              ? over.edge === 'body' ? 'grab' : 'col-resize'
+              : y >= RULER_H && el.scrollWidth > el.clientWidth ? 'grab' : 'pointer'
             return
           }
 
-          const cue = drag.track[drag.index]
+          if (press.kind === 'ruler') {
+            seek(at)
+            return
+          }
+          if (!press.moved) {
+            if (Math.abs(x - press.x) < DRAG_PX) return
+            press.moved = true
+            // Marked once, on the first real move rather than on the press or
+            // on each retime: a press that never moves is a click, and undoing
+            // a click — or one pointer move — is undoing nothing anyone did.
+            if (press.kind === 'cue') pushUndo()
+          }
+
+          if (press.kind === 'wave') {
+            // One to one: the second that was under the pointer stays under it.
+            el.style.cursor = 'grabbing'
+            el.scrollLeft = press.left - (x - press.x)
+            return
+          }
+
+          const { grab, track } = press
+          const cue = track[grab.index]
           const next =
-            drag.edge === 'body'
-              ? moveWhole(drag.track, drag.index, at - drag.from, { duration })
-              : moveEdge(drag.track, drag.index, drag.edge, at, { duration })
+            grab.edge === 'body'
+              ? moveWhole(track, grab.index, at - press.from, { duration })
+              : moveEdge(track, grab.index, grab.edge, at, { duration })
 
           if (next && (next.start !== cue.start || next.end !== cue.end)) {
             retimeSubtitle(cue.index, next.start, next.end)
           }
         }}
         onPointerUp={e => {
-          dragRef.current = null
+          const press = pressRef.current
+          pressRef.current = null
           e.currentTarget.releasePointerCapture(e.pointerId)
+          if (!press || press.kind === 'ruler' || press.moved) return
+          // A press that never moved: the playhead goes where it landed.
+          seek(pointerAt(e).at)
         }}
         onPointerCancel={() => {
-          dragRef.current = null
+          pressRef.current = null
         }}
         className={s.scroll}
         data-ready={ready || undefined}
         style={{ '--wave-h': `${HEIGHT}px` } as CSSProperties}
       >
         {/* Empty, and there only to give the scrollbar something to measure. */}
-        <div className={s.track} style={{ width: `${zoom * 100}%` }}>
+        <div ref={trackRef} className={s.track} style={{ width: `${zoom * 100}%` }}>
           <canvas ref={canvasRef} className={s.canvas} />
         </div>
       </div>

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { MAX_ZOOM, clampZoom, scrollToShow, visibleWindow } from '../../lib/timeline/view.ts'
+import { MAX_ZOOM, anchoredStart, clampZoom, scrollToShow, visibleWindow, wheelZoom } from '../../lib/timeline/view.ts'
 
 /**
  * Scroll position in, seconds out.
@@ -105,5 +105,41 @@ describe('following the playhead', () => {
   it('does not scroll past either end in order to centre', () => {
     assert.equal(scrollToShow(5, view, 600, 6000), 0)
     assert.equal(scrollToShow(599, view, 600, 6000), 5_000)
+  })
+})
+
+describe('zooming around a point', () => {
+  it('keeps the second under the pointer where it was', () => {
+    // 600s in 1000px at 1x: the pointer at 250px is on second 150. At 4x the
+    // window is 150s wide, and 150s must still sit a quarter of the way in.
+    const start = anchoredStart(600, 4, 150, 250, 1000)
+
+    assert.equal(start, 150 - 150 / 4)
+  })
+
+  it('stops at either end rather than showing blank track', () => {
+    assert.equal(anchoredStart(600, 4, 5, 900, 1000), 0)
+    assert.equal(anchoredStart(600, 4, 598, 10, 1000), 450)
+  })
+
+  it('shows the whole track at 1x whatever the anchor', () => {
+    assert.equal(anchoredStart(600, 1, 400, 100, 1000), 0)
+  })
+})
+
+describe('the wheel as a zoom', () => {
+  it('zooms in on a pinch outwards and out on a pinch inwards', () => {
+    assert.ok(wheelZoom(-5, 0) > 1)
+    assert.ok(wheelZoom(5, 0) < 1)
+  })
+
+  it('makes one notch of a mouse wheel a step, not a leap', () => {
+    // A notch is ~100px in Chrome and 3 lines in Firefox; both land on the same step.
+    assert.equal(wheelZoom(-100, 0), wheelZoom(-3, 1))
+    assert.ok(wheelZoom(-100, 0) < 1.6)
+  })
+
+  it('undoes itself: in and out by the same amount is where it started', () => {
+    assert.ok(Math.abs(wheelZoom(-7, 0) * wheelZoom(7, 0) - 1) < 1e-12)
   })
 })
