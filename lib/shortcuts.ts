@@ -52,9 +52,12 @@ export const SHORTCUTS: ShortcutGroup[] = [
   {
     title: 'El vídeo',
     items: [
+      { keys: 'Espacio', does: 'Reproducir o parar' },
       { keys: 'J', does: 'Atrás; otra vez, más rápido' },
       { keys: 'K', does: 'Parar' },
       { keys: 'L', does: 'Adelante; otra vez, más rápido' },
+      { keys: 'K + J · K + L', does: 'Un fotograma atrás o adelante; sin soltar, a cámara lenta' },
+      { keys: '⌥J ⌥K ⌥L', does: 'Lo mismo mientras escribes en un cue' },
     ],
   },
 ]

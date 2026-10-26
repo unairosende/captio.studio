@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import Caption from '@/components/video/Caption'
 import { decodeAudio, mediaType } from '@/lib/audio/decode'
 import { packPeaks, peakBetween } from '@/lib/audio/peaks'
-import { cueAt, qcTrack, srtToSec } from '@/lib/subtitles'
+import { DEFAULT_FPS, cueAt, qcTrack, srtToSec } from '@/lib/subtitles'
 import { type Grab, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
 import { publishPlayhead, publishSeek } from '@/lib/timeline/playhead'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
@@ -556,33 +556,84 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     [duration, draw, playing, showCue, stop],
   )
 
+  /** K is down, so J and L step a frame instead of running. */
+  const kHeldRef = useRef(false)
+  /** J or L is held under K, creeping at a quarter speed. */
+  const creepRef = useRef(false)
+
   /**
-   * J back, K stop, L forward — and pressing the same key again goes faster.
+   * The transport keys.
    *
-   * Bound on the window rather than the canvas: a subtitler's hands are on JKL
-   * while their eyes are on the text, and requiring the timeline to hold focus
-   * first would defeat the point of having it. Skipped while a field has focus,
-   * where those keys are letters somebody is typing.
+   * Bound on the window rather than the canvas: a subtitler's hands are on
+   * them while their eyes are on the text, and requiring the timeline to hold
+   * focus first would defeat the point of having them.
+   *
+   * J back, K stop, L forward, and the same key again goes faster — Avid's and
+   * Premiere's, so a subtitler arrives already able to use them. With K held,
+   * J and L step one frame, and held themselves creep: the way to find the
+   * frame a word starts on. Space plays and stops, as everywhere else.
+   *
+   * In a field these are letters and a space somebody is typing, so there
+   * they need ⌥ — which is what lets a line be corrected while it is heard.
+   * Read by position rather than by character, since ⌥ turns them into ∆, ˚
+   * and ¬ on a Mac.
    */
   useEffect(() => {
-    function onKey(e: KeyboardEvent) {
-      const key = e.key.toLowerCase()
-      if (!'jkl'.includes(key) || e.metaKey || e.ctrlKey || e.altKey) return
+    const KEYS: Record<string, 'j' | 'k' | 'l' | ' '> = { KeyJ: 'j', KeyK: 'k', KeyL: 'l', Space: ' ' }
 
+    const halt = () => {
+      transportRef.current = null
+      setTransport(null)
+      stop()
+    }
+
+    function onKey(e: KeyboardEvent) {
+      const key = KEYS[e.code]
+      if (!key || e.metaKey || e.ctrlKey || duration <= 0) return
       const el = e.target as HTMLElement | null
-      if (el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable) return
-      if (duration <= 0) return
+      const typing = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
+      if (e.altKey ? key === ' ' : typing) return
+      // A focused button answers Space itself; taking the key from it would
+      // leave somebody on the keyboard unable to press anything.
+      if (key === ' ' && el?.closest('button, a, select, [role="button"], [role="menuitem"], [role="tab"]')) return
 
       e.preventDefault()
 
-      if (key === 'k') {
-        transportRef.current = null
-        setTransport(null)
-        stop()
+      if (key === ' ') {
+        if (e.repeat) return
+        if (playing) halt()
+        else {
+          halt()
+          play(1)
+        }
         return
       }
 
-      const next = nextTransport(transportRef.current, key === 'l' ? 1 : -1, Date.now())
+      if (key === 'k') {
+        kHeldRef.current = true
+        if (!e.repeat) halt()
+        return
+      }
+
+      const direction: Direction = key === 'l' ? 1 : -1
+
+      if (kHeldRef.current) {
+        if (!e.repeat) {
+          halt()
+          seek((Math.round(playheadRef.current * DEFAULT_FPS) + direction) / DEFAULT_FPS)
+        } else if (!creepRef.current) {
+          creepRef.current = true
+          setTransport({ direction, speed: 0.25, at: Date.now() })
+          if (direction === 1) play(0.25)
+          else scrub(direction, 0.25)
+        }
+        return
+      }
+
+      // Holding L down is not pressing it eight times.
+      if (e.repeat) return
+
+      const next = nextTransport(transportRef.current, direction, Date.now())
       transportRef.current = next
       setTransport(next)
 
@@ -591,9 +642,32 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       else scrub(next.direction, next.speed)
     }
 
+    function onKeyUp(e: KeyboardEvent) {
+      if (e.code === 'KeyK') kHeldRef.current = false
+      if (creepRef.current && (e.code === 'KeyK' || e.code === 'KeyJ' || e.code === 'KeyL')) {
+        creepRef.current = false
+        halt()
+      }
+    }
+
+    // A key let go in another window never says so here.
+    function onBlur() {
+      kHeldRef.current = false
+      if (creepRef.current) {
+        creepRef.current = false
+        halt()
+      }
+    }
+
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [duration, play, scrub, stop])
+    window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', onBlur)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', onBlur)
+    }
+  }, [duration, play, playing, scrub, seek, stop])
 
   /**
    * Zoom with one moment held still: the second under the pointer for a
@@ -779,7 +853,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
           disabled={!ready}
           aria-label={playing ? 'Pausa' : 'Reproducir'}
           data-cmd={playing ? 'Pausar' : 'Reproducir'}
-          data-cmd-hint="K"
+          data-cmd-hint="Espacio"
         >
           {playing ? '❚❚' : '▶'}
         </button>
