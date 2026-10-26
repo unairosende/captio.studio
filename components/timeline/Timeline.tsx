@@ -187,7 +187,7 @@ export default function Timeline({ screen }: { screen: HTMLElement | null }) {
 }
 
 function Track({ playback, screen }: { playback: Playback | null; screen: HTMLElement | null }) {
-  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, setPlayback } =
+  const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, setPlayback, select } =
     useSubtitleStore()
 
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -210,6 +210,8 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   const scrubSeekRef = useRef(0)
   /** The cue under the picture, as last shown — so state changes only at a boundary. */
   const activeRef = useRef<number | null>(null)
+  /** Somebody scrolled the table while it played: they are reading, leave it. */
+  const tableFreeRef = useRef(false)
 
   // Provisional until the element has read the header: enough to draw the
   // peaks at once rather than after the first range request.
@@ -236,16 +238,51 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   // the picture as it is typed rather than at the next cue boundary.
   const active = activeIndex === null ? null : (cues.find(c => c.index === activeIndex) ?? null)
 
+  /**
+   * Make a cue the editor's selection, with its row in view.
+   *
+   * Following playback keeps the row in the middle of the table, so what is
+   * coming is on screen; a click only brings it into view, so the table does
+   * not jump under a pointer that was just used on it. Neither happens while
+   * somebody is typing in a field — following the audio must never take the
+   * text out from under the caret — nor for a row the table is not showing:
+   * filtered out, there is nothing to bring into view, and selecting it unseen
+   * would send ↑↓ somewhere unexpected.
+   */
+  const reveal = useCallback(
+    (index: number, how: 'follow' | 'jump') => {
+      const focus = document.activeElement as HTMLElement | null
+      if (focus?.tagName === 'TEXTAREA' || focus?.tagName === 'INPUT' || focus?.isContentEditable) return
+      const row = document.querySelector<HTMLElement>(`.cue[data-cue="${index}"]`)
+      if (!row) return
+      select(index)
+      row.scrollIntoView(how === 'follow' ? { block: 'center', behavior: 'smooth' } : { block: 'nearest' })
+    },
+    [select],
+  )
+
   const showCue = useCallback(
-    (t: number) => {
+    (t: number, how: 'follow' | 'jump' = 'jump') => {
       const index = cueAt(cues, t)?.index ?? null
       if (index !== activeRef.current) {
         activeRef.current = index
         setActiveIndex(index)
+        // A gap between lines leaves the last one selected rather than none.
+        if (index !== null && (how === 'jump' || !tableFreeRef.current)) reveal(index, how)
       }
     },
-    [cues],
+    [cues, reveal],
   )
+
+  // Somebody wheeling through the table during playback is reading something
+  // else; following picks up again with the next play.
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      if ((e.target as Element | null)?.closest?.('.cues')) tableFreeRef.current = true
+    }
+    window.addEventListener('wheel', onWheel, { passive: true })
+    return () => window.removeEventListener('wheel', onWheel)
+  }, [])
 
   /** The window currently on screen, read from the scroller rather than stored. */
   const currentView = useCallback(() => {
@@ -415,6 +452,14 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     [currentView, duration],
   )
 
+  // The loops below run for as long as playback does, but a closure keeps the
+  // drawing and the cues of the moment it started: an edit or a selection
+  // made mid-play would not show until the next press. They read these.
+  const live = useRef({ draw, showCue })
+  useEffect(() => {
+    live.current = { draw, showCue }
+  }, [draw, showCue])
+
   /** Play forward with sound, at `speed`. */
   const play = useCallback(
     (speed = 1) => {
@@ -422,6 +467,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       if (!video || duration <= 0) return
 
       stop()
+      tableFreeRef.current = false
       // Past the end, pressing play should start over rather than do nothing.
       if (playheadRef.current >= duration) playheadRef.current = 0
       if (Math.abs(video.currentTime - playheadRef.current) > 0.05) {
@@ -438,8 +484,8 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
         playheadRef.current = t
         setClock(clockLabel(t))
         follow(t)
-        showCue(t)
-        draw()
+        live.current.showCue(t, 'follow')
+        live.current.draw()
         // Ended, or paused by something that is not us — a media key, the
         // element losing its source — and the button should say so.
         if (video.ended || video.paused) {
@@ -450,7 +496,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       }
       frameRef.current = requestAnimationFrame(tick)
     },
-    [draw, duration, follow, showCue, stop],
+    [duration, follow, stop],
   )
 
   /**
@@ -464,6 +510,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   const scrub = useCallback(
     (direction: Direction, speed: number) => {
       stop()
+      tableFreeRef.current = false
       setPlaying(true)
 
       let last: number | null = null
@@ -473,8 +520,8 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
           playheadRef.current = Math.max(0, Math.min(duration, t))
           setClock(clockLabel(playheadRef.current))
           follow(playheadRef.current)
-          showCue(playheadRef.current)
-          draw()
+          live.current.showCue(playheadRef.current, 'follow')
+          live.current.draw()
 
           const video = videoRef.current
           if (video && now - scrubSeekRef.current > 120) {
@@ -492,7 +539,7 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       }
       frameRef.current = requestAnimationFrame(step)
     },
-    [draw, duration, follow, showCue, stop],
+    [duration, follow, stop],
   )
 
   const seek = useCallback(
@@ -656,11 +703,16 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     return () => publishPlayhead(null)
   }, [])
 
-  // And lend the way back, so the palette can jump to a cue or a timecode.
+  // And lend the way back, so the palette and the table can jump to a cue or
+  // a timecode — bringing the wave along, since the place jumped to may be
+  // well off the zoomed-in stretch on screen.
   useEffect(() => {
-    publishSeek(seek)
+    publishSeek(t => {
+      seek(t)
+      follow(t)
+    })
     return () => publishSeek(null)
-  }, [seek])
+  }, [follow, seek])
 
   const ready = duration > 0
 
@@ -820,8 +872,10 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
           pressRef.current = null
           e.currentTarget.releasePointerCapture(e.pointerId)
           if (!press || press.kind === 'ruler' || press.moved) return
-          // A press that never moved: the playhead goes where it landed.
+          // A press that never moved: the playhead goes where it landed, and a
+          // cue pressed becomes the editor's selection, its row brought into view.
           seek(pointerAt(e).at)
+          if (press.kind === 'cue') reveal(press.track[press.grab.index].index, 'jump')
         }}
         onPointerCancel={() => {
           pressRef.current = null
