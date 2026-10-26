@@ -60,4 +60,14 @@ export const SHORTCUTS: ShortcutGroup[] = [
       { keys: '⌥J ⌥K ⌥L', does: 'Lo mismo mientras escribes en un cue' },
     ],
   },
+  {
+    title: 'La onda',
+    items: [
+      { keys: 'Clic', does: 'Llevar el cabezal ahí; sobre un cue, además, seleccionarlo' },
+      { keys: 'Arrastrar', does: 'Desplazar la onda, o mover el cue o su borde' },
+      { keys: 'Arrastrar la regla', does: 'Arrastrar el cabezal' },
+      { keys: 'Rueda · dos dedos', does: 'Desplazar' },
+      { keys: '⌘ rueda · pellizco', does: 'Acercar o alejar donde está el puntero' },
+    ],
+  },
 ]
