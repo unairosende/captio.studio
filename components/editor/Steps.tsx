@@ -6,7 +6,7 @@ import { LOAD_MEDIA } from '@/components/timeline/Timeline'
 import type { Entitlement } from '@/lib/entitlement'
 import { TRIAL } from '@/lib/plans'
 import { QUICK_LANGS, SOURCE_LANGUAGES, TARGET_LANGUAGES } from '@/lib/providers'
-import { type ParseHint, type SubtitleFormat, qcForMode } from '@/lib/subtitles'
+import type { ParseHint, SubtitleFormat } from '@/lib/subtitles'
 import { formatDuration } from '@/lib/usage'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 
@@ -71,9 +71,9 @@ export function Sidebar({ name, onFold, children }: { name: string; onFold: () =
  */
 export default function Steps({ entitlement, open, onOpen }: Props) {
   const {
-    subtitles, translations, activeTab, outputMode, srcLang, tgtLang, allowRephrase, playback,
+    subtitles, translations, activeTab, srcLang, tgtLang, playback,
     translateJob, transcribeJob, reviewJob, backTranslateJob,
-    setSrcLang, setTgtLang, setOutputMode, setAllowRephrase, clearAll,
+    setSrcLang, setTgtLang, clearAll,
   } = useSubtitleStore()
 
   const importJob = useImport()
@@ -83,7 +83,6 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
 
   const langs = Object.keys(translations)
   const hasSubs = subtitles.length > 0
-  const qc = qcForMode(outputMode)
 
   const [hint, setHint] = useState<ParseHint>('auto')
   const [paste, setPaste] = useState('')
@@ -221,17 +220,6 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
                       <button key={l} className="chip" aria-pressed={!showCustom && tgtLang === l} onClick={() => { setShowCustom(false); setTgtLang(l) }}>{langCode(l)}</button>
                     ))}
                   </div>
-                </div>
-                <div>
-                  <span className="caps">Formato de salida</span>
-                  <div className={s.radios}>
-                    <label><input type="radio" name="outputMode" checked={outputMode === 'horizontal'} onChange={() => setOutputMode('horizontal')} /> Horizontal</label>
-                    <label><input type="radio" name="outputMode" checked={outputMode === 'vertical'} onChange={() => setOutputMode('vertical')} /> Vertical (parte los largos)</label>
-                  </div>
-                  <div className={s.hint}>Máximo {qc.maxChars} caracteres por línea · aviso a partir de {qc.cpsWarn} cps</div>
-                </div>
-                <div className={s.radios}>
-                  <label><input type="checkbox" checked={allowRephrase} onChange={e => setAllowRephrase(e.target.checked)} /> Permitir reformular para que quepa</label>
                 </div>
                 <div>
                   <button className="btn btn-primary" data-cmd="Traducir al idioma de destino" disabled={!hasSubs || !targetLang || translateJob.running} aria-busy={translateJob.running || undefined}
