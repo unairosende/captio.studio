@@ -676,6 +676,10 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   const kHeldRef = useRef(false)
   /** J or L is held under K, creeping at a quarter speed. */
   const creepRef = useRef(false)
+  /** K went down while stopped and nothing has been pressed under it: let go, it plays. */
+  const kTapRef = useRef(false)
+  /** The focus last moved by Tab rather than by a click: the focused control is being used from the keyboard. */
+  const tabbedRef = useRef(false)
 
   /**
    * The transport keys.
@@ -685,9 +689,10 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
    * focus first would defeat the point of having them.
    *
    * J back, K stop, L forward, and the same key again goes faster — Avid's and
-   * Premiere's, so a subtitler arrives already able to use them. With K held,
-   * J and L step one frame, and held themselves creep: the way to find the
-   * frame a word starts on. Space plays and stops, as everywhere else.
+   * Premiere's, so a subtitler arrives already able to use them. K tapped while
+   * stopped plays, the way YouTube taught everybody else. With K held, J and L
+   * step one frame, and held themselves creep: the way to find the frame a
+   * word starts on. Space plays and stops, as everywhere else.
    *
    * In a field these are letters and a space somebody is typing, so there
    * they need ⌥ — which is what lets a line be corrected while it is heard.
@@ -704,14 +709,20 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     }
 
     function onKey(e: KeyboardEvent) {
+      if (e.key === 'Tab') tabbedRef.current = true
       const key = KEYS[e.code]
       if (!key || e.metaKey || e.ctrlKey || duration <= 0) return
       const el = e.target as HTMLElement | null
       const typing = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.isContentEditable
       if (e.altKey ? key === ' ' : typing) return
-      // A focused button answers Space itself; taking the key from it would
-      // leave somebody on the keyboard unable to press anything.
-      if (key === ' ' && el?.closest('button, a, select, [role="button"], [role="menuitem"], [role="tab"]')) return
+      // A control reached with Tab answers Space itself; taking the key from
+      // it would leave somebody on the keyboard unable to press anything. One
+      // that only has the focus because it was clicked — zoom, fold, a tab —
+      // does not get it: Space pressing it again instead of playing is the one
+      // thing nobody wants. (Not :focus-visible, which Chrome turns on for a
+      // clicked button the moment any key is pressed on it.)
+      const control = el?.closest('button, a, select, [role="button"], [role="menuitem"], [role="tab"]')
+      if (key === ' ' && control && tabbedRef.current) return
 
       e.preventDefault()
 
@@ -726,14 +737,17 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
       }
 
       if (key === 'k') {
+        if (e.repeat) return
         kHeldRef.current = true
-        if (!e.repeat) halt()
+        kTapRef.current = !playing
+        halt()
         return
       }
 
       const direction: Direction = key === 'l' ? 1 : -1
 
       if (kHeldRef.current) {
+        kTapRef.current = false
         if (!e.repeat) {
           halt()
           seek((Math.round(playheadRef.current * DEFAULT_FPS) + direction) / DEFAULT_FPS)
@@ -759,7 +773,13 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     }
 
     function onKeyUp(e: KeyboardEvent) {
-      if (e.code === 'KeyK') kHeldRef.current = false
+      if (e.code === 'KeyK') {
+        kHeldRef.current = false
+        if (kTapRef.current) {
+          kTapRef.current = false
+          play(1)
+        }
+      }
       if (creepRef.current && (e.code === 'KeyK' || e.code === 'KeyJ' || e.code === 'KeyL')) {
         creepRef.current = false
         halt()
@@ -769,19 +789,26 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
     // A key let go in another window never says so here.
     function onBlur() {
       kHeldRef.current = false
+      kTapRef.current = false
       if (creepRef.current) {
         creepRef.current = false
         halt()
       }
     }
 
+    const onPointer = () => {
+      tabbedRef.current = false
+    }
+
     window.addEventListener('keydown', onKey)
     window.addEventListener('keyup', onKeyUp)
     window.addEventListener('blur', onBlur)
+    window.addEventListener('pointerdown', onPointer, true)
     return () => {
       window.removeEventListener('keydown', onKey)
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('blur', onBlur)
+      window.removeEventListener('pointerdown', onPointer, true)
     }
   }, [duration, play, playing, scrub, seek, stop])
 
