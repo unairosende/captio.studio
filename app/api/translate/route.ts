@@ -388,13 +388,17 @@ export async function POST(req: NextRequest) {
   const sequenceId = typeof body.sequenceId === 'string' ? body.sequenceId : ''
   const mediaId = typeof body.mediaId === 'string' ? body.mediaId : ''
 
+  // An upload is paid-for material only once a transcription charged it. One
+  // that was only uploaded — a picture swapped under imported cues — is
+  // charged as the sequence it belongs to, like any import.
+  const media = task === 'translate' && mediaId ? await getMedia(ctx.orgId, mediaId) : null
+
   if (task !== 'translate') {
     // Nothing to charge, nothing to identify.
-  } else if (mediaId) {
-    // Ownership is the check that matters; the charge happened at transcription.
-    if (!(await getMedia(ctx.orgId, mediaId))) {
-      return NextResponse.json({ error: 'Unknown media' }, { status: 404 })
-    }
+  } else if (mediaId && !media) {
+    return NextResponse.json({ error: 'Unknown media' }, { status: 404 })
+  } else if (media?.billed_at) {
+    // Ownership was the check; the charge happened at transcription.
   } else if (sequenceId) {
     const sequence = await getSequence(ctx.orgId, sequenceId)
     if (!sequence) return NextResponse.json({ error: 'Unknown sequence' }, { status: 404 })

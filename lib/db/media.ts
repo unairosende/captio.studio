@@ -22,6 +22,11 @@ export interface MediaRow {
   duration_seconds: string | null
   /** Waveform peaks, 0..1 — see lib/audio/peaks.ts. Null when the upload could not be decoded. */
   peaks: number[] | null
+  /**
+   * When a transcription charged it — see billMedia in lib/db/billing.ts. Null
+   * for an upload nobody transcribed: a picture swapped under imported cues.
+   */
+  billed_at: string | null
   created_by: string | null
   created_at: string
 }

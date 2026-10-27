@@ -273,11 +273,17 @@ export async function billSequence(
  * Zero seconds rather than the duration: the minutes are already recorded
  * against the media row, and counting them here as well would double the
  * month's consumption for every transcribed job.
+ *
+ * Only when an upload attached to it was charged. A picture swapped under an
+ * imported SRT was uploaded and never transcribed; marking that paid would
+ * make every translation of the import free.
  */
 export async function markSequencePaid(orgId: string, sequenceId: string): Promise<void> {
   await query(
     `update sequences set billed_seconds = 0, billed_at = now()
-      where org_id = $1 and id = $2 and billed_at is null`,
+      where org_id = $1 and id = $2 and billed_at is null
+        and exists (select 1 from media
+                     where org_id = $1 and sequence_id = $2 and billed_at is not null)`,
     [requireOrg(orgId), sequenceId],
   )
 }
