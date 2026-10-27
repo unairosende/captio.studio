@@ -1,9 +1,10 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
+import { APIError } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import { organization } from 'better-auth/plugins/organization'
 
 import { db } from '../db/client.ts'
-import { firstMembershipForUser } from '../db/organizations.ts'
+import { firstMembershipForUser, pendingInvitationFor } from '../db/organizations.ts'
 import {
   invitationEmail,
   resetPasswordEmail,
@@ -11,6 +12,7 @@ import {
   verificationEmail,
 } from '../email/send.ts'
 import { INVITATION_EXPIRY_SECONDS, RESET_EXPIRY_SECONDS } from './expiry.ts'
+import { INVITE_ONLY, SIGNUP_CLOSED, onAllowList } from './signup.ts'
 
 /**
  * Authentication and organisations.
@@ -89,6 +91,23 @@ export const authOptions = {
    * neither a stale session nor a missed hook can produce that deadlock again.
    */
   databaseHooks: {
+    /**
+     * The door of a private copy — see lib/auth/signup.ts for who is let in.
+     *
+     * On the account rather than on the sign-up route, because Google's first
+     * sign-in creates the account down its own path and would otherwise walk
+     * straight past a check that lived on the form.
+     */
+    user: {
+      create: {
+        before: async user => {
+          if (!INVITE_ONLY || onAllowList(user.email, process.env.SIGNUP_ALLOW ?? '')) return
+          if (await pendingInvitationFor(user.email)) return
+          throw new APIError('FORBIDDEN', { code: SIGNUP_CLOSED, message: SIGNUP_CLOSED })
+        },
+      },
+    },
+
     session: {
       create: {
         before: async session => ({
