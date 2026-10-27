@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand'
+
 import s from './loading.module.css'
 
 /**
@@ -13,7 +15,7 @@ export default function Loading() {
   return (
     <div className={s.page} aria-busy="true" aria-label="Cargando">
       <header className="topbar">
-        <span className="brand">captio</span>
+        <span className="brand">{BRAND.name}</span>
       </header>
       <main className={s.main}>
         <div className={s.grid}>

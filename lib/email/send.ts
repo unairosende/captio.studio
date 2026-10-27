@@ -1,6 +1,7 @@
 import { Resend } from 'resend'
 
 import { RESET_EXPIRY_HOURS } from '../auth/expiry.ts'
+import { BRAND } from '../brand.ts'
 
 /**
  * Transactional email.
@@ -103,9 +104,9 @@ function layout(heading: string, body: string, cta?: { url: string; label: strin
 
 export function verificationEmail(url: string): Omit<Mail, 'to'> {
   return {
-    subject: 'Confirma tu correo en captio',
-    text: `Confirma tu correo para activar tu cuenta de captio:\n\n${url}\n\nSi no esperabas este correo, puedes ignorarlo.`,
-    html: layout('Confirma tu correo', 'Un último paso para activar tu cuenta de captio.', {
+    subject: `Confirma tu correo en ${BRAND.name}`,
+    text: `Confirma tu correo para activar tu cuenta de ${BRAND.name}:\n\n${url}\n\nSi no esperabas este correo, puedes ignorarlo.`,
+    html: layout('Confirma tu correo', `Un último paso para activar tu cuenta de ${BRAND.name}.`, {
       url: esc(url),
       label: 'Confirmar correo',
     }),
@@ -120,7 +121,7 @@ export function resetPasswordEmail(url: string): Omit<Mail, 'to'> {
     RESET_EXPIRY_HOURS === 1 ? 'El enlace caduca en una hora.' : `El enlace caduca en ${RESET_EXPIRY_HOURS} horas.`
 
   return {
-    subject: 'Restablecer tu contraseña de captio',
+    subject: `Restablecer tu contraseña de ${BRAND.name}`,
     text: `Alguien pidió restablecer la contraseña de esta cuenta:\n\n${url}\n\n${lifespan}\n\nSi no fuiste tú, ignora este correo: tu contraseña no cambia hasta que se use el enlace.`,
     html: layout(
       'Restablecer tu contraseña',
@@ -187,9 +188,9 @@ export function invitationEmail(input: {
   const url = esc(input.acceptUrl)
 
   return {
-    subject: `${input.inviterName} te invita a ${input.organizationName} en captio`,
+    subject: `${input.inviterName} te invita a ${input.organizationName} en ${BRAND.name}`,
     text: [
-      `${input.inviterName} te ha invitado a unirte a ${input.organizationName} en captio.`,
+      `${input.inviterName} te ha invitado a unirte a ${input.organizationName} en ${BRAND.name}.`,
       '',
       `Acepta la invitación aquí: ${input.acceptUrl}`,
       '',
@@ -197,7 +198,7 @@ export function invitationEmail(input: {
     ].join('\n'),
     html: layout(
       `Te han invitado a ${org}`,
-      `${who} te ha invitado a unirte a <strong>${org}</strong> en captio.`,
+      `${who} te ha invitado a unirte a <strong>${org}</strong> en ${BRAND.name}.`,
       { url, label: 'Aceptar invitación' },
     ),
   }

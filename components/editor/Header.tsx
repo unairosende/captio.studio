@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 
 import Dialog from '@/components/Dialog'
 import { signOut as endSession } from '@/lib/auth/client'
+import { BRAND } from '@/lib/brand'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
@@ -128,7 +129,7 @@ export default function Header({ user, project, onPalette, onTeam, onShortcuts }
 
   return (
     <header className={`topbar ${s.head}`} ref={menusRef}>
-      <Link href="/dashboard" className="brand">captio</Link>
+      <Link href="/dashboard" className="brand">{BRAND.name}</Link>
       <span className="topbar-sep" />
 
       <nav className="crumbs" aria-label="Dónde estás">

@@ -4,12 +4,13 @@ import type { CSSProperties } from 'react'
 
 import Shell from '@/components/marketing/Shell'
 import m from '@/components/marketing/marketing.module.css'
+import { BRAND } from '@/lib/brand'
 import { PLANS, TRIAL } from '@/lib/plans'
 
 import s from './landing.module.css'
 
 export const metadata: Metadata = {
-  title: 'Captio — subtitulado en una sola ventana',
+  title: `${BRAND.name} — subtitulado en una sola ventana`,
   description:
     'Transcribe el vídeo, traduce con el glosario del proyecto, comprueba la calidad, revisa con el cliente y exporta a SRT, VTT, ASS o TTML. Para traductores y productoras.',
 }
@@ -91,7 +92,7 @@ export default function LandingPage() {
           words. */}
       <div className={s.shot} aria-hidden="true">
         <div className={s.shotBar}>
-          <span className="brand">captio</span>
+          <span className="brand">{BRAND.name}</span>
           <span className="topbar-sep" />
           <span className="crumbs">
             <span>Proyectos</span>

@@ -7,6 +7,7 @@ import GuestBadge from '@/components/review/GuestBadge'
 import GuestGate from '@/components/review/GuestGate'
 import s from '@/components/review/review.module.css'
 import { guestCookie, resolveGuest, resolveLink } from '@/lib/auth/actor'
+import { BRAND } from '@/lib/brand'
 import { getOrganization } from '@/lib/db/organizations'
 import { getProject } from '@/lib/db/projects'
 import { touchGuest } from '@/lib/db/review-links'
@@ -22,7 +23,7 @@ import { describeSequence } from '@/lib/lang'
  * three cases: saying which would tell a stranger which tokens were once real.
  */
 
-export const metadata: Metadata = { title: 'Revisión de subtítulos · Captio' }
+export const metadata: Metadata = { title: `Revisión de subtítulos · ${BRAND.name}` }
 
 interface Props {
   params: Promise<{ token: string }>
@@ -54,7 +55,7 @@ export default async function ReviewLinkPage({ params }: Props) {
   return (
     <div className={s.page}>
       <header className="topbar">
-        <span className="brand">captio</span>
+        <span className="brand">{BRAND.name}</span>
         <span className="topbar-sep" />
         <span className={s.org}>{organizationName}</span>
         <div className={s.headEnd}>

@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 import { send } from '@/lib/api'
+import { BRAND } from '@/lib/brand'
 
 import s from './review.module.css'
 
@@ -51,7 +52,7 @@ export default function GuestGate({ token, projectName, organizationName }: Prop
   return (
     <div className={`${s.page} ${s.center}`}>
       <form onSubmit={submit} className={`card ${s.gate}`}>
-        <span className="brand">captio</span>
+        <span className="brand">{BRAND.name}</span>
         <div>
           <h1>{projectName}</h1>
           <p>

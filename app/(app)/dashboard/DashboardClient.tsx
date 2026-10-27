@@ -8,6 +8,7 @@ import TeamPanel from '@/components/team/TeamPanel'
 import { ago } from '@/lib/ago'
 import { api, send } from '@/lib/api'
 import { signOut as endSession } from '@/lib/auth/client'
+import { BRAND } from '@/lib/brand'
 import type { MemberRow } from '@/lib/db/organizations'
 import type { ProjectSummary } from '@/lib/db/projects'
 import type { Entitlement } from '@/lib/entitlement'
@@ -225,7 +226,7 @@ export default function DashboardClient({
       )}
 
       <header className={`topbar ${s.head}`}>
-        <Link href="/dashboard" className="brand">captio</Link>
+        <Link href="/dashboard" className="brand">{BRAND.name}</Link>
         <span className={s.org}>{organizationName}</span>
         <span className={s.plan}>{entitlement.plan}</span>
         <div className={s.headEnd}>

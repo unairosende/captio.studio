@@ -7,6 +7,7 @@ import { type CSSProperties, useCallback, useEffect, useMemo, useRef, useState }
 import CommentsPanel from '@/components/comments/CommentsPanel'
 import Player from '@/components/video/Player'
 import { api, send } from '@/lib/api'
+import { BRAND } from '@/lib/brand'
 import type { VersionSummary } from '@/lib/db/sequences'
 import { knownSource, shortLang } from '@/lib/lang'
 import { REVIEW_TOKEN_HEADER } from '@/lib/review/protocol'
@@ -329,7 +330,7 @@ export default function ReviewClient(props: ReviewProps) {
 
       <header className="topbar">
         {/* A client has nowhere else to go; the team's brand leads home. */}
-        {token ? <span className="brand">captio</span> : <Link href="/dashboard" className="brand">captio</Link>}
+        {token ? <span className="brand">{BRAND.name}</span> : <Link href="/dashboard" className="brand">{BRAND.name}</Link>}
         <span className="topbar-sep" />
         <nav className="crumbs" aria-label="Dónde estás">
           <Link href={back}>{project.name}</Link>

@@ -5,6 +5,7 @@ import { notFound, redirect } from 'next/navigation'
 import DeadLink from '@/components/review/DeadLink'
 import ReviewClient from '@/components/review/ReviewClient'
 import { guestCookie, resolveGuest, resolveLink } from '@/lib/auth/actor'
+import { BRAND } from '@/lib/brand'
 import { listComments } from '@/lib/db/comments'
 import { getProject } from '@/lib/db/projects'
 import { sequenceInProject, touchGuest } from '@/lib/db/review-links'
@@ -22,7 +23,7 @@ import { readCues } from '@/lib/subtitles/data'
  * come back in a header on every request the view makes.
  */
 
-export const metadata: Metadata = { title: 'Revisión de subtítulos · Captio' }
+export const metadata: Metadata = { title: `Revisión de subtítulos · ${BRAND.name}` }
 
 interface Props {
   params: Promise<{ token: string; sequenceId: string }>

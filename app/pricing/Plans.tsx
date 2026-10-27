@@ -6,6 +6,7 @@ import { useState } from 'react'
 
 import m from '@/components/marketing/marketing.module.css'
 import { send } from '@/lib/api'
+import { BRAND } from '@/lib/brand'
 import { PLANS, TRIAL } from '@/lib/plans'
 
 /**
@@ -56,7 +57,7 @@ export default function Plans() {
           <ul className={m.features}>
             <li><strong>{TRIAL.mediaMinutes} minutos</strong> de material</li>
             <li>Transcrito, subtitulado y traducido a todos los idiomas que necesites</li>
-            <li>Todo lo que hace Captio, sin recortes</li>
+            <li>Todo lo que hace {BRAND.name}, sin recortes</li>
             <li>Cuando se agota, lo hecho se queda y sigue exportándose</li>
           </ul>
           <Link href="/signup" className="btn btn-primary btn-lg">Empezar gratis</Link>

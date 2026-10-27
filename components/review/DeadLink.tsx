@@ -1,3 +1,5 @@
+import { BRAND } from '@/lib/brand'
+
 import s from './review.module.css'
 
 /**
@@ -10,7 +12,7 @@ export default function DeadLink() {
   return (
     <div className={`${s.page} ${s.center}`}>
       <div className={`card ${s.gate}`}>
-        <span className="brand">captio</span>
+        <span className="brand">{BRAND.name}</span>
         <div>
           <h1>Este enlace ya no está activo.</h1>
           <p>Pídele otro a quien te lo envió.</p>

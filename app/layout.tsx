@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import Script from 'next/script'
 
+import { BRAND } from '@/lib/brand'
+
 import './reset.css'
 import './globals.css'
 import './tokens.css'
@@ -25,7 +27,7 @@ const sans = Inter({
 })
 
 export const metadata: Metadata = {
-  title: 'Captio — subtitulado en una sola ventana',
+  title: `${BRAND.name} — subtitulado en una sola ventana`,
   description: 'Transcribir, traducir con glosario, revisar con el cliente y exportar subtítulos, en un solo sitio.',
 }
 
