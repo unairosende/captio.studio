@@ -108,6 +108,9 @@ interface TranslationJob {
   error: string | null
 }
 
+/** What a save request was built from — compared with the store when it returns. */
+export type Sent = Pick<AppState, 'subtitles' | 'translations' | 'glossary' | 'sequenceName' | 'mediaId' | 'anchorOps'>
+
 interface AppState {
   // Core data
   subtitles: Subtitle[]
@@ -247,7 +250,11 @@ interface AppState {
     glossary?: GlossaryEntry[]
     playback?: Playback | null
   }) => void
-  markSaved: (id: string, name: string, version: number) => void
+  /**
+   * The save came back. `sent` is the state the request was built from, when
+   * it differs from now — an autosave goes out while somebody keeps typing.
+   */
+  markSaved: (id: string, name: string, version: number, sent?: Sent) => void
   /** A blank sequence in the given project. The glossary is the project's, so it stays. */
   newSequence: (project: { id: string; name: string; glossary?: GlossaryEntry[] }) => void
   setSequenceName: (name: string) => void
@@ -383,16 +390,26 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     anchorOps: [],
   }),
 
-  // The anchors went with the save, so replaying them would move every comment
-  // a second time.
-  markSaved: (id, name, version) =>
-    set({
-      sequenceId: id,
-      sequenceName: name,
-      sequenceVersion: version,
-      dirty: false,
-      glossaryDirty: false,
-      anchorOps: [],
+  // The anchors that went with the save are done, so replaying them would move
+  // every comment a second time. Anything changed while the request was in
+  // flight did not go, and stays unsaved — with the anchors it added.
+  markSaved: (id, name, version, sent) =>
+    set(s => {
+      const was = sent ?? s
+      const later =
+        s.subtitles !== was.subtitles ||
+        s.translations !== was.translations ||
+        s.glossary !== was.glossary ||
+        s.sequenceName !== was.sequenceName ||
+        s.mediaId !== was.mediaId
+      return {
+        sequenceId: id,
+        sequenceName: s.sequenceName === was.sequenceName ? name : s.sequenceName,
+        sequenceVersion: version,
+        dirty: later,
+        glossaryDirty: s.glossaryDirty && s.glossary !== was.glossary,
+        anchorOps: s.anchorOps.slice(was.anchorOps.length),
+      }
     }),
 
   // The glossary survives, because it belongs to the project rather than to the

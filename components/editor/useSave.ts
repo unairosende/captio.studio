@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { api, send } from '@/lib/api'
@@ -37,12 +37,11 @@ interface Saved {
  */
 export function useSave() {
   const {
-    subtitles, translations, srcLang, glossary, glossaryDirty,
-    projectId, projectName,
-    sequenceId, sequenceName, sequenceVersion, dirty, anchorOps, mediaId,
+    glossary, projectId, projectName, sequenceId, dirty,
     openSequence, markSaved, newSequence, setComments,
   } = useSubtitleStore()
 
+  const flying = useRef(false)
   const [list, setList] = useState<SequenceSummary[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -64,28 +63,40 @@ export function useSave() {
   }, [dirty])
 
   async function save(force = false) {
-    if (!subtitles.length) { setError('Todavía no hay nada que guardar'); return }
-    if (!projectId) { setError('Ábrelo desde un proyecto'); return }
+    // Read now rather than from the last render: an autosave fires from a
+    // timer, and what goes is what is there when it fires.
+    const st = useSubtitleStore.getState()
+    if (!st.subtitles.length) { setError('Todavía no hay nada que guardar'); return }
+    if (!st.projectId) { setError('Ábrelo desde un proyecto'); return }
+    // One at a time: a second request carrying the same version would come
+    // back 409 against the first, and call the user's own save somebody else's.
+    if (flying.current) return
+    flying.current = true
     setBusy(true)
     setError(null)
 
+    const id = st.sequenceId
     const payload = {
-      name: sequenceName.trim() || 'Sin título',
-      sourceLang: srcLang,
-      targetLangs: Object.keys(translations),
-      data: { subtitles, translations },
-      ...(sequenceId ? {} : { projectId }),
-      ...(sequenceId && !force ? { version: sequenceVersion } : {}),
-      ...(sequenceId && anchorOps.length ? { anchorOps } : {}),
-      ...(mediaId ? { mediaId } : {}),
+      name: st.sequenceName.trim() || 'Sin título',
+      sourceLang: st.srcLang,
+      targetLangs: Object.keys(st.translations),
+      data: { subtitles: st.subtitles, translations: st.translations },
+      ...(id ? {} : { projectId: st.projectId }),
+      ...(id && !force ? { version: st.sequenceVersion } : {}),
+      ...(id && st.anchorOps.length ? { anchorOps: st.anchorOps } : {}),
+      ...(st.mediaId ? { mediaId: st.mediaId } : {}),
     }
-    const r = await send<{ sequence: Saved }>(sequenceId ? `/api/sequences/${sequenceId}` : '/api/sequences', payload, sequenceId ? 'PATCH' : 'POST')
+    const r = await send<{ sequence: Saved }>(id ? `/api/sequences/${id}` : '/api/sequences', payload, id ? 'PATCH' : 'POST')
 
-    if (r.status === 409) { setBusy(false); setConflict(true); return }
-    if (!r.ok) { setBusy(false); setError(r.error); return }
+    if (!r.ok) {
+      flying.current = false
+      setBusy(false)
+      if (r.status === 409) setConflict(true); else setError(r.error)
+      return
+    }
 
-    if (glossaryDirty) {
-      const terms = await send(`/api/projects/${projectId}`, { glossary }, 'PATCH')
+    if (st.glossaryDirty) {
+      const terms = await send(`/api/projects/${st.projectId}`, { glossary: st.glossary }, 'PATCH')
       if (!terms.ok) setError(`Guardado, pero el glosario no subió: ${terms.error}`)
     }
 
@@ -93,7 +104,8 @@ export function useSave() {
     const saved = r.json.sequence
     setConflict(false)
     setSavedAt(new Date())
-    markSaved(saved.id, saved.name, saved.version)
+    markSaved(saved.id, saved.name, saved.version, st)
+    flying.current = false
   }
 
   async function load(id: string) {

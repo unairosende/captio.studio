@@ -168,6 +168,30 @@ describe('comment anchors', () => {
     assert.deepEqual(store().comments.map(c => c.cue_index), [3])
   })
 
+  it('keeps what changed while a save was in flight', () => {
+    // An autosave goes out while somebody keeps working. What they did after
+    // it left is not in the database, and the split they made still has to
+    // move the comments when the next save carries it.
+    store().setComments([note('a', 2)])
+    store().splitSubtitle(1)
+    const sent = { ...store() }
+    store().splitSubtitle(1)
+    const later = store().anchorOps.slice(1)
+
+    store().markSaved('p1', 'Project', 2, sent)
+
+    assert.equal(store().dirty, true)
+    assert.deepEqual(store().anchorOps, later)
+  })
+
+  it('is saved once nothing changed after the request left', () => {
+    store().splitSubtitle(1)
+    store().markSaved('p1', 'Project', 2, { ...store() })
+
+    assert.equal(store().dirty, false)
+    assert.deepEqual(store().anchorOps, [])
+  })
+
   it('records nothing for an edit that changes no numbering', () => {
     store().setComments([note('a', 1)])
     store().pushUndo()

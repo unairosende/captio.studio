@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 
@@ -10,6 +10,39 @@ import { useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
 import { useSave } from './useSave'
+
+/** How long after the last change an autosave goes: a pause in the typing, not every key. */
+const AUTOSAVE_MS = 2000
+
+/**
+ * Whether saving happens by itself.
+ *
+ * On unless somebody switched it off, and a preference of this browser rather
+ * than of the sequence. Read through useSyncExternalStore so the server render
+ * and the first client one agree; a browser that refuses storage still
+ * switches, and forgets on reload.
+ */
+const AUTOSAVE_KEY = 'captio.autosave'
+let autosaveOff: boolean | null = null
+const autosaveListeners = new Set<() => void>()
+
+function readAutosave(): boolean {
+  if (autosaveOff === null) {
+    try { autosaveOff = localStorage.getItem(AUTOSAVE_KEY) === 'off' } catch { autosaveOff = false }
+  }
+  return !autosaveOff
+}
+
+function writeAutosave(on: boolean) {
+  autosaveOff = !on
+  try { if (on) localStorage.removeItem(AUTOSAVE_KEY); else localStorage.setItem(AUTOSAVE_KEY, 'off') } catch {}
+  autosaveListeners.forEach(l => l())
+}
+
+function subscribeAutosave(listener: () => void) {
+  autosaveListeners.add(listener)
+  return () => { autosaveListeners.delete(listener) }
+}
 
 interface Props {
   user: { id: string; email: string; name: string; role: string }
@@ -29,8 +62,20 @@ interface Props {
  */
 export default function Header({ user, project, onPalette, onTeam, onShortcuts }: Props) {
   const router = useRouter()
-  const { sequenceName, setSequenceName } = useSubtitleStore()
+  const { sequenceName, setSequenceName, subtitles, translations, glossary, mediaId } = useSubtitleStore()
   const save = useSave()
+  const autosave = useSyncExternalStore(subscribeAutosave, readAutosave, () => true)
+
+  // The same save ⌘S does, a moment after the last change — the version check
+  // included, so a colleague's work still raises the question rather than
+  // being overwritten. Not while one is going or that question is open, and a
+  // save that failed waits for the next change instead of retrying in a loop.
+  const autosaveNow = useEffectEvent(() => void save.save())
+  useEffect(() => {
+    if (!autosave || !save.dirty || save.busy || save.conflict || !subtitles.length) return
+    const t = setTimeout(autosaveNow, AUTOSAVE_MS)
+    return () => clearTimeout(t)
+  }, [autosave, save.dirty, save.busy, save.conflict, subtitles, translations, glossary, sequenceName, mediaId])
 
   const [seqMenu, setSeqMenu] = useState(false)
   const [meMenu, setMeMenu] = useState(false)
@@ -73,7 +118,9 @@ export default function Header({ user, project, onPalette, onTeam, onShortcuts }
   // address when the account was created without one.
   const words = user.name.trim().split(/\s+/).filter(Boolean)
   const initials = (words.length >= 2 ? words[0][0] + words[words.length - 1][0] : (words[0] ?? user.email).slice(0, 2)).toUpperCase()
-  const savedLabel = save.dirty
+  const savedLabel = save.busy
+    ? 'guardando…'
+    : save.dirty
     ? 'sin guardar'
     : save.savedAt
       ? `guardado ${save.savedAt.toLocaleTimeString('es', { hour: '2-digit', minute: '2-digit' })}`
@@ -138,6 +185,7 @@ export default function Header({ user, project, onPalette, onTeam, onShortcuts }
               {save.sequenceId && (
                 <button className="menu-item" role="menuitem" onClick={() => router.push(`/review/${save.sequenceId}`)}>Vista de revisión</button>
               )}
+              <button className="menu-item" role="menuitemcheckbox" aria-checked={autosave} onClick={() => writeAutosave(!autosave)}>Autoguardado</button>
               <div className="menu-sep" />
               <span className="caps">Tema</span>
               {([['light', 'Claro'], ['system', 'Como el sistema'], ['dark', 'Oscuro']] as const).map(([id, label]) => (
@@ -156,6 +204,7 @@ export default function Header({ user, project, onPalette, onTeam, onShortcuts }
         <button data-cmd="Nueva secuencia" onClick={save.startNew} />
         <button data-cmd="Abrir otra secuencia" onClick={() => setSeqMenu(true)} />
         <button data-cmd="Gestionar el equipo" onClick={onTeam} />
+        <button data-cmd={autosave ? 'Desactivar el autoguardado' : 'Activar el autoguardado'} onClick={() => writeAutosave(!autosave)} />
         <button data-cmd="Ver los atajos de teclado" data-cmd-hint="⌘/" onClick={onShortcuts} />
 
         <button data-cmd="Volver al proyecto" onClick={() => router.push(`/projects/${project.id}`)} />
