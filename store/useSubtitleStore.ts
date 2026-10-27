@@ -347,7 +347,10 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   projectId: null,
   projectName: '',
   mediaId: null,
-  setMediaId: id => set({ mediaId: id }),
+  // A new upload under cues that exist is unsaved until a save attaches it. Not
+  // before there are cues: a transcription sets this halfway, and its cues
+  // arriving is what makes the work unsaved.
+  setMediaId: id => set(s => ({ mediaId: id, dirty: s.dirty || s.subtitles.length > 0 })),
   playback: null,
   // A blob: URL holds the file it points at until it is revoked, and the file
   // being replaced is the one thing nobody will ask for again.

@@ -21,6 +21,7 @@ import {
   sheetRows,
   slugify,
 } from '@/lib/subtitles'
+import type { Playback } from '@/types/media'
 import type { Subtitle } from '@/types/subtitle'
 
 /**
@@ -218,38 +219,17 @@ export function useTranscribe() {
 
       setTranscribeJob({ message: isVideo && upload === file ? 'Subiendo el vídeo…' : 'Subiendo el audio…', progress: 55 })
 
-      const grantData = await must('/api/media', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          filename: uploadName,
-          contentType: uploadType,
-          bytes: upload.size,
-          // Read off the file when it was loaded; absent when it would not decode.
-          durationSeconds: playback.durationSeconds ?? undefined,
-          peaks: playback.peaks.length ? playback.peaks : undefined,
-        }),
-      })
-
       // Remembered rather than used and forgotten: the save attaches it to the
       // sequence, and a translation names it as the material it belongs to.
-      setMediaId(grantData.mediaId as string)
-
-      // Straight to object storage. Routing this through our own API would
-      // cap the file at the platform's request-body limit.
-      const put = await api(grantData.uploadUrl as string, {
-        method:  'PUT',
-        body:    upload,
-        headers: { 'Content-Type': uploadType },
-      })
-      if (!put.ok) throw new Error(put.status ? `La subida falló (HTTP ${put.status})` : put.error)
+      const mediaId = await uploadMedia(upload, uploadName, uploadType, playback)
+      setMediaId(mediaId)
 
       setTranscribeJob({ message: 'Transcribiendo…', progress: 75 })
       const data = await must('/api/transcribe', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
-          mediaId:  grantData.mediaId,
+          mediaId,
           language: language !== 'auto' ? language : undefined,
           outputMode,
           glossary,
@@ -271,6 +251,39 @@ export function useTranscribe() {
   }
 
   return { start }
+}
+
+/**
+ * A file up to the bucket: a grant from our API, then the bytes straight to
+ * object storage — routing them through our own API would cap the file at the
+ * platform's request-body limit. Resolves to the row's id only once the object
+ * is there, so nothing gets to name an upload that never arrived.
+ */
+export async function uploadMedia(
+  blob: Blob,
+  filename: string,
+  contentType: string,
+  meta: Pick<Playback, 'durationSeconds' | 'peaks'>,
+): Promise<string> {
+  const grant = await must('/api/media', {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:    JSON.stringify({
+      filename,
+      contentType,
+      bytes: blob.size,
+      // Read off the file when it was loaded; absent when it would not decode.
+      durationSeconds: meta.durationSeconds ?? undefined,
+      peaks: meta.peaks.length ? meta.peaks : undefined,
+    }),
+  })
+  const put = await api(grant.uploadUrl as string, {
+    method:  'PUT',
+    body:    blob,
+    headers: { 'Content-Type': contentType },
+  })
+  if (!put.ok) throw new Error(put.status ? `La subida falló (HTTP ${put.status})` : put.error)
+  return grant.mediaId as string
 }
 
 /** 16-bit mono PCM of the first channel, for a master too big to upload whole. */

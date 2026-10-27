@@ -13,6 +13,7 @@ import {
 import { createPortal } from 'react-dom'
 
 import { PanelBottomIcon } from '@/components/editor/icons'
+import { uploadMedia } from '@/components/editor/useJobs'
 import Caption from '@/components/video/Caption'
 import { decodeAudio, mediaType } from '@/lib/audio/decode'
 import { packPeaks, peakBetween } from '@/lib/audio/peaks'
@@ -27,6 +28,7 @@ import {
   speedLabel,
 } from '@/lib/timeline/transport'
 import { anchoredStart, clampZoom, scrollToShow, visibleWindow, wheelZoom } from '@/lib/timeline/view'
+import { MAX_UPLOAD_BYTES } from '@/lib/upload'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Playback } from '@/types/media'
 import type { Subtitle } from '@/types/subtitle'
@@ -256,10 +258,51 @@ type Press =
  */
 export default function Timeline({ screen }: { screen: HTMLElement | null }) {
   const playback = useSubtitleStore(s => s.playback)
-  return <Track key={playback?.url ?? ''} playback={playback} screen={screen} />
+  // Out here rather than in the track, which starts over with every file.
+  const [keeping, setKeeping] = useState<Keeping | null>(null)
+
+  /**
+   * A file loaded over cues that exist is a new picture for them — a new cut,
+   * a better proxy — so it goes up and stays with the sequence: the next save
+   * attaches it, and the sequence plays it from then on. Loaded into an empty
+   * one it waits, because Transcribir sends it, and sending it here as well
+   * would upload a feature twice.
+   */
+  async function keep(file: File, loaded: Playback) {
+    if (!useSubtitleStore.getState().subtitles.length) return
+    if (file.size > MAX_UPLOAD_BYTES) {
+      return setKeeping({ file, text: 'Pasa de 1 GB: se ve aquí, pero no se guarda con la secuencia', failed: true })
+    }
+    setKeeping({ file, text: `Subiendo ${file.name}…` })
+    try {
+      const id = await uploadMedia(file, file.name, loaded.contentType, loaded)
+      const st = useSubtitleStore.getState()
+      // Only onto the work it was chosen for: another file, or another
+      // sequence, may be on screen by now.
+      if (st.playback?.file === file) st.setMediaId(id)
+      setKeeping(k => (k?.file === file ? null : k))
+    } catch (e) {
+      setKeeping({ file, text: `No se guardó: ${e instanceof Error ? e.message : 'la subida falló'}`, failed: true })
+    }
+  }
+
+  const kept = keeping && keeping.file === playback?.file ? keeping : null
+  return <Track key={playback?.url ?? ''} playback={playback} screen={screen} keeping={kept} onLoad={keep} />
 }
 
-function Track({ playback, screen }: { playback: Playback | null; screen: HTMLElement | null }) {
+/** The upload of a substituted picture, while it goes or once it failed — shown only beside that file. */
+interface Keeping {
+  file: File
+  text: string
+  failed?: boolean
+}
+
+function Track({ playback, screen, keeping, onLoad }: {
+  playback: Playback | null
+  screen: HTMLElement | null
+  keeping: Keeping | null
+  onLoad: (file: File, loaded: Playback) => void
+}) {
   const { subtitles, translations, activeTab, retimeSubtitle, pushUndo, setPlayback, selected, select } =
     useSubtitleStore()
 
@@ -900,15 +943,17 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
   async function load(file: File) {
     setLoading(true)
     const decoded = await decodeAudio(file)
-    setPlayback({
+    const loaded = {
       url: URL.createObjectURL(file),
       contentType: mediaType(file),
       filename: file.name,
       durationSeconds: decoded?.duration ?? null,
       peaks: decoded ? packPeaks(decoded.peaks) : [],
       file,
-    })
+    }
+    setPlayback(loaded)
     setLoading(false)
+    onLoad(file, loaded)
   }
 
   useEffect(() => () => cancelAnimationFrame(frameRef.current), [])
@@ -1045,11 +1090,12 @@ function Track({ playback, screen }: { playback: Playback | null; screen: HTMLEl
 
         {/* Which file this is, here rather than under the picture: the viewer
             folds, and a WAV has no picture to put it under anyway. */}
-        <span className="transport-file" title={playback?.filename} data-tone={failed ? 'danger' : undefined}>
-          {!playback ? 'Sin vídeo ni audio' : failed ? 'Ese archivo no se pudo reproducir' : playback.filename}
+        <span className="transport-file" title={playback?.filename} data-tone={failed || keeping?.failed ? 'danger' : undefined}>
+          {!playback ? 'Sin vídeo ni audio' : failed ? 'Ese archivo no se pudo reproducir' : keeping?.text ?? playback.filename}
         </span>
-        <button className="btn btn-quiet" data-cmd={LOAD_MEDIA} aria-busy={loading || undefined} onClick={() => fileRef.current?.click()}>
-          {playback ? 'Cambiar' : 'Cargar'}
+        <button className="btn btn-quiet" data-cmd={LOAD_MEDIA} aria-busy={loading || (keeping && !keeping.failed) || undefined}
+          onClick={() => fileRef.current?.click()}>
+          {playback ? 'Sustituir' : 'Cargar'}
         </button>
 
         <div className="transport-tools">
