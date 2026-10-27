@@ -74,9 +74,14 @@ export const PanelBottomIcon = () => (
   <Svg><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M2 9.5h12" /></Svg>
 )
 
-/** A frame with a small one in its corner: the viewer, minimised. */
+/** A frame with a small one in its corner: the viewer, floating. */
 export const MinimizeIcon = () => (
   <Svg><rect x="2" y="3" width="12" height="10" rx="1.5" /><rect x="8.5" y="8.5" width="3.5" height="2.5" rx=".5" /></Svg>
+)
+
+/** Six dots: what is held to carry the floating viewer. */
+export const GripIcon = () => (
+  <Svg strokeWidth="2.25"><path d="M6 4h0M10 4h0M6 8h0M10 8h0M6 12h0M10 12h0" /></Svg>
 )
 
 /** Corners pulled outwards: the viewer, filling the work area. */

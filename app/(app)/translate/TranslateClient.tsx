@@ -6,7 +6,7 @@ import CueTable, { type Filter } from '@/components/editor/CueTable'
 import Header from '@/components/editor/Header'
 import Panel from '@/components/editor/Panel'
 import Steps, { type Pane } from '@/components/editor/Steps'
-import { MaximizeIcon, MinimizeIcon, PanelRightIcon, RestoreIcon } from '@/components/editor/icons'
+import Viewer, { type ViewerMode } from '@/components/editor/Viewer'
 import s from '@/components/editor/editor.module.css'
 import CommandPalette from '@/components/palette/CommandPalette'
 import Shortcuts from '@/components/editor/Shortcuts'
@@ -76,7 +76,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   // The viewer starts open and the sidebar folded: the rail is icons, and
   // the empty table has its own button to the first step.
   const [pane, setPane] = useState<Pane | null>(null)
-  const [viewer, setViewer] = useState<'open' | 'mini' | 'max' | 'folded'>('open')
+  const [viewer, setViewer] = useState<ViewerMode>('open')
   // Where the timeline draws the picture. The element is the timeline's —
   // it is the clock — and the room for it is this layout's.
   const [screen, setScreen] = useState<HTMLElement | null>(null)
@@ -168,24 +168,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
       <Panel userId={user.id} open={pane} onOpen={setPane} filter={filter} onFilter={setFilter} />
       <CueTable userId={user.id} filter={filter} onFilter={setFilter} onImport={() => setPane('import')}
         viewer={viewer !== 'folded'} onViewer={() => setViewer(v => (v === 'folded' ? 'open' : 'folded'))} />
-      {/* Folded, it stays in the tree: the <video> inside keeps the clock, and keeps sounding.
-          Minimised it sits small in the table's corner; maximised it takes the table's room. */}
-      <aside className={s.viewer} hidden={viewer === 'folded'} aria-label="Visor">
-        <div className={s.paneHead}>
-          <h2>Visor</h2>
-          <button className="btn btn-quiet btn-icon" aria-pressed={viewer === 'mini'}
-            aria-label={viewer === 'mini' ? 'Restaurar el visor' : 'Minimizar el visor'}
-            data-cmd={viewer === 'mini' ? 'Restaurar el visor' : 'Minimizar el visor'}
-            onClick={() => setViewer(v => (v === 'mini' ? 'open' : 'mini'))}><MinimizeIcon /></button>
-          <button className="btn btn-quiet btn-icon" aria-pressed={viewer === 'max'}
-            aria-label={viewer === 'max' ? 'Restaurar el visor' : 'Maximizar el visor'}
-            data-cmd={viewer === 'max' ? 'Restaurar el visor' : 'Maximizar el visor'}
-            onClick={() => setViewer(v => (v === 'max' ? 'open' : 'max'))}>{viewer === 'max' ? <RestoreIcon /> : <MaximizeIcon />}</button>
-          {/* The table's toolbar carries the same switch for the palette, and the way back. */}
-          <button className="btn btn-quiet btn-icon" aria-label="Plegar el visor" onClick={() => setViewer('folded')}><PanelRightIcon /></button>
-        </div>
-        <div ref={setScreen} className={s.viewerScreen} />
-      </aside>
+      <Viewer mode={viewer} onMode={setViewer} onScreen={setScreen} />
       <div className={s.wave}><Timeline screen={screen} /></div>
     </div>
   )

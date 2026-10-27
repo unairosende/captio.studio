@@ -383,9 +383,12 @@
 .viewer[hidden] { display: none; }
 .viewerScreen { flex: 1; min-height: 0; overflow-y: auto; }
 
-/* Minimizado: pequeño en la esquina de la tabla, que recupera todo el ancho
-   sin perder la imagen de vista. */
-.editor[data-viewer="mini"] .viewer {
+/* Flotante: una ventana sobre la tabla, que recupera todo el ancho sin
+   perder la imagen de vista. Empieza en la esquina de la tabla; en cuanto se
+   mueve o se redimensiona va donde la dejen (data-placed), medida desde la
+   esquina inferior derecha de la ventana. */
+.editor[data-viewer="float"] .viewer {
+  position: relative;
   grid-area: main;
   align-self: end;
   justify-self: end;
@@ -397,7 +400,44 @@
   overflow: hidden;
   z-index: 2;
 }
-.editor[data-viewer="mini"] .viewerScreen { flex: none; overflow: visible; }
+.editor[data-viewer="float"] .viewer[data-placed] {
+  position: fixed;
+  right: var(--right);
+  bottom: var(--bottom);
+  width: var(--w);
+  margin: 0;
+}
+.editor[data-viewer="float"] .viewerScreen { flex: none; overflow: visible; }
+
+/* Se lleva por la barra; el asa de la barra es lo que el teclado coge. */
+.paneHead[data-movable] { cursor: grab; touch-action: none; user-select: none; }
+.paneHead[data-movable]:active { cursor: grabbing; }
+.grip { cursor: inherit; color: var(--ink-3); margin-left: calc(-1 * var(--sp-2)); }
+
+/* La esquina que lo agranda: la de arriba a la izquierda, la que mira a la
+   tabla cuando está en su sitio. Se delata al pasar o al entrar. */
+.corner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 12px;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 1;
+}
+.corner::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-left: 1.5px solid var(--ink-3);
+  border-top: 1.5px solid var(--ink-3);
+  border-top-left-radius: var(--r-sm);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+}
+.viewer:hover .corner::before, .corner:focus-visible::before { opacity: 1; }
+.corner:focus-visible { outline: 2px solid var(--ring); outline-offset: -2px; }
 
 /* Maximizado: también el sitio de la tabla, que sigue debajo, invisible, sin
    perder por dónde iba. La imagen cabe entera en el alto que quede. */

@@ -61,6 +61,15 @@ export const SHORTCUTS: ShortcutGroup[] = [
     ],
   },
   {
+    title: 'El visor flotante',
+    items: [
+      { keys: 'Arrastrar la barra', does: 'Llevarlo a cualquier sitio' },
+      { keys: 'Arrastrar la esquina', does: 'Agrandarlo o reducirlo' },
+      { keys: '← ↑ → ↓', does: 'En el asa de la barra, moverlo; con ⇧, a saltos' },
+      { keys: '← ↑ · → ↓', does: 'En la esquina, agrandarlo o reducirlo; con ⇧, a saltos' },
+    ],
+  },
+  {
     title: 'La onda',
     items: [
       { keys: 'Clic', does: 'Llevar el cabezal ahí; sobre un cue, además, seleccionarlo' },
