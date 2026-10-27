@@ -43,6 +43,7 @@ export default function ProjectClient({ project, sequences, links, clients, clie
   const [busyId, setBusyId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [renaming, setRenaming] = useState(false)
+  const [copying, setCopying] = useState(false)
   const [draftName, setDraftName] = useState(project.name)
   const [naming, setNaming] = useState(false)
   const [clientName, setClientName] = useState('')
@@ -143,6 +144,19 @@ export default function ProjectClient({ project, sequences, links, clients, clie
 
   const newSequence = () => router.push(`/translate?project=${project.id}`)
 
+  /** Opens the copy straight away: making one is how the next job starts. */
+  async function duplicate() {
+    setCopying(true)
+    setError(null)
+    const r = await send<{ project: { id: string } }>(`/api/projects/${project.id}/duplicate`, {})
+    if (!r.ok) {
+      setCopying(false)
+      setError(r.error)
+      return
+    }
+    router.push(`/projects/${r.json.project.id}`)
+  }
+
   return (
     <div className={s.page}>
       <header className={`topbar ${s.head}`}>
@@ -174,6 +188,9 @@ export default function ProjectClient({ project, sequences, links, clients, clie
             <>
               <h1>{project.name}</h1>
               <button className="btn btn-quiet" onClick={() => { setDraftName(project.name); setRenaming(true) }}>Renombrar</button>
+              <button className="btn btn-quiet" disabled={copying} aria-busy={copying || undefined}
+                title="Una copia con el glosario, el cliente y cada secuencia con su vídeo; sin comentarios, enlaces ni historial"
+                onClick={() => void duplicate()}>Duplicar</button>
             </>
           )}
         </div>

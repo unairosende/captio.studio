@@ -95,6 +95,18 @@ export async function playableMedia(orgId: string, sequenceId: string): Promise<
   )
 }
 
+/** What each sequence of a project plays: the row playableMedia would pick, for every one at once. */
+export async function playableMediaInProject(orgId: string, projectId: string): Promise<MediaRow[]> {
+  return query<MediaRow>(
+    `select distinct on (m.sequence_id) m.*
+       from media m
+       join sequences s on s.id = m.sequence_id and s.org_id = m.org_id
+      where m.org_id = $1 and s.project_id = $2 and m.content_type is not null
+      order by m.sequence_id, m.created_at desc`,
+    [requireOrg(orgId), projectId],
+  )
+}
+
 export async function deleteMedia(orgId: string, id: string): Promise<string | null> {
   const rows = await query<{ storage_key: string }>(
     `delete from media where org_id = $1 and id = $2 returning storage_key`,

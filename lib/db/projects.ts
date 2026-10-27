@@ -1,5 +1,7 @@
+import { randomUUID } from 'node:crypto'
+
 import type { GlossaryEntry } from '../ai/prompt.ts'
-import { query, queryOne, requireOrg } from './client.ts'
+import { query, queryOne, requireOrg, transaction } from './client.ts'
 
 /**
  * A project: the job, not the track.
@@ -190,6 +192,82 @@ export async function updateProject(
     params,
   )
   return rows[0] ?? null
+}
+
+/**
+ * A copy to start the next job from: the terms, the client, and every sequence
+ * as it stands, each with the picture it plays.
+ *
+ * Not the comments, the review links or the history. Those are conversations
+ * about the original, and a client opening the copy's link to find notes on
+ * somebody else's cut would be reading the wrong job.
+ *
+ * The pictures come as `media`: the row each original plays (playableMedia in
+ * lib/db/media.ts) and the key its bytes were already copied to. Copying is the
+ * caller's, because this is the database and that is the bucket; a row of its
+ * own per object is what lets the sweeper and erasure go on deleting by key.
+ *
+ * Billing comes across as already paid, at zero seconds: the copy is the same
+ * material, every language was included in what was charged for it, and
+ * counting its minutes again would double the month for nothing new.
+ *
+ * Returns `null` when the project does not exist or belongs to another
+ * organisation.
+ */
+export async function duplicateProject(
+  orgId: string,
+  id: string,
+  name: string,
+  createdBy?: string | null,
+  media: { id: string; storageKey: string }[] = [],
+): Promise<ProjectRow | null> {
+  return transaction(async run => {
+    const [project] = await run<ProjectRow>(
+      `insert into projects (org_id, name, glossary, client_id, dismissed_variants, created_by)
+       select org_id, $3, glossary, client_id, dismissed_variants, $4
+         from projects where org_id = $1 and id = $2
+       returning *`,
+      [requireOrg(orgId), id, name, createdBy ?? null],
+    )
+    if (!project) return null
+
+    // The copies' ids are minted here so each can be paired with its original
+    // and take that one's picture along.
+    const originals = await run<{ id: string }>(
+      `select id from sequences where org_id = $1 and project_id = $2`,
+      [requireOrg(orgId), id],
+    )
+    if (!originals.length) return project
+    const from = originals.map(s => s.id)
+    const to = from.map(() => randomUUID())
+
+    await run(
+      `insert into sequences (id, org_id, project_id, name, source_lang, target_langs, fps, data,
+                              created_by, billed_seconds, billed_at)
+       select pair.copy, s.org_id, $3, s.name, s.source_lang, s.target_langs, s.fps, s.data,
+              $4, 0, s.billed_at
+         from sequences s
+         join unnest($5::uuid[], $6::uuid[]) as pair(original, copy) on pair.original = s.id
+        where s.org_id = $1 and s.project_id = $2`,
+      [requireOrg(orgId), id, project.id, createdBy ?? null, from, to],
+    )
+
+    if (media.length) {
+      await run(
+        `insert into media (org_id, sequence_id, storage_key, filename, content_type, bytes,
+                            duration_seconds, peaks, created_by, billed_seconds, billed_at)
+         select m.org_id, pair.copy, k.copy, m.filename, m.content_type, m.bytes,
+                m.duration_seconds, m.peaks, m.created_by, 0, m.billed_at
+           from media m
+           join unnest($2::uuid[], $3::text[]) as k(media, copy) on k.media = m.id
+           join unnest($4::uuid[], $5::uuid[]) as pair(original, copy) on pair.original = m.sequence_id
+          where m.org_id = $1`,
+        [requireOrg(orgId), media.map(m => m.id), media.map(m => m.storageKey), from, to],
+      )
+    }
+
+    return project
+  })
 }
 
 /**

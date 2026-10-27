@@ -249,6 +249,26 @@ export async function deleteObject(key: string): Promise<boolean> {
 }
 
 /**
+ * Copy one object to a new key, inside the bucket: the bytes never leave R2,
+ * so a feature-length master copies in the time of one request.
+ *
+ * Reports success rather than throwing, like deleteObject. S3 may answer a
+ * copy that failed part-way with a 200 whose body is an error, so the body is
+ * read rather than only the status.
+ */
+export async function copyObject(from: string, to: string): Promise<boolean> {
+  const config = r2Config()
+  if (!config) throw new StorageNotConfiguredError()
+  // Signed, so the URL copies exactly this object and nothing the holder picks.
+  const headers = { 'x-amz-copy-source': `/${encodePath(config.bucket)}/${encodePath(from)}` }
+  const res = await fetch(presign('PUT', to, { expiresIn: 60, signedHeaders: headers, config }), {
+    method: 'PUT',
+    headers,
+  })
+  return res.ok && !(await res.text()).includes('<Error>')
+}
+
+/**
  * A key for a new upload.
  *
  * The organisation prefix is what makes a bucket listing auditable and a

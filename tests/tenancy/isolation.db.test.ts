@@ -4,7 +4,7 @@ import { after, before, describe, it } from 'node:test'
 
 import { db, query } from '../../lib/db/client.ts'
 import { createClient, getClient, listClients, updateClient } from '../../lib/db/clients.ts'
-import { createProject, deleteProject, getProject, listProjects, updateProject } from '../../lib/db/projects.ts'
+import { createProject, deleteProject, duplicateProject, getProject, listProjects, updateProject } from '../../lib/db/projects.ts'
 import {
   ConflictError,
   UnknownProjectError,
@@ -20,7 +20,7 @@ import {
 } from '../../lib/db/sequences.ts'
 import { createComment, deleteComment, listComments } from '../../lib/db/comments.ts'
 import { currentMonthCostUsd, logUsage } from '../../lib/db/billing.ts'
-import { createMedia, getMedia, playableMedia } from '../../lib/db/media.ts'
+import { createMedia, getMedia, playableMedia, playableMediaInProject } from '../../lib/db/media.ts'
 import { requireDisposableDatabase } from '../support/disposable-db.ts'
 
 /**
@@ -110,6 +110,31 @@ describe(
       assert.equal(survivor?.project_id, projectA.id)
     })
 
+    it('duplicates a project with its sequences and what each one plays, and nothing of anyone else', async () => {
+      const p = await createProject(orgA, { name: 'Serie', glossary: [{ term: 'Nautilus' }] })
+      const seq = await createSequence(orgA, { projectId: p.id, name: 'Episodio 1', data: { subtitles: [] } })
+      await createMedia(orgA, { sequenceId: seq.id, storageKey: `${orgA}/ep1.mp4`, contentType: 'video/mp4', filename: 'ep1.mp4' })
+      await query(`update sequences set billed_seconds = 600, billed_at = now() where org_id = $1 and id = $2`, [orgA, seq.id])
+
+      const [media] = await playableMediaInProject(orgA, p.id)
+      const copy = await duplicateProject(orgA, p.id, 'Serie (copia)', null, [{ id: media.id, storageKey: `${orgA}/ep1-copy.mp4` }])
+      assert.ok(copy)
+      assert.deepEqual(copy.glossary, [{ term: 'Nautilus' }])
+
+      const [copied] = await listSequences(orgA, copy.id)
+      assert.equal(copied.name, 'Episodio 1')
+      assert.notEqual(copied.id, seq.id)
+      // The copied object, through a row of its own.
+      assert.equal((await playableMedia(orgA, copied.id))?.storage_key, `${orgA}/ep1-copy.mp4`)
+      // Already paid for, and not counted a second time.
+      const [billing] = await query<{ billed_seconds: number; billed_at: string | null }>(
+        `select billed_seconds, billed_at from sequences where org_id = $1 and id = $2`, [orgA, copied.id])
+      assert.equal(billing.billed_seconds, 0)
+      assert.ok(billing.billed_at)
+      // The original keeps everything it had.
+      assert.equal((await listSequences(orgA, p.id)).length, 1)
+    })
+
     it('refuses cross-organisation writes and deletes', async () => {
       const p = await createProject(orgA, { name: 'Contenedor' })
       const a = await createSequence(orgA, { projectId: p.id, name: 'Original' })
@@ -117,6 +142,8 @@ describe(
       assert.equal(await updateSequence(orgB, a.id, { name: 'Hijacked' }), null)
       assert.equal(await deleteSequence(orgB, a.id), false)
       assert.equal(await duplicateSequence(orgB, a.id, 'Stolen copy'), null)
+      assert.equal(await duplicateProject(orgB, p.id, 'Stolen project'), null)
+      assert.deepEqual(await playableMediaInProject(orgB, p.id), [])
       assert.equal(await deleteProject(orgB, p.id), false)
 
       // The row is untouched and still A's.

@@ -64,6 +64,7 @@ export default function DashboardClient({
   const router = useRouter()
   const [team, setTeam] = useState(false)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [copyingId, setCopyingId] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [portalBusy, setPortalBusy] = useState(false)
@@ -182,6 +183,20 @@ export default function DashboardClient({
     }
 
     // The list was drawn on the server, so the server has to draw it again.
+    router.refresh()
+  }
+
+  /** A copy to start the next job from. It lands first in the list, being the newest. */
+  async function duplicate(project: ProjectSummary) {
+    setCopyingId(project.id)
+    setError(null)
+    const r = await send(`/api/projects/${project.id}/duplicate`, {})
+    setCopyingId(null)
+
+    if (!r.ok) {
+      setError(r.error)
+      return
+    }
     router.refresh()
   }
 
@@ -435,6 +450,10 @@ export default function DashboardClient({
                       timestamp — that only moves on a rename. */}
                   <span className="muted" suppressHydrationWarning>{ago(p.last_activity)}</span>
                   <div className={s.spacer} />
+                  <button className="btn btn-quiet" disabled={copyingId !== null} aria-busy={copyingId === p.id || undefined}
+                    onClick={() => void duplicate(p)}>
+                    Duplicar
+                  </button>
                   <button className="btn btn-danger" disabled={busyId === p.id} onClick={() => void remove(p)}>
                     {busyId === p.id ? 'Eliminando…' : 'Eliminar'}
                   </button>
