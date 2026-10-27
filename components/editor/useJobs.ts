@@ -20,6 +20,8 @@ import {
   rowsToXlsx,
   sheetRows,
   slugify,
+  transcriptDocx,
+  transcriptText,
 } from '@/lib/subtitles'
 import type { Playback } from '@/types/media'
 import type { Subtitle } from '@/types/subtitle'
@@ -357,5 +359,31 @@ export function useExport() {
     )
   }
 
-  return { tab, all }
+  /**
+   * The tab on screen as prose to read — paragraphs, each under the time it
+   * starts — rather than as cues to play. See lib/subtitles/transcript.ts.
+   */
+  function transcript(fmt: 'docx' | 'txt') {
+    const { subtitles, translations, activeTab, sequenceName, srcLang } = useSubtitleStore.getState()
+    const cues = activeTab === 'source' ? subtitles : translations[activeTab]
+    if (!cues?.length) return
+    const heading = {
+      title: sequenceName.trim() || 'Transcripción',
+      detail: activeTab === 'source' ? sourceLabel(srcLang) : langCode(activeTab),
+    }
+    const name = `${slugify(heading.title)}_${slugify(heading.detail)}`
+
+    if (fmt === 'txt') {
+      download(`${name}.txt`, new Blob([transcriptText(cues, heading)], { type: 'text/plain;charset=utf-8' }))
+      return
+    }
+    download(
+      `${name}.docx`,
+      new Blob([transcriptDocx(cues, heading) as unknown as BlobPart], {
+        type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      }),
+    )
+  }
+
+  return { tab, all, transcript }
 }

@@ -54,7 +54,7 @@ export function rowsToCsv(rows: string[][]): string {
 // strings could be written. Only what Excel, Numbers and LibreOffice need in
 // order to open the file is emitted: no styles, no shared strings, no widths.
 
-const escXml = (t: string) =>
+export const escXml = (t: string) =>
   t
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -160,7 +160,7 @@ interface Entry {
  * Timestamps are fixed at the epoch the DOS format counts from, so exporting
  * the same work twice produces the same bytes.
  */
-function zip(files: { name: string; text: string }[]): Uint8Array {
+export function zip(files: { name: string; text: string }[]): Uint8Array {
   const encoder = new TextEncoder()
   const entries: Entry[] = []
 

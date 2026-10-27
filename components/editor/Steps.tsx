@@ -91,6 +91,7 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
   const [custom, setCustom] = useState('')
   const [showCustom, setShowCustom] = useState(false)
   const [exportFmt, setExportFmt] = useState<SubtitleFormat>('srt')
+  const [transcriptFmt, setTranscriptFmt] = useState<'docx' | 'txt'>('docx')
   const [allFmt, setAllFmt] = useState<'xlsx' | 'csv'>('xlsx')
 
   const fileRef = useRef<HTMLInputElement>(null)
@@ -274,6 +275,18 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
                     {langs.length ? `${langs.length} ${langs.length > 1 ? 'idiomas' : 'idioma'} en una hoja` : 'Una hoja, todos los idiomas'}
                   </button>
                 </div>
+                <div>
+                  <label className="caps" htmlFor="transcriptFmt">Transcripción para leer</label>
+                  <div className="select-wrap">
+                    <select id="transcriptFmt" className="field" value={transcriptFmt} onChange={e => setTranscriptFmt(e.target.value as 'docx' | 'txt')}>
+                      <option value="docx">DOCX</option><option value="txt">TXT</option>
+                    </select>
+                  </div>
+                  <button className={`btn ${s.follows}`} data-cmd="Exportar la transcripción" data-cmd-hint="DOCX · TXT" disabled={!hasSubs} onClick={() => exporter.transcript(transcriptFmt)}>
+                    {activeTab === 'source' ? 'Transcripción del original' : `Transcripción en ${langCode(activeTab)}`}
+                  </button>
+                  <div className={`${s.hint} ${s.follows}`}>En párrafos, con el tiempo de cada uno: la pestaña en pantalla, para leerla.</div>
+                </div>
               </>
             )}
           </div>
@@ -290,6 +303,7 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
         {open !== 'translate' && <button data-cmd="Elegir el idioma de destino" onClick={() => onOpen('translate')} />}
         {open !== 'deliver' && hasSubs && <button data-cmd="Exportar la pestaña en pantalla" data-cmd-hint={exportFmt.toUpperCase()} onClick={() => exporter.tab(exportFmt)} />}
         {open !== 'deliver' && langs.length > 0 && <button data-cmd="Exportar todos los idiomas en una hoja" data-cmd-hint={allFmt.toUpperCase()} onClick={() => exporter.all(allFmt)} />}
+        {open !== 'deliver' && hasSubs && <button data-cmd="Exportar la transcripción" data-cmd-hint={transcriptFmt.toUpperCase()} onClick={() => exporter.transcript(transcriptFmt)} />}
         {open ? <button data-cmd="Plegar la barra lateral" onClick={() => onOpen(null)} /> : <button data-cmd="Abrir la barra lateral" onClick={() => onOpen(hasSubs ? 'translate' : 'import')} />}
       </span>
     </>
