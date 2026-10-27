@@ -31,9 +31,7 @@ export function GoogleButton({ next = '/dashboard' }: { next?: string }) {
         aria-busy={loading || undefined}
         onClick={() => {
           setLoading(true)
-          // A refusal comes back to our own sign-in with its code in ?error=,
-          // rather than to Better Auth's error page, which speaks English.
-          signIn.social({ provider: 'google', callbackURL: next, errorCallbackURL: '/login' })
+          signIn.social({ provider: 'google', callbackURL: next })
         }}
       >
         <GoogleMark />

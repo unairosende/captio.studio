@@ -7,24 +7,14 @@ import { Suspense, useState } from 'react'
 import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { signIn } from '@/lib/auth/client'
-import { SIGNUP_CLOSED, SIGNUP_CLOSED_MESSAGE } from '@/lib/auth/signup'
 
 function LoginForm() {
-  const params = useSearchParams()
-  // Where Google brings a failed sign-in back to (see GoogleButton), with
-  // Better Auth's code — translated by code, like every other error here.
-  const oauthError = params.get('error')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(
-    !oauthError
-      ? ''
-      : oauthError === SIGNUP_CLOSED
-        ? SIGNUP_CLOSED_MESSAGE
-        : 'No se pudo entrar con Google. Inténtalo otra vez.',
-  )
+  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const router = useRouter()
+  const params = useSearchParams()
 
   /**
    * Where to go after signing in.

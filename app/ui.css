@@ -241,8 +241,6 @@ textarea.field { height: auto; min-height: calc(var(--ctl) * 2); padding: var(--
   color: var(--ink);
   text-decoration: none;
   flex: none;
-  /* The wordmark is lower case whatever name the deployment carries. */
-  text-transform: lowercase;
 }
 .topbar-sep { width: 1px; height: 16px; background: var(--line-2); flex: none; }
 .crumbs {

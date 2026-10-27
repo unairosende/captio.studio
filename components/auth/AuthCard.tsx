@@ -1,8 +1,6 @@
 import Link from 'next/link'
 import type { InputHTMLAttributes, ReactNode } from 'react'
 
-import { BRAND } from '@/lib/brand'
-
 import s from './auth.module.css'
 
 /**
@@ -30,7 +28,7 @@ export function AuthCard({
     <div className={s.page}>
       <div className={s.column}>
         <div className={s.head}>
-          <Link href="/" className="brand">{BRAND.name}</Link>
+          <Link href="/" className="brand">captio</Link>
           <p className={s.subtitle}>{subtitle}</p>
         </div>
 

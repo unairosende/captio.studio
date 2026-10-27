@@ -1,15 +1,12 @@
 import type { Metadata } from 'next'
-import { notFound } from 'next/navigation'
 
 import Shell from '@/components/marketing/Shell'
 import m from '@/components/marketing/marketing.module.css'
-import { BRAND } from '@/lib/brand'
-import { BILLING } from '@/lib/plans'
 
 import Plans from './Plans'
 
 export const metadata: Metadata = {
-  title: `Precios · ${BRAND.name}`,
+  title: 'Precios · Captio',
   description:
     'Un precio al mes por el material que procesas, con todos los idiomas incluidos. Prueba gratis sin tarjeta.',
 }
@@ -23,8 +20,6 @@ export const metadata: Metadata = {
  * same ambush as one nobody was warned of.
  */
 export default function PricingPage() {
-  if (!BILLING) notFound()
-
   return (
     <Shell>
       <section className={m.intro}>
@@ -32,7 +27,7 @@ export default function PricingPage() {
         <h1>Un precio al mes, y todos los idiomas dentro</h1>
         <p>
           Se paga por el material que se procesa, no por idioma ni por subtítulo. Todos los
-          planes incluyen todo lo que {BRAND.name} hace.
+          planes incluyen todo lo que Captio hace.
         </p>
       </section>
 
@@ -46,7 +41,7 @@ export default function PricingPage() {
         </p>
         <p>Facturación mensual · Cancela cuando quieras</p>
         <p>
-          ¿Dudas? <a href={`mailto:${BRAND.contact}`} className="link">{BRAND.contact}</a>
+          ¿Dudas? <a href="mailto:hello@captio.studio" className="link">hello@captio.studio</a>
         </p>
       </div>
     </Shell>

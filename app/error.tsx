@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useEffect } from 'react'
 
 import { Actions, AuthCard } from '@/components/auth/AuthCard'
-import { BRAND } from '@/lib/brand'
 
 /**
  * What answers when a page throws while drawing.
@@ -28,7 +27,7 @@ export default function ErrorPage({ error, reset }: { error: Error & { digest?: 
         La pantalla no se ha podido dibujar. Lo que ya estaba guardado sigue guardado.
       </p>
       <p>
-        Si vuelve a pasar, escríbenos a <a href={`mailto:${BRAND.contact}`} className="link">{BRAND.contact}</a> con
+        Si vuelve a pasar, escríbenos a <a href="mailto:hello@captio.studio" className="link">hello@captio.studio</a> con
         lo que estabas haciendo{error.digest ? <> y este código: <code>{error.digest}</code></> : null}.
       </p>
       <Actions>

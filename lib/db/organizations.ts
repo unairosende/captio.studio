@@ -118,26 +118,6 @@ export async function countPendingInvitations(orgId: string): Promise<number> {
 }
 
 /**
- * The newest invitation addressed here that can still be accepted.
- *
- * Asked before the person has an account, let alone an organisation, so the
- * address is the whole key — invitation is not tenant data, and the row only
- * ever goes back to the owner of the address. Expiry checked for the reason
- * given above.
- */
-export async function pendingInvitationFor(email: string): Promise<string | null> {
-  const row = await queryOne<{ id: string }>(
-    `select id
-       from invitation
-      where lower(email) = lower($1) and status = 'pending' and "expiresAt" > now()
-      order by "createdAt" desc
-      limit 1`,
-    [email],
-  )
-  return row?.id ?? null
-}
-
-/**
  * Whether an owner of this organisation holds a verified address at one of
  * these domains, or one of these exact addresses.
  *

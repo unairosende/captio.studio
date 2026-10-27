@@ -6,7 +6,6 @@ import { useState } from 'react'
 
 import { ago } from '@/lib/ago'
 import { api, send } from '@/lib/api'
-import { BRAND } from '@/lib/brand'
 import GlossaryRows from '@/components/glossary/GlossaryRows'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { ClientOption } from '@/lib/db/clients'
@@ -161,7 +160,7 @@ export default function ProjectClient({ project, sequences, links, clients, clie
   return (
     <div className={s.page}>
       <header className={`topbar ${s.head}`}>
-        <Link href="/dashboard" className="brand">{BRAND.name}</Link>
+        <Link href="/dashboard" className="brand">captio</Link>
         <span className="topbar-sep" />
         <nav className="crumbs" aria-label="Dónde estás">
           <Link href="/dashboard">Proyectos</Link>

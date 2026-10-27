@@ -7,7 +7,7 @@ import {
   type UsageKind,
 } from './db/billing.ts'
 import { ownedByTeam } from './db/organizations.ts'
-import { BILLING, PLANS, TRIAL, UNLIMITED_ADDRESSES, UNLIMITED_DOMAINS } from './plans.ts'
+import { PLANS, TRIAL, UNLIMITED_ADDRESSES, UNLIMITED_DOMAINS } from './plans.ts'
 
 /**
  * Whether an organisation may run another AI job, and why not.
@@ -104,8 +104,7 @@ export async function getEntitlement(orgId: string): Promise<Entitlement> {
   // walls, the editor's meter and the dashboard all read it that way — so our
   // own organisations need nothing new downstream. Checked before the
   // subscription, so subscribing once to try the checkout does not cap them.
-  // A deployment that does not bill gives the same grant to everybody.
-  if (!BILLING || (await ownedByTeam(orgId, UNLIMITED_DOMAINS, UNLIMITED_ADDRESSES))) {
+  if (await ownedByTeam(orgId, UNLIMITED_DOMAINS, UNLIMITED_ADDRESSES)) {
     return { status: 'subscribed', plan: 'ilimitado', remaining: null, monthly: null }
   }
 

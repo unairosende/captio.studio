@@ -6,7 +6,6 @@ import { useState } from 'react'
 import { AuthCard, AuthForm, Field, FormError } from '@/components/auth/AuthCard'
 import { GoogleButton } from '@/components/auth/GoogleButton'
 import { signUp } from '@/lib/auth/client'
-import { INVITE_ONLY, SIGNUP_CLOSED, SIGNUP_CLOSED_MESSAGE } from '@/lib/auth/signup'
 
 export default function SignupPage() {
   const [name, setName] = useState('')
@@ -24,7 +23,7 @@ export default function SignupPage() {
     const { error } = await signUp.email({ name, email, password })
 
     if (error) {
-      setError(error.code === SIGNUP_CLOSED ? SIGNUP_CLOSED_MESSAGE : (error.message ?? 'No se pudo crear la cuenta.'))
+      setError(error.message ?? 'No se pudo crear la cuenta.')
       setLoading(false)
       return
     }
@@ -50,7 +49,7 @@ export default function SignupPage() {
   return (
     <AuthCard
       title="Crear cuenta"
-      subtitle={INVITE_ONLY ? 'Con la dirección a la que llegó tu invitación' : 'Empieza a subtitular'}
+      subtitle="Empieza a subtitular"
       footer={<p>¿Ya tienes cuenta? <Link href="/login" className="link">Entrar</Link></p>}
     >
       <AuthForm onSubmit={handleSubmit}>

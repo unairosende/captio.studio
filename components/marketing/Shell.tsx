@@ -1,9 +1,7 @@
 import Link from 'next/link'
 import type { ReactNode } from 'react'
 
-import { BRAND } from '@/lib/brand'
 import { LEGAL_DOCS, publishedLegalSlugs } from '@/lib/legal'
-import { BILLING } from '@/lib/plans'
 
 import s from './marketing.module.css'
 
@@ -30,9 +28,9 @@ export default async function Shell({ children }: { children: ReactNode }) {
   return (
     <div className={s.page}>
       <header className={`topbar ${s.head}`}>
-        <Link href="/" className="brand">{BRAND.name}</Link>
+        <Link href="/" className="brand">captio</Link>
         <nav className={s.nav} aria-label="Principal">
-          {BILLING && <Link href="/pricing" className="btn btn-quiet">Precios</Link>}
+          <Link href="/pricing" className="btn btn-quiet">Precios</Link>
           <Link href="/login" className="btn btn-quiet">Entrar</Link>
           <Link href="/signup" className="btn btn-primary">Empezar gratis</Link>
         </nav>
@@ -41,12 +39,12 @@ export default async function Shell({ children }: { children: ReactNode }) {
       <main className={s.main}>{children}</main>
 
       <footer className={`${s.main} ${s.foot}`}>
-        <span className="brand">{BRAND.name}</span>
+        <span className="brand">captio</span>
         <nav className={s.footNav} aria-label="Pie">
-          {BILLING && <Link href="/pricing">Precios</Link>}
+          <Link href="/pricing">Precios</Link>
           <Link href="/login">Entrar</Link>
           {legal.map(slug => <Link key={slug} href={`/${slug}`}>{LEGAL_LABEL[slug]}</Link>)}
-          <a href={`mailto:${BRAND.contact}`}>{BRAND.contact}</a>
+          <a href="mailto:hello@captio.studio">hello@captio.studio</a>
         </nav>
       </footer>
     </div>

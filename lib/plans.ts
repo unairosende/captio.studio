@@ -49,16 +49,6 @@ export const UNLIMITED_DOMAINS = ['keweke.com'] as const
 export const UNLIMITED_ADDRESSES = ['unairosende@gmail.com'] as const
 
 /**
- * Whether this deployment charges at all.
- *
- * Off for a private copy whose owner pays the providers directly: there is
- * nobody to invoice, so every organisation gets the grant above and the
- * storefront goes away. Off only when said so in as many words — a variable
- * missing from the product that is sold must never make it free.
- */
-export const BILLING = process.env.NEXT_PUBLIC_BILLING !== 'off'
-
-/**
  * What a subscription buys.
  *
  * `monthlyMediaMinutes` is enforced, not decoration: lib/entitlement.ts refuses

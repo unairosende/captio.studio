@@ -2,9 +2,8 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 
 import { AuthCard } from '@/components/auth/AuthCard'
-import { BRAND } from '@/lib/brand'
 
-export const metadata: Metadata = { title: `No existe · ${BRAND.name}` }
+export const metadata: Metadata = { title: 'No existe · Captio' }
 
 /**
  * What answers when a page does not exist.

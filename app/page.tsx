@@ -1,17 +1,15 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { redirect } from 'next/navigation'
 import type { CSSProperties } from 'react'
 
 import Shell from '@/components/marketing/Shell'
 import m from '@/components/marketing/marketing.module.css'
-import { BRAND } from '@/lib/brand'
-import { BILLING, PLANS, TRIAL } from '@/lib/plans'
+import { PLANS, TRIAL } from '@/lib/plans'
 
 import s from './landing.module.css'
 
 export const metadata: Metadata = {
-  title: `${BRAND.name} — subtitulado en una sola ventana`,
+  title: 'Captio — subtitulado en una sola ventana',
   description:
     'Transcribe el vídeo, traduce con el glosario del proyecto, comprueba la calidad, revisa con el cliente y exporta a SRT, VTT, ASS o TTML. Para traductores y productoras.',
 }
@@ -66,10 +64,6 @@ const STEPS = [
 ]
 
 export default function LandingPage() {
-  // Everything below sells a subscription; a deployment that bills nobody has
-  // nothing to sell, so its front door is the app.
-  if (!BILLING) redirect('/dashboard')
-
   const cheapest = Math.min(...PLANS.map(p => p.price))
 
   return (
@@ -97,7 +91,7 @@ export default function LandingPage() {
           words. */}
       <div className={s.shot} aria-hidden="true">
         <div className={s.shotBar}>
-          <span className="brand">{BRAND.name}</span>
+          <span className="brand">captio</span>
           <span className="topbar-sep" />
           <span className="crumbs">
             <span>Proyectos</span>
