@@ -50,7 +50,7 @@ interface Props {
 export function Sidebar({ name, onFold, children }: { name: string; onFold: () => void; children: ReactNode }) {
   return (
     <aside className={s.left} aria-label={name}>
-      <div className={s.leftHead}>
+      <div className={s.paneHead}>
         <h2>{name}</h2>
         <button className="btn btn-quiet btn-icon" aria-label="Plegar la barra lateral" onClick={onFold}><PanelLeftIcon /></button>
       </div>

@@ -1,8 +1,9 @@
 /**
  * The editor's icons: a rail of steps and sections, three sides that fold, a
- * menu that drops. Drawn here rather than pulled from a library because there
- * are twelve of them, one weight, one size, and a library would bring six
- * hundred more with their own idea of a stroke.
+ * viewer that shrinks and fills, a menu that drops. Drawn here rather than
+ * pulled from a library because there are fifteen of them, one weight, one
+ * size, and a library would bring six hundred more with their own idea of a
+ * stroke.
  *
  * Every one is decorative: the button that carries it says its name.
  */
@@ -71,6 +72,21 @@ export const PanelRightIcon = () => (
 /** A pane with its bottom third marked: the wave. */
 export const PanelBottomIcon = () => (
   <Svg><rect x="2" y="3" width="12" height="10" rx="1.5" /><path d="M2 9.5h12" /></Svg>
+)
+
+/** A frame with a small one in its corner: the viewer, minimised. */
+export const MinimizeIcon = () => (
+  <Svg><rect x="2" y="3" width="12" height="10" rx="1.5" /><rect x="8.5" y="8.5" width="3.5" height="2.5" rx=".5" /></Svg>
+)
+
+/** Corners pulled outwards: the viewer, filling the work area. */
+export const MaximizeIcon = () => (
+  <Svg><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9.5 6.5M2.5 13.5l4-4" /></Svg>
+)
+
+/** Corners pushed back in: the viewer, back to its place. */
+export const RestoreIcon = () => (
+  <Svg><path d="M13.5 2.5l-4 4M9.5 3v3.5H13M2.5 13.5l4-4M3 9.5h3.5V13" /></Svg>
 )
 
 /** Down: a menu hangs from here. */

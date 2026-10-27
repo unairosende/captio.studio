@@ -173,7 +173,9 @@
   border-right: 1px solid var(--line);
 }
 
-.leftHead {
+/* La cabecera de un panel: su nombre y lo que lo pliega. La comparten la
+   barra lateral y el visor. */
+.paneHead {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
@@ -182,7 +184,7 @@
   border-bottom: 1px solid var(--line);
   flex: none;
 }
-.leftHead h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; flex: 1; }
+.paneHead h2 { margin: 0; font-size: var(--fs-md); font-weight: 600; flex: 1; }
 
 .leftBody {
   flex: 1;
@@ -372,9 +374,37 @@
   grid-area: side;
   width: clamp(320px, 30vw, 520px);
   min-height: 0;
-  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
   border-left: 1px solid var(--line);
+  background: var(--s1);
 }
+/* Plegado sigue en el árbol, que el <video> de dentro lleva el reloj. */
+.viewer[hidden] { display: none; }
+.viewerScreen { flex: 1; min-height: 0; overflow-y: auto; }
+
+/* Minimizado: pequeño en la esquina de la tabla, que recupera todo el ancho
+   sin perder la imagen de vista. */
+.editor[data-viewer="mini"] .viewer {
+  grid-area: main;
+  align-self: end;
+  justify-self: end;
+  width: 280px;
+  margin: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  box-shadow: var(--lift);
+  overflow: hidden;
+  z-index: 2;
+}
+.editor[data-viewer="mini"] .viewerScreen { flex: none; overflow: visible; }
+
+/* Maximizado: también el sitio de la tabla, que sigue debajo, invisible, sin
+   perder por dónde iba. La imagen cabe entera en el alto que quede. */
+.editor[data-viewer="max"] .viewer { grid-column: main-start / side-end; width: auto; }
+.editor[data-viewer="max"] .main { visibility: hidden; }
+.editor[data-viewer="max"] .viewerScreen { overflow: hidden; container-type: size; display: grid; place-items: center; }
+.editor[data-viewer="max"] .viewerScreen > :global(.picture) { width: min(100cqw, 100cqh * 16 / 9); }
 
 /* ── Onda ───────────────────────────────────────────────────────────────── */
 
