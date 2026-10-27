@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
 
 import Shell from '@/components/marketing/Shell'
 import m from '@/components/marketing/marketing.module.css'
 import { BRAND } from '@/lib/brand'
+import { BILLING } from '@/lib/plans'
 
 import Plans from './Plans'
 
@@ -21,6 +23,8 @@ export const metadata: Metadata = {
  * same ambush as one nobody was warned of.
  */
 export default function PricingPage() {
+  if (!BILLING) notFound()
+
   return (
     <Shell>
       <section className={m.intro}>

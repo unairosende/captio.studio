@@ -1,6 +1,7 @@
 import type { MetadataRoute } from 'next'
 
 import { publishedLegalSlugs } from '@/lib/legal'
+import { BILLING } from '@/lib/plans'
 import { SITE_URL } from '@/lib/site'
 
 /**
@@ -18,7 +19,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   return [
     { url: SITE_URL, changeFrequency: 'monthly', priority: 1 },
-    { url: `${SITE_URL}/pricing`, changeFrequency: 'monthly', priority: 0.8 },
+    ...(BILLING ? [{ url: `${SITE_URL}/pricing`, changeFrequency: 'monthly' as const, priority: 0.8 }] : []),
     ...legal.map(slug => ({
       url: `${SITE_URL}/${slug}`,
       changeFrequency: 'yearly' as const,

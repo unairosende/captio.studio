@@ -1,11 +1,12 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import type { CSSProperties } from 'react'
 
 import Shell from '@/components/marketing/Shell'
 import m from '@/components/marketing/marketing.module.css'
 import { BRAND } from '@/lib/brand'
-import { PLANS, TRIAL } from '@/lib/plans'
+import { BILLING, PLANS, TRIAL } from '@/lib/plans'
 
 import s from './landing.module.css'
 
@@ -65,6 +66,10 @@ const STEPS = [
 ]
 
 export default function LandingPage() {
+  // Everything below sells a subscription; a deployment that bills nobody has
+  // nothing to sell, so its front door is the app.
+  if (!BILLING) redirect('/dashboard')
+
   const cheapest = Math.min(...PLANS.map(p => p.price))
 
   return (

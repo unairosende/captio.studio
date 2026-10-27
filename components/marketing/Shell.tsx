@@ -3,6 +3,7 @@ import type { ReactNode } from 'react'
 
 import { BRAND } from '@/lib/brand'
 import { LEGAL_DOCS, publishedLegalSlugs } from '@/lib/legal'
+import { BILLING } from '@/lib/plans'
 
 import s from './marketing.module.css'
 
@@ -31,7 +32,7 @@ export default async function Shell({ children }: { children: ReactNode }) {
       <header className={`topbar ${s.head}`}>
         <Link href="/" className="brand">{BRAND.name}</Link>
         <nav className={s.nav} aria-label="Principal">
-          <Link href="/pricing" className="btn btn-quiet">Precios</Link>
+          {BILLING && <Link href="/pricing" className="btn btn-quiet">Precios</Link>}
           <Link href="/login" className="btn btn-quiet">Entrar</Link>
           <Link href="/signup" className="btn btn-primary">Empezar gratis</Link>
         </nav>
@@ -42,7 +43,7 @@ export default async function Shell({ children }: { children: ReactNode }) {
       <footer className={`${s.main} ${s.foot}`}>
         <span className="brand">{BRAND.name}</span>
         <nav className={s.footNav} aria-label="Pie">
-          <Link href="/pricing">Precios</Link>
+          {BILLING && <Link href="/pricing">Precios</Link>}
           <Link href="/login">Entrar</Link>
           {legal.map(slug => <Link key={slug} href={`/${slug}`}>{LEGAL_LABEL[slug]}</Link>)}
           <a href={`mailto:${BRAND.contact}`}>{BRAND.contact}</a>
