@@ -8,14 +8,34 @@ import { must } from '@/lib/api'
 
 import { useSpent } from './useJobs'
 
+type Store = ReturnType<typeof useSubtitleStore.getState>
+
 /**
- * The passes over a translation that already exists.
+ * The track on screen, which a pass reads and writes: a translation, or the
+ * original — a transcription has misheard words and over-long lines too.
+ * `lang` is what the model is told the text is written in.
+ */
+function onScreen(s: Store) {
+  const original = s.activeTab === 'source'
+  const lang = s.activeTab
+  return {
+    original,
+    subs: original ? s.subtitles : s.translations[lang],
+    lang: original ? (s.srcLang === 'Auto-detect' ? 'their original language' : s.srcLang) : lang,
+    /** Where a cue's original is, for meaning; nothing when the track is the original. */
+    sourceOf: (index: number) => (original ? undefined : s.subtitles.find(o => o.index === index)?.text ?? ''),
+    write: (index: number, text: string) => (original ? s.updateSource(index, text) : s.updateSubtitle(lang, index, text)),
+  }
+}
+
+/**
+ * The passes over a track that already exists.
  *
  * Fix rewrites what is too long; Revise applies a reviewer's note; Review
- * reads the track back and says what is wrong; Back-translate turns it back
- * into the source language to be compared. Moved out of the editor area
- * unchanged — the batching, the undo steps and the refusal to fall back to
- * the source text are the ones that were argued for one at a time.
+ * reads the track back and says what is wrong; Back-translate turns a
+ * translation back into the source language to be compared. All but the last
+ * work on the original too. The batching, the undo steps and the refusal to
+ * fall back to the source text are the ones that were argued for one at a time.
  */
 export function usePasses() {
   const spent = useSpent()
@@ -23,11 +43,10 @@ export function usePasses() {
   /** Shorten every cue over the limit, by reflow or, if allowed, by the model. */
   async function fixOverlength() {
     const s = useSubtitleStore.getState()
-    const { activeTab, translations, subtitles, outputMode, allowRephrase } = s
-    if (activeTab === 'source' || !translations[activeTab]) return
-    const lang  = activeTab
+    const { outputMode, allowRephrase } = s
+    const { original, subs, lang, sourceOf, write } = onScreen(s)
+    if (!subs) return
     const qc    = qcForMode(outputMode)
-    const subs  = translations[lang]
     const toFix = subs.filter(c => charStatus(c.text, qc) === 'error')
     if (!toFix.length) return
 
@@ -37,7 +56,7 @@ export function usePasses() {
       s.pushUndo()
       toFix.forEach(c => {
         const reflowed = reflowText(c.text, qc.maxChars)
-        if (reflowed !== c.text) s.updateSubtitle(lang, c.index, reflowed)
+        if (reflowed !== c.text) write(c.index, reflowed)
       })
       return
     }
@@ -47,7 +66,6 @@ export function usePasses() {
     const BATCH = 15
     for (let i = 0; i < toFix.length; i += BATCH) {
       const batch = toFix.slice(i, i + BATCH)
-      const srcTexts = batch.map(c => subtitles.find(o => o.index === c.index)?.text ?? '')
       try {
         const data = await must('/api/translate', {
           method: 'POST',
@@ -55,7 +73,8 @@ export function usePasses() {
           body: JSON.stringify({
             task: 'shorten',
             cues: batch.map(c => c.text),
-            sourceTexts: srcTexts,
+            sourceTexts: original ? undefined : batch.map(c => sourceOf(c.index)),
+            original,
             cueNumbers: batch.map(c => c.index),
             targetLang: lang,
             outputMode,
@@ -63,7 +82,7 @@ export function usePasses() {
         })
         if (data.error) throw new Error(data.error)
         const parsed = data.translations as string[]
-        batch.forEach((c, j) => { if (parsed[j]) s.updateSubtitle(lang, c.index, parsed[j]) })
+        batch.forEach((c, j) => { if (parsed[j]) write(c.index, parsed[j]) })
         s.setTranslateJob({ progress: Math.round((i + batch.length) / toFix.length * 100) })
       } catch { break }
     }
@@ -81,12 +100,10 @@ export function usePasses() {
    */
   async function revise(instructions: string) {
     const s = useSubtitleStore.getState()
-    const { activeTab, translations, subtitles, outputMode, translateJob } = s
+    const { outputMode, translateJob } = s
     const glossary = termsInForce(s)
-    if (activeTab === 'source' || !translations[activeTab] || !instructions.trim() || translateJob.running) return
-    const lang = activeTab
-    const subs = translations[lang]
-    if (!subs.length) return
+    const { original, subs, lang, sourceOf, write } = onScreen(s)
+    if (!subs?.length || !instructions.trim() || translateJob.running) return
 
     s.pushUndo()
     s.setTranslateJob({ running: true, message: `Corrigiendo ${subs.length} cues…`, progress: 0, error: null })
@@ -101,7 +118,8 @@ export function usePasses() {
           body: JSON.stringify({
             task: 'revise',
             cues: batch.map(c => c.text),
-            sourceTexts: batch.map(c => subtitles.find(o => o.index === c.index)?.text ?? ''),
+            sourceTexts: original ? undefined : batch.map(c => sourceOf(c.index)),
+            original,
             // The numbers the reviewer is writing about. Each request is its
             // own conversation, so a correction naming cue 84 reaches the model
             // with every batch and only the batch holding 84 can act on it.
@@ -114,7 +132,7 @@ export function usePasses() {
         })
         if (data.error) throw new Error(data.error)
         const parsed = data.translations as string[]
-        batch.forEach((c, j) => { if (parsed[j] && parsed[j] !== c.text) s.updateSubtitle(lang, c.index, parsed[j]) })
+        batch.forEach((c, j) => { if (parsed[j] && parsed[j] !== c.text) write(c.index, parsed[j]) })
         s.setTranslateJob({
           progress: Math.round((i + batch.length) / subs.length * 100),
           message: `Corrigiendo… ${Math.min(i + BATCH, subs.length)}/${subs.length}`,
@@ -134,19 +152,18 @@ export function usePasses() {
   }
 
   /**
-   * Read the translation back and report what is wrong with it.
+   * Read the track back and report what is wrong with it — a translation
+   * against its original, the original against itself.
    *
    * Its own pass, never folded into the translation reply. Reads rather than
    * writes, so no undo step: nothing on screen changes.
    */
   async function review() {
     const s = useSubtitleStore.getState()
-    const { activeTab, translations, subtitles, srcLang, reviewJob } = s
+    const { activeTab, srcLang, reviewJob } = s
     const glossary = termsInForce(s)
-    if (activeTab === 'source' || !translations[activeTab] || reviewJob.running) return
-    const lang = activeTab
-    const subs = translations[lang]
-    if (!subs.length) return
+    const { original, subs, lang, sourceOf } = onScreen(s)
+    if (!subs?.length || reviewJob.running) return
 
     s.setReviewJob({ running: true, message: `Revisando ${subs.length} cues…`, progress: 0, error: null })
 
@@ -159,9 +176,9 @@ export function usePasses() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            task: 'review',
+            task: original ? 'proofread' : 'review',
             cues: batch.map(c => c.text),
-            sourceTexts: batch.map(c => subtitles.find(o => o.index === c.index)?.text ?? ''),
+            sourceTexts: original ? undefined : batch.map(c => sourceOf(c.index)),
             cueNumbers: batch.map(c => c.index),
             targetLang: lang,
             sourceLang: srcLang,
@@ -184,7 +201,7 @@ export function usePasses() {
     // Written even when empty. "Nothing found" is a result, and a panel that
     // only ever appears when there is bad news would leave somebody who ran
     // the pass on clean work wondering whether it had run at all.
-    s.setReviewNotes(lang, found)
+    s.setReviewNotes(activeTab, found)
     s.setReviewJob({
       running: false,
       progress: 100,

@@ -139,6 +139,16 @@ function glossaryRules(entries: GlossaryEntry[] = []): string[] {
 }
 
 /**
+ * The glossary for text in the original language: how each term is written,
+ * not what it becomes in another language.
+ */
+function glossarySpelling(entries: GlossaryEntry[] = []): string[] {
+  const terms = entries.slice(0, MAX_GLOSSARY_ENTRIES).map(g => clean(g?.term)).filter(Boolean)
+  if (!terms.length) return []
+  return ['GLOSSARY (how these terms are written — apply exactly):', ...terms.map(t => `• "${t}"`), '']
+}
+
+/**
  * Compose the translation prompt.
  *
  * This lives on the server, and the client sends cues rather than prose. When
@@ -229,7 +239,8 @@ export function buildBackTranslationPrompt(req: {
  */
 export function buildShortenPrompt(req: {
   cues: string[]
-  sourceTexts: string[]
+  /** Omitted when the subtitles being shortened are the original themselves. */
+  sourceTexts?: string[]
   numbers: number[]
   lang: string
   maxChars: number
@@ -248,7 +259,9 @@ export function buildShortenPrompt(req: {
     ...FIXED_COUNT_RULES,
     returnLine(items.length, 'shortened text'),
     '',
-    'SUBTITLES ("source" is the original, for meaning; "text" is the translation that is too long — rewrite it):',
+    req.sourceTexts
+      ? 'SUBTITLES ("source" is the original, for meaning; "text" is the translation that is too long — rewrite it):'
+      : 'SUBTITLES ("text" is the original subtitle that is too long — rewrite it in the same language):',
     JSON.stringify(items),
   ].join('\n')
 }
@@ -268,8 +281,13 @@ export function buildShortenPrompt(req: {
 export interface RevisionRequest {
   /** The current translations — the text being corrected. */
   cues: string[]
-  /** The original cues, in the same order, so a correction cannot drift. */
-  sourceTexts: string[]
+  /**
+   * The original cues, in the same order, so a correction cannot drift.
+   * Omitted when what is being corrected is the original: a transcription
+   * has nothing behind it, and a misheard word is exactly the content a
+   * correction there is meant to change.
+   */
+  sourceTexts?: string[]
   /**
    * The cue numbers these translations carry on screen, in the same order.
    *
@@ -306,17 +324,19 @@ export function buildRevisionPrompt(req: RevisionRequest): string {
     '• Reproduce every other subtitle EXACTLY as given, character for character',
     '• A correction naming a subtitle number applies to that number and no other',
     '• If a correction names a number that is not in this batch, ignore it',
-    '• Keep the meaning of the original source text — corrections adjust wording, not content',
+    ...(req.sourceTexts ? ['• Keep the meaning of the original source text — corrections adjust wording, not content'] : []),
     '• Maintain consistent terminology throughout',
     '',
-    ...glossaryRules(req.glossary),
+    ...(req.sourceTexts ? glossaryRules(req.glossary) : glossarySpelling(req.glossary)),
     ...instructionBlock('CORRECTIONS TO APPLY:', req.instructions),
     returnLine(items.length, 'revised text'),
     '',
     // One object per subtitle rather than three arrays to be read in step —
     // the same lesson buildReviewPrompt learned: parallel arrays made the
     // model count, and it counted wrong.
-    'SUBTITLES ("n" is the number a correction may name; "source" is the original, for meaning; "text" is the current translation — revise it):',
+    req.sourceTexts
+      ? 'SUBTITLES ("n" is the number a correction may name; "source" is the original, for meaning; "text" is the current translation — revise it):'
+      : 'SUBTITLES ("n" is the number a correction may name; "text" is the original subtitle, as transcribed — revise it in the same language):',
     JSON.stringify(items),
   ].join('\n')
 }
@@ -397,6 +417,56 @@ export function buildReviewPrompt(req: {
         translation: req.cues[i] ?? '',
       })),
     ),
+  ].join('\n')
+}
+
+/**
+ * Read the original and say what is wrong with it.
+ *
+ * The review's twin for the track that has no source behind it: what the
+ * transcription misheard, misspelt or wrote two ways. Same contract as the
+ * review — notes that quote their words, nothing when there is nothing, at
+ * most one per subtitle — because the panel that shows them is the same.
+ */
+export function buildProofreadPrompt(req: {
+  cues: string[]
+  numbers: number[]
+  /** The language spoken, when known. */
+  lang?: string
+  glossary?: GlossaryEntry[]
+}): string {
+  const spoken = req.lang && req.lang !== 'Auto-detect' ? ` in ${req.lang}` : ''
+
+  return [
+    `You are a senior subtitle proofreader. These subtitles were transcribed from speech${spoken}. Read them and report only what is wrong.`,
+    '',
+    'WHAT TO REPORT:',
+    '• A word that was almost certainly misheard — it makes no sense where it stands, and a word that sounds like it would',
+    '• Spelling and grammar mistakes, and punctuation that changes how a line reads',
+    '• Text duplicated across two subtitles — the end of one repeated at the start of the next',
+    '• A name or term written one way here and another way elsewhere in the batch, or not as the glossary writes it',
+    '• Capitalisation of a proper name that disagrees with the rest of the batch',
+    '',
+    'WHAT NOT TO REPORT:',
+    '• How the speaker chose to say something — a transcription records speech, it does not improve it',
+    '• Anything you would describe as "fine", "good", "acceptable" or "could be slightly better"',
+    '• Style preferences, alternative phrasings, or praise',
+    '• Line length, reading speed and timing — those are measured elsewhere, not by you',
+    '',
+    'RULES:',
+    '• Report NOTHING unless it is a real mistake a professional would correct',
+    '• An empty array is the correct answer for a batch with no mistakes — return it',
+    '• At most one note per subtitle',
+    '• Every note must quote the exact words it is about, copied character for character from that subtitle\'s "text"',
+    '• "cue" is the "n" of the subtitle you quoted. Do not report a note against any other number',
+    `• Each note is one sentence, under ${MAX_NOTE_CHARS} characters, naming what is wrong and what it should be`,
+    '• "level" is "error" when a word is wrong — misheard, misspelt, a name altered — and "warn" when it only reads badly',
+    '',
+    ...glossarySpelling(req.glossary),
+    'Return ONLY a JSON array of objects, each {"cue": <n>, "level": "error"|"warn", "note": "<text>"}. No markdown, no commentary.',
+    '',
+    'SUBTITLES:',
+    JSON.stringify(req.numbers.map((n, i) => ({ n, text: req.cues[i] ?? '' }))),
   ].join('\n')
 }
 

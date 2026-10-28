@@ -39,14 +39,9 @@ export const DeliverIcon = () => (
   <Svg><path d="M8 1.5v8M5 6.5l3 3 3-3" /><path d="M2.5 11v3h11v-3" /></Svg>
 )
 
-/** An eye: the translation, read against the original. */
+/** An eye: the track, read again — a translation against the original, or the original itself. */
 export const ReviewIcon = () => (
   <Svg><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z" /><circle cx="8" cy="8" r="2" /></Svg>
-)
-
-/** Layers: a correction applied to every cue at once. */
-export const BatchIcon = () => (
-  <Svg><path d="M8 1.5 1.5 5 8 8.5 14.5 5z" /><path d="M1.5 8 8 11.5 14.5 8M1.5 11 8 14.5 14.5 11" /></Svg>
 )
 
 /** Two sliders: the sequence's settings and the glossary. */

@@ -12,13 +12,13 @@ import { useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
 import {
-  BatchIcon, CommentIcon, DeliverIcon, FileIcon, MicIcon, PanelLeftIcon, PropsIcon, ReviewIcon, TranslateIcon,
+  CommentIcon, DeliverIcon, FileIcon, MicIcon, PanelLeftIcon, PropsIcon, ReviewIcon, TranslateIcon,
 } from './icons'
 import { ANY_FILE, langCode, useExport, useImport, useTranscribe, useTranslate } from './useJobs'
 
 export type Step = 'import' | 'transcribe' | 'translate' | 'deliver'
 /** What is not a step, because it never ends. Its controls are Panel.tsx. */
-export type Section = 'review' | 'batch' | 'props' | 'comments'
+export type Section = 'review' | 'props' | 'comments'
 /** Whatever fills the sidebar. */
 export type Pane = Step | Section
 
@@ -31,7 +31,6 @@ const STEPS: { id: Step; name: string; icon: ReactNode }[] = [
 
 export const SECTIONS: { id: Section; name: string; icon: ReactNode }[] = [
   { id: 'review', name: 'Revisar', icon: <ReviewIcon /> },
-  { id: 'batch', name: 'Lotes', icon: <BatchIcon /> },
   { id: 'props', name: 'Propiedades', icon: <PropsIcon /> },
   { id: 'comments', name: 'Comentarios', icon: <CommentIcon /> },
 ]
@@ -62,7 +61,7 @@ export function Sidebar({ name, onFold, children }: { name: string; onFold: () =
 /**
  * The work, as icons down a rail: import, transcribe, translate, deliver —
  * then, under a rule, what is not a step because it never ends: review,
- * batches, properties, comments. The name shows on hover; pressing one fills
+ * properties, comments. The name shows on hover; pressing one fills
  * the sidebar next to it, and the sidebar stays until it is folded, so a job
  * launched from it can be watched from it.
  *

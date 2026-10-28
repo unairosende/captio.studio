@@ -4,6 +4,7 @@ import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import {
   TranslationFormatError,
   buildBackTranslationPrompt,
+  buildProofreadPrompt,
   buildReviewPrompt,
   buildRevisionPrompt,
   buildShortenPrompt,
@@ -203,13 +204,18 @@ async function translate(prompt: string): Promise<ProviderResult & { model: stri
  * enforces, and what stops any of them becoming a way to get arbitrary text
  * back out of a subtitling subscription.
  */
-type Task = 'translate' | 'backTranslate' | 'shorten' | 'revise' | 'review'
+type Task = 'translate' | 'backTranslate' | 'shorten' | 'revise' | 'review' | 'proofread'
 
 interface Body {
   task?: Task
   cues?: unknown
   /** Original source texts, so `shorten` and `revise` work without inventing. */
   sourceTexts?: string[]
+  /**
+   * The cues are the original, not a translation: `shorten` and `revise` then
+   * work on them with nothing behind them, and `sourceTexts` is ignored.
+   */
+  original?: boolean
   /** What to change. `revise` only — the reviewer's own words. */
   instructions?: string
   /**
@@ -285,6 +291,9 @@ export async function POST(req: NextRequest) {
 
   const maxChars = body.outputMode === 'vertical' ? MAX_CHARS_VERTICAL : MAX_CHARS_HORIZONTAL
   const task: Task = body.task ?? 'translate'
+  const original = body.original === true
+  // Both read the subtitles and answer with notes about them, never with subtitles.
+  const notes = task === 'review' || task === 'proofread'
 
   /**
    * What the model is shown: the whole batch first, and halves of it when the
@@ -315,7 +324,7 @@ export async function POST(req: NextRequest) {
     build = s =>
       buildShortenPrompt({
         cues: s.cues,
-        sourceTexts: s.sourceTexts,
+        sourceTexts: original ? undefined : s.sourceTexts,
         numbers: s.numbers,
         lang: targetLang,
         maxChars,
@@ -330,6 +339,14 @@ export async function POST(req: NextRequest) {
         sourceLang: body.sourceLang,
         glossary: body.glossary,
       })
+  } else if (task === 'proofread') {
+    build = s =>
+      buildProofreadPrompt({
+        cues: s.cues,
+        numbers: s.numbers,
+        lang: body.sourceLang,
+        glossary: body.glossary,
+      })
   } else if (task === 'revise') {
     if (typeof body.instructions !== 'string' || !body.instructions.trim()) {
       return NextResponse.json(
@@ -341,7 +358,7 @@ export async function POST(req: NextRequest) {
     build = s =>
       buildRevisionPrompt({
         cues: s.cues,
-        sourceTexts: s.sourceTexts,
+        sourceTexts: original ? undefined : s.sourceTexts,
         numbers: s.numbers,
         lang: targetLang,
         maxChars,
@@ -446,7 +463,7 @@ export async function POST(req: NextRequest) {
     }
 
     const parse = (text: string, s: Slice): (string | ReviewNote)[] =>
-      task === 'review'
+      notes
         ? parseReviewResponse(text, s.numbers)
         : parseTranslationResponse(text, s.numbers, s.cues)
 
@@ -457,7 +474,7 @@ export async function POST(req: NextRequest) {
         // A slice with nothing in it is answered here. Blank cues are never
         // shown to the model, and a prompt with no subtitles in it invites an
         // answer with none — which is the one reply that would be refused.
-        if (task !== 'review' && !s.cues.some(c => c.trim())) return s.cues.map(() => '')
+        if (!notes && !s.cues.some(c => c.trim())) return s.cues.map(() => '')
         return parse(await ask(s), s)
       },
       CALL_BUDGET,
@@ -466,7 +483,7 @@ export async function POST(req: NextRequest) {
     // A review answers with notes about the subtitles rather than with
     // subtitles, so nothing here is laid out and nothing is a cue. It leaves by
     // its own door: a caller reading `translations` must never find prose in it.
-    if (task === 'review') return NextResponse.json({ notes: answer as ReviewNote[] })
+    if (notes) return NextResponse.json({ notes: answer as ReviewNote[] })
 
     const translations = answer as string[]
 

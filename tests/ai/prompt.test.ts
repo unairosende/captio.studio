@@ -3,6 +3,7 @@ import { describe, it } from 'node:test'
 
 import {
   TranslationFormatError,
+  buildProofreadPrompt,
   buildReviewPrompt,
   buildRevisionPrompt,
   buildTranslationPrompt,
@@ -273,6 +274,51 @@ describe('buildReviewPrompt', () => {
 
   it('leaves length and timing to the checks that measure them', () => {
     assert.match(buildReviewPrompt(review), /those are measured elsewhere/)
+  })
+})
+
+describe('buildProofreadPrompt', () => {
+  const proof = {
+    cues: ['Lo embotellamos en la vodega', 'con la Reserva de la familia.'],
+    numbers: [41, 42],
+    lang: 'Spanish',
+    glossary: [{ term: 'Reserva de la Familia', translation: 'Family Reserve' }],
+  }
+
+  it('reads the original on its own, numbered, with nothing behind it', () => {
+    const p = buildProofreadPrompt(proof)
+    assert.match(p, /\{"n":41,"text":"Lo embotellamos en la vodega"\}/)
+    assert.doesNotMatch(p, /"source"/)
+    assert.match(p, /transcribed from speech in Spanish/)
+  })
+
+  it('keeps the review\'s contract: quote the words, nothing when there is nothing', () => {
+    const p = buildProofreadPrompt(proof)
+    assert.match(p, /quote the exact words/)
+    assert.match(p, /empty array is the correct answer/)
+  })
+
+  it('gives the glossary as spelling, not as a translation the original never needs', () => {
+    const p = buildProofreadPrompt(proof)
+    assert.match(p, /• "Reserva de la Familia"/)
+    assert.doesNotMatch(p, /Family Reserve/)
+  })
+})
+
+describe('buildRevisionPrompt on the original', () => {
+  it('corrects the words themselves, without a source to keep the meaning of', () => {
+    // A misheard word is the content a correction to a transcription changes;
+    // the rule that guards a translation's meaning would forbid exactly that.
+    const p = buildRevisionPrompt({
+      cues: ['Lo embotellamos en la vodega'],
+      numbers: [41],
+      lang: 'Spanish',
+      maxChars: 42,
+      instructions: '41: bodega, con b.',
+    })
+    assert.match(p, /\{"n":41,"text":"Lo embotellamos en la vodega"\}/)
+    assert.doesNotMatch(p, /Keep the meaning of the original source text/)
+    assert.match(p, /original subtitle, as transcribed/)
   })
 })
 

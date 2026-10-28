@@ -26,10 +26,11 @@ interface Props {
 /**
  * What the table is not, in the sidebar the steps use.
  *
- * Reviewing with the model and its notes, the corrections that touch every
- * cue at once, the properties of the sequence and the project's glossary,
- * and the comments — four icons on the rail, under the steps and a rule. A
- * review asked for from the palette opens its section.
+ * Reviewing — the model's notes, the corrections that touch every cue at
+ * once, what the checks say of the cue in hand, for a translation or for
+ * the original — then the properties of the sequence and the project's
+ * glossary, and the comments: three icons on the rail, under the steps and
+ * a rule. A review asked for from the palette opens its section.
  *
  * Every action here is also a ⌘K command whether its section shows or not:
  * the palette reads the hidden buttons at the bottom when the visible ones
@@ -55,8 +56,11 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
   const cue = selected === null ? undefined : track.find(c => c.index === selected)
   const source = selected === null ? undefined : subtitles.find(c => c.index === selected)
   const cueQc = cue ? quality.get(cue.index) : undefined
-  const notes = isSource ? undefined : reviewNotes[activeTab]
-  const note = !isSource && cue ? notes?.find(n => n.cue === cue.index) : undefined
+  const notes = reviewNotes[activeTab]
+  const note = cue ? notes?.find(n => n.cue === cue.index) : undefined
+  const label = isSource ? 'el original' : langCode(activeTab)
+  const reviewCmd = isSource ? 'Revisar el original y señalar lo que está mal' : 'Revisar la traducción y señalar lo que está mal'
+  const reviseCmd = isSource ? 'Corregir el original con una nota' : 'Corregir la traducción con una nota'
   const back = !isSource && cue ? backTranslations[activeTab]?.find(b => b.index === cue.index) : undefined
   const diff = back && source ? wordDiff(source.text, back.text) : null
   const hasBack = !isSource && !!backTranslations[activeTab]
@@ -87,10 +91,10 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
      are off screen, so ⌘K names each thing exactly once. */
   const hidden = (
     <span hidden>
-      {!showing('review') && !isSource && !reviewJob.running && <button data-cmd="Revisar la traducción y señalar lo que está mal" onClick={review} />}
+      {!showing('review') && !reviewJob.running && <button data-cmd={reviewCmd} onClick={review} />}
       {!showing('review') && !isSource && <button data-cmd={hasBack ? 'Ocultar la retrotraducción' : 'Retrotraducir para comprobar el sentido'} onClick={backTranslate} />}
-      {!showing('batch') && !isSource && errs > 0 && <button data-cmd="Acortar los cues demasiado largos" onClick={() => { onOpen('batch'); void passes.fixOverlength() }} />}
-      {!showing('batch') && !isSource && <button data-cmd="Corregir la traducción con una nota" onClick={() => onOpen('batch')} />}
+      {!showing('review') && errs > 0 && <button data-cmd="Acortar los cues demasiado largos" onClick={() => { onOpen('review'); void passes.fixOverlength() }} />}
+      {!showing('review') && <button data-cmd={reviseCmd} onClick={() => onOpen('review')} />}
       {!showing('props') && <button data-cmd="Abrir el glosario" onClick={() => onOpen('props')} />}
       {!showing('props') && <button data-cmd="Añadir un término al glosario" onClick={() => { onOpen('props'); setGlossary([...glossary, { term: '', translation: '' }]) }} />}
       {!showing('comments') && <button data-cmd="Ver los comentarios" onClick={() => onOpen('comments')} />}
@@ -114,30 +118,32 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
       )}
 
       <div className={s.sideBody}>
-        {/* ── Revisar ─────────────────────────────────────────────────────── */}
-        {open === 'review' && (isSource ? (
-          <div className={s.section}>
-            <div className={s.hint}>Elige una pestaña de idioma para revisarla contra el original.</div>
-          </div>
-        ) : (
+        {/* ── Revisar: la revisión, las notas, las correcciones en lote y el cue ── */}
+        {open === 'review' && (
           <>
             <div className={s.section}>
               <div className={s.chips}>
-                <button className="btn btn-primary" data-cmd="Revisar la traducción y señalar lo que está mal" disabled={reviewJob.running} aria-busy={reviewJob.running || undefined}
+                <button className="btn btn-primary" data-cmd={reviewCmd} disabled={reviewJob.running} aria-busy={reviewJob.running || undefined}
                   onClick={() => void passes.review()}>Revisar con IA</button>
-                <button className="btn" data-cmd={hasBack ? 'Ocultar la retrotraducción' : 'Retrotraducir para comprobar el sentido'} aria-busy={backTranslateJob.running || undefined}
-                  onClick={() => void passes.backTranslate()}>{hasBack ? 'Ocultar retrotraducción' : 'Retrotraducir'}</button>
+                {!isSource && (
+                  <button className="btn" data-cmd={hasBack ? 'Ocultar la retrotraducción' : 'Retrotraducir para comprobar el sentido'} aria-busy={backTranslateJob.running || undefined}
+                    onClick={() => void passes.backTranslate()}>{hasBack ? 'Ocultar retrotraducción' : 'Retrotraducir'}</button>
+                )}
               </div>
-              <div className={s.hint}>La revisión lee {langCode(activeTab)} contra el original y señala lo que lo contradice. La retrotraducción lo vuelve a traducir al original para comparar el sentido.</div>
+              <div className={s.hint}>
+                {isSource
+                  ? 'La revisión lee el original y señala lo que la transcripción oyó mal, las faltas y los términos escritos de dos maneras.'
+                  : `La revisión lee ${label} contra el original y señala lo que lo contradice. La retrotraducción lo vuelve a traducir al original para comparar el sentido.`}
+              </div>
               {reviewJob.running && <div className={s.jobMsg}>{reviewJob.message}</div>}
               {(reviewJob.error || backTranslateJob.error) && <div className={s.jobMsg} data-tone="danger">{reviewJob.error ?? backTranslateJob.error}</div>}
             </div>
 
             {notes && (
               <div className={s.section}>
-                <span className="caps"><span>Notas · {langCode(activeTab)}</span><span>{notes.length}</span></span>
+                <span className="caps"><span>Notas · {label}</span><span>{notes.length}</span></span>
                 {notes.length === 0
-                  ? <div className={s.hint}>Nada que señalar: nada contradice el original.</div>
+                  ? <div className={s.hint}>{isSource ? 'Nada que señalar en el original.' : 'Nada que señalar: nada contradice el original.'}</div>
                   : <div className={s.notes}>
                       {notes.map(n => (
                         <button key={n.cue} className={s.note} aria-current={selected === n.cue} onClick={() => goTo(n.cue)}>
@@ -152,13 +158,38 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
               </div>
             )}
 
+            <div className={s.section}>
+              <span className="caps">Acortar los largos</span>
+              <div className={s.hint}>{errs ? `${errs} cues pasan el límite de ${qc.maxChars} caracteres por línea.` : `Ningún cue pasa el límite de ${qc.maxChars} caracteres por línea.`} {allowRephrase ? 'El modelo reescribe solo esos, más cortos; el resto vuelve intacto.' : 'Se vuelven a partir en líneas, sin cambiar una palabra.'}</div>
+              <div className={s.radios}>
+                <label><input type="checkbox" checked={allowRephrase} onChange={e => setAllowRephrase(e.target.checked)} /> Permitir reformular para que quepa</label>
+              </div>
+              <div>
+                <button className="btn" data-cmd="Acortar los cues demasiado largos" disabled={!errs || translateJob.running} aria-busy={translateJob.running || undefined}
+                  onClick={() => void passes.fixOverlength()}>{errs ? `Acortar ${errs} cues` : 'Acortar'}</button>
+              </div>
+            </div>
+
+            <div className={s.section}>
+              <span className="caps">Corregir con una nota</span>
+              <textarea className="field" rows={5} maxLength={2000} value={reviseText} onChange={e => setReviseText(e.target.value)}
+                placeholder={'¿Qué hay que cambiar? Nombra los números de cue — el resto vuelve intacto.\n\np. ej. 18: quita el final repetido, ya está en el 19. 53: «Reserva de la Familia» con mayúsculas.'} />
+              <div className={s.chips}>
+                <button className="btn btn-primary" data-cmd={reviseCmd} disabled={!reviseText.trim() || translateJob.running} aria-busy={translateJob.running || undefined}
+                  onClick={() => void passes.revise(reviseText)}>Aplicar {isSource ? 'al original' : `a ${label}`}</button>
+                <span className={s.counter}>{reviseText.length}/2000</span>
+              </div>
+              {translateJob.running && <div className={s.jobMsg}>{translateJob.message}</div>}
+              {translateJob.error && <div className={s.jobMsg} data-tone="danger">{translateJob.error}</div>}
+            </div>
+
             {cue ? (
               <div className={s.section}>
                 <span className="caps">
                   <span>Cue {cue.index}</span>
                   <span data-tone={tone(cueQc?.status)}>{!cueQc || cueQc.status === 'ok' ? 'limpio' : cueQc.status === 'warn' ? 'aviso' : 'error'}</span>
                 </span>
-                {source && <div className={s.original}>{source.text}</div>}
+                {source && !isSource && <div className={s.original}>{source.text}</div>}
                 {cueQc && cueQc.issues.length > 0 && (
                   <div className={s.issues}>
                     {cueQc.issues.map((issue, i) => <div key={i} className={s.issue} data-level={issue.level}>{issue.msg}</div>)}
@@ -182,37 +213,7 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
               <div className={s.section}><div className={s.hint}>Elige un cue en la tabla y aquí sale lo que el control de calidad y la revisión dicen de él.</div></div>
             )}
           </>
-        ))}
-
-        {/* ── Lotes ───────────────────────────────────────────────────────── */}
-        {open === 'batch' && (isSource ? (
-          <div className={s.section}>
-            <div className={s.hint}>Las correcciones en lote se aplican a una traducción. Elige una pestaña de idioma.</div>
-          </div>
-        ) : (
-          <>
-            <div className={s.section}>
-              <span className="caps">Acortar los largos</span>
-              <div className={s.hint}>{errs ? `${errs} cues pasan el límite de ${qc.maxChars} caracteres por línea.` : `Ningún cue pasa el límite de ${qc.maxChars} caracteres por línea.`} El modelo reescribe solo esos, más cortos; el resto vuelve intacto.</div>
-              <div>
-                <button className="btn" data-cmd="Acortar los cues demasiado largos" disabled={!errs || translateJob.running} aria-busy={translateJob.running || undefined}
-                  onClick={() => void passes.fixOverlength()}>{errs ? `Acortar ${errs} cues` : 'Acortar'}</button>
-              </div>
-            </div>
-            <div className={s.section}>
-              <span className="caps">Corregir con una nota</span>
-              <textarea className="field" rows={5} maxLength={2000} value={reviseText} onChange={e => setReviseText(e.target.value)}
-                placeholder={'¿Qué hay que cambiar? Nombra los números de cue — el resto vuelve intacto.\n\np. ej. 18: quita el final repetido, ya está en el 19. 53: «Reserva de la Familia» con mayúsculas.'} />
-              <div className={s.chips}>
-                <button className="btn btn-primary" data-cmd="Corregir la traducción con una nota" disabled={!reviseText.trim() || translateJob.running} aria-busy={translateJob.running || undefined}
-                  onClick={() => void passes.revise(reviseText)}>Aplicar a {langCode(activeTab)}</button>
-                <span className={s.counter}>{reviseText.length}/2000</span>
-              </div>
-              {translateJob.running && <div className={s.jobMsg}>{translateJob.message}</div>}
-              {translateJob.error && <div className={s.jobMsg} data-tone="danger">{translateJob.error}</div>}
-            </div>
-          </>
-        ))}
+        )}
 
         {/* ── Propiedades ─────────────────────────────────────────────────── */}
         {open === 'props' && (

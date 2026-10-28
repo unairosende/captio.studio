@@ -94,7 +94,7 @@ export default function CueTable({ userId, filter, onFilter, onImport, viewer, o
   const quality = qcByLang.get(activeTab)
   const warns = quality ? [...quality.values()].filter(q => q.status === 'warn').length : 0
   const errs  = quality ? [...quality.values()].filter(q => q.status === 'error').length : 0
-  const notes = activeTab !== 'source' ? reviewNotes[activeTab] : undefined
+  const notes = reviewNotes[activeTab]
   const noted = useMemo(() => new Set((notes ?? []).map(n => n.cue)), [notes])
 
   const shown =

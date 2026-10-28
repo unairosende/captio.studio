@@ -57,7 +57,7 @@ interface Props {
 
 /**
  * The editor: a rail down the left edge — the four steps, a rule, then
- * review, batches, properties and comments — with the sidebar each icon
+ * review, properties and comments — with the sidebar each icon
  * opens, the cues in the middle with a tab per language and the text
  * corrected in place, the picture on the right, and the waveform along the
  * bottom — the instrument timing depends on. Both sides fold.
