@@ -14,7 +14,7 @@ import s from './editor.module.css'
 import {
   BatchIcon, CommentIcon, DeliverIcon, FileIcon, MicIcon, PanelLeftIcon, PropsIcon, ReviewIcon, TranslateIcon,
 } from './icons'
-import { langCode, useExport, useImport, useTranscribe, useTranslate } from './useJobs'
+import { ANY_FILE, langCode, useExport, useImport, useTranscribe, useTranslate } from './useJobs'
 
 export type Step = 'import' | 'transcribe' | 'translate' | 'deliver'
 /** What is not a step, because it never ends. Its controls are Panel.tsx. */
@@ -133,10 +133,8 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
             {/* 01 · Importar */}
             {open === 'import' && (
               <>
-                <input ref={fileRef} type="file" accept=".srt,.txt,.csv,.vtt" hidden
-                  onChange={e => { const f = e.target.files?.[0]; if (f) importJob.fromFile(f, hint); e.target.value = '' }} />
                 <div className={s.chips}>
-                  <button className="btn" data-cmd="Abrir un archivo de subtítulos" data-cmd-hint="SRT · VTT · TXT · CSV" onClick={() => fileRef.current?.click()}>Abrir archivo</button>
+                  <button className="btn" data-cmd="Importar un archivo" data-cmd-hint="Vídeo · audio · SRT · VTT · TXT · CSV" onClick={() => fileRef.current?.click()}>Abrir archivo</button>
                   <button className="btn btn-quiet" data-cmd="Vaciar los cues" disabled={!hasSubs} onClick={() => { if (confirm('¿Vaciar todos los cues y sus traducciones?')) clearAll() }}>Vaciar</button>
                 </div>
                 <div>
@@ -284,8 +282,11 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
       {/* The palette reads every [data-cmd] on the page, and a folded step
           still has things it can do. These are the same actions, unseen,
           rendered only while their step is not showing so nothing is listed twice. */}
+      {/* Outside the step, so the palette can open the chooser with the sidebar folded. */}
+      <input ref={fileRef} type="file" accept={ANY_FILE} hidden
+        onChange={e => { const f = e.target.files?.[0]; if (f && !importJob.any(f, hint)) alert(`${f.name} no es un vídeo, un audio ni un archivo de subtítulos o texto.`); e.target.value = '' }} />
       <span hidden>
-        {open !== 'import' && <button data-cmd="Abrir un archivo de subtítulos" data-cmd-hint="SRT · VTT · TXT · CSV" onClick={() => { onOpen('import'); setTimeout(() => fileRef.current?.click(), 0) }} />}
+        {open !== 'import' &&<button data-cmd="Importar un archivo" data-cmd-hint="Vídeo · audio · SRT · VTT · TXT · CSV" onClick={() => fileRef.current?.click()} />}
         {open !== 'transcribe' && <button data-cmd="Transcribir el audio" onClick={() => onOpen('transcribe')} />}
         {open !== 'translate' && hasSubs && !!targetLang && !translateJob.running && <button data-cmd="Traducir al idioma de destino" data-cmd-hint={langCode(targetLang)} onClick={() => void translate.start(targetLang)} />}
         {open !== 'translate' && <button data-cmd="Elegir el idioma de destino" onClick={() => onOpen('translate')} />}

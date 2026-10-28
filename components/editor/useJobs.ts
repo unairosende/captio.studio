@@ -6,6 +6,7 @@ import { termsInForce, useSubtitleStore } from '@/store/useSubtitleStore'
 import { api, must } from '@/lib/api'
 import { decodeAudio } from '@/lib/audio/decode'
 import { LANG_CODES, TRANSLATION_BATCH, TRANSLATION_PAUSE_MS } from '@/lib/providers'
+import { loadMedia } from '@/lib/timeline/playhead'
 import { MAX_UPLOAD_BYTES } from '@/lib/upload'
 import {
   type ParseHint,
@@ -74,8 +75,24 @@ export function useImport() {
     loadSubtitles(parseContent(t, 'pasted.srt', hint))
   }
 
-  return { fromFile, fromText }
+  /**
+   * Whatever was chosen or dropped: a picture or a sound goes to the
+   * timeline, which plays it and which Transcribir sends from; subtitles and
+   * text become the cues. False when it is neither, for the caller to say so.
+   */
+  function any(f: File, hint: ParseHint = 'auto'): boolean {
+    if (TEXT_FILE.test(f.name) || f.type.startsWith('text/')) { fromFile(f, hint); return true }
+    if (/^(audio|video)\//.test(f.type) || MEDIA_FILE.test(f.name)) return loadMedia(f)
+    return false
+  }
+
+  return { fromFile, fromText, any }
 }
+
+const TEXT_FILE = /\.(srt|vtt|txt|csv)$/i
+const MEDIA_FILE = /\.(mp3|wav|m4a|aac|ogg|flac|mp4|m4v|mov|mkv|webm|avi)$/i
+/** What the file chooser offers, for the import that takes either kind. */
+export const ANY_FILE = '.srt,.vtt,.txt,.csv,audio/*,video/*'
 
 /* ── Traducir ───────────────────────────────────────────────────────────── */
 

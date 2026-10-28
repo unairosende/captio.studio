@@ -42,3 +42,22 @@ export function seekTo(seconds: number): boolean {
   jump(seconds)
   return true
 }
+
+/**
+ * Loading a picture or a sound, lent out the same way.
+ *
+ * The timeline decodes what it plays and owns the element that plays it, so
+ * a file dropped anywhere else in the editor is handed to it rather than
+ * loaded a second way.
+ */
+let take: ((file: File) => void) | null = null
+
+export function publishLoad(fn: ((file: File) => void) | null): void {
+  take = fn
+}
+
+export function loadMedia(file: File): boolean {
+  if (!take) return false
+  take(file)
+  return true
+}

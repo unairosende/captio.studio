@@ -80,6 +80,9 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   // Where the timeline draws the picture. The element is the timeline's —
   // it is the clock — and the room for it is this layout's.
   const [screen, setScreen] = useState<HTMLElement | null>(null)
+  // Nothing to show in the viewer or along the wave until there is material;
+  // they stay mounted underneath, the wave holding the element that plays it.
+  const empty = useSubtitleStore(st => !st.subtitles.length && !st.playback)
 
   // Media loaded into an empty sequence has one next step, and the step
   // has the file ready: what was just loaded is what it transcribes.
@@ -156,7 +159,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   }, [redo, undo])
 
   return (
-    <div className={s.editor} data-viewer={viewer}>
+    <div className={s.editor} data-viewer={viewer} data-empty={empty || undefined}>
       {team && <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />}
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
       {shortcuts && <Shortcuts onClose={() => setShortcuts(false)} />}

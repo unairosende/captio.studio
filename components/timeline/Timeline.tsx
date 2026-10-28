@@ -19,7 +19,7 @@ import { decodeAudio, mediaType } from '@/lib/audio/decode'
 import { packPeaks, peakBetween } from '@/lib/audio/peaks'
 import { DEFAULT_FPS, cueAt, qcTrack, srtToSec } from '@/lib/subtitles'
 import { type Grab, hitTest, moveEdge, moveWhole } from '@/lib/timeline/drag'
-import { publishPlayhead, publishSeek } from '@/lib/timeline/playhead'
+import { publishLoad, publishPlayhead, publishSeek } from '@/lib/timeline/playhead'
 import { clockLabel, rulerLabel, tickEvery } from '@/lib/timeline/ruler'
 import {
   type Direction,
@@ -957,6 +957,12 @@ function Track({ playback, screen, keeping, onLoad }: {
   }
 
   useEffect(() => () => cancelAnimationFrame(frameRef.current), [])
+
+  // A file dropped on the empty editor comes here, to the same load as the bar's button.
+  useEffect(() => {
+    publishLoad(file => void load(file))
+    return () => publishLoad(null)
+  })
 
   // Lend the playhead to the editor, so splitting a cue can cut where somebody
   // is listening rather than halfway through on principle.

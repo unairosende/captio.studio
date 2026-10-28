@@ -10,6 +10,7 @@ import type { Subtitle } from '@/types/subtitle'
 
 import s from './editor.module.css'
 import { PanelRightIcon } from './icons'
+import Intake from './Intake'
 import { langCode, sourceLabel } from './useJobs'
 
 export type Filter = 'warn' | 'error' | 'noted' | null
@@ -18,7 +19,7 @@ interface Props {
   userId: string
   filter: Filter
   onFilter: (f: Filter) => void
-  /** The table is empty and somebody has to be sent to the first step. */
+  /** The table is empty and somebody wants the first step's other options. */
   onImport: () => void
   /** Whether the viewer on the right is showing; the toolbar carries its switch. */
   viewer: boolean
@@ -265,19 +266,7 @@ export default function CueTable({ userId, filter, onFilter, onImport, viewer, o
     startEdit(row.index, cols[ci], -1)
   }
 
-  if (!subtitles.length) {
-    return (
-      <div className={s.main}>
-        <div className={s.emptyWrap}>
-          <div className="empty">
-            <span className="empty-title">Ningún cue todavía</span>
-            <p>Abre un archivo de subtítulos, pega el texto, o carga un vídeo o un audio en el visor para transcribirlo. Los pasos están a la izquierda.</p>
-            <button className="btn btn-primary" onClick={onImport}>Empezar por importar</button>
-          </div>
-        </div>
-      </div>
-    )
-  }
+  if (!subtitles.length) return <Intake onMore={onImport} />
 
   const srcLabel = sourceLabel(srcLang)
   const label = (col: Col) => (col === 'source' ? srcLabel : langCode(col))
