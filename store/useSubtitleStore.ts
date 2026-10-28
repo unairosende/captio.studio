@@ -5,14 +5,13 @@ import { create } from 'zustand'
 // loads lib/. The store holds the undo history now, which makes it worth
 // testing outside React — and the alias only resolves under tsc and Next.
 import type {
-  Subtitle, TranslationStore, BackTranslationStore,
-  OutputMode, ViewMode,
+  Subtitle, TranslationStore, BackTranslationStore, ViewMode,
 } from '../types/subtitle.ts'
 import type { GlossaryEntry, ReviewNote } from '../lib/ai/prompt.ts'
 import type { AnchorEdit, AnchorOp, ProjectComment } from '../types/comment.ts'
 import type { Playback } from '../types/media.ts'
 import { deleteAnchors, splitAnchors } from '../types/comment.ts'
-import { deleteCue, finalSubs, mergeGlossaries, qcForMode, splitCue } from '../lib/subtitles/index.ts'
+import { DEFAULT_SETTINGS, deleteCue, finalSubs, mergeGlossaries, qcFor, splitCue, type SequenceSettings } from '../lib/subtitles/index.ts'
 
 /**
  * Deep enough to cover a session's worth of second thoughts, shallow enough
@@ -109,7 +108,7 @@ interface TranslationJob {
 }
 
 /** What a save request was built from — compared with the store when it returns. */
-export type Sent = Pick<AppState, 'subtitles' | 'translations' | 'glossary' | 'sequenceName' | 'mediaId' | 'anchorOps'>
+export type Sent = Pick<AppState, 'subtitles' | 'translations' | 'glossary' | 'sequenceName' | 'mediaId' | 'anchorOps' | 'settings' | 'srcLang'>
 
 interface AppState {
   // Core data
@@ -159,7 +158,11 @@ interface AppState {
 
   // UI state
   activeTab: 'source' | string
-  outputMode: OutputMode
+  /**
+   * What the sequence is made to: orientation, lines, line length, SDH.
+   * Saved with the cues, so it is part of the work like they are.
+   */
+  settings: SequenceSettings
   viewMode: ViewMode
   srcLang: string
   tgtLang: string
@@ -249,6 +252,9 @@ interface AppState {
     projectName: string
     glossary?: GlossaryEntry[]
     playback?: Playback | null
+    settings?: SequenceSettings
+    /** The language spoken in it, as saved; null when never chosen. */
+    srcLang?: string | null
   }) => void
   /**
    * The save came back. `sent` is the state the request was built from, when
@@ -302,7 +308,7 @@ interface AppState {
    */
   selected: number | null
   select: (index: number | null) => void
-  setOutputMode: (mode: OutputMode) => void
+  setSettings: (patch: Partial<SequenceSettings>) => void
   setViewMode: (mode: ViewMode) => void
   setSrcLang: (l: string) => void
   setTgtLang: (l: string) => void
@@ -330,7 +336,7 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   reviewNotes: {},
   glossary: [],
   activeTab: 'source',
-  outputMode: 'horizontal',
+  settings: DEFAULT_SETTINGS,
   viewMode: 'list',
   srcLang: 'Auto-detect',
   tgtLang: 'Spanish',
@@ -383,6 +389,8 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     mediaId: null,
     playback: s.playback ?? null,
     sequenceVersion: s.version,
+    settings: s.settings ?? DEFAULT_SETTINGS,
+    srcLang: s.srcLang || 'Auto-detect',
     // Freshly loaded is by definition identical to what is stored.
     dirty: false,
     past: [],
@@ -404,7 +412,9 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
         s.translations !== was.translations ||
         s.glossary !== was.glossary ||
         s.sequenceName !== was.sequenceName ||
-        s.mediaId !== was.mediaId
+        s.mediaId !== was.mediaId ||
+        s.settings !== was.settings ||
+        s.srcLang !== was.srcLang
       return {
         sequenceId: id,
         sequenceName: s.sequenceName === was.sequenceName ? name : s.sequenceName,
@@ -433,6 +443,9 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
     sequenceVersion: null,
     mediaId: null,
     playback: null,
+    // A new sequence starts from the defaults; the dialog that opens it sets its own.
+    settings: DEFAULT_SETTINGS,
+    srcLang: 'Auto-detect',
     dirty: false,
     past: [],
     future: [],
@@ -619,9 +632,11 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   switchToTab: tab => set({ activeTab: tab }),
   selected: null,
   select: index => set({ selected: index }),
-  setOutputMode:    mode => set({ outputMode: mode }),
+  // Part of the work, so unsaved once there is work to save; before the first
+  // cue there is nothing to save them with yet.
+  setSettings: patch => set(s => ({ settings: { ...s.settings, ...patch }, dirty: s.dirty || s.subtitles.length > 0 })),
   setViewMode:      mode => set({ viewMode: mode }),
-  setSrcLang:       l    => set({ srcLang: l }),
+  setSrcLang:       l    => set(s => ({ srcLang: l, dirty: s.dirty || s.subtitles.length > 0 })),
   setTgtLang:       l    => set({ tgtLang: l }),
   setAllowRephrase: v    => set({ allowRephrase: v }),
 
@@ -637,11 +652,11 @@ export const useSubtitleStore = create<AppState>((set, get) => ({
   setTranscribeJob:   j => set(s => ({ transcribeJob:   { ...s.transcribeJob,   ...j } })),
 
   getFinalSubs: lang => {
-    const { translations, outputMode } = get()
+    const { translations, settings } = get()
     const subs = translations[lang] ?? []
-    // The thresholds follow the output mode, so the narrow vertical layout
+    // The thresholds follow the settings, so the narrow vertical layout
     // splits where the wide one does not.
-    return finalSubs(subs, outputMode, qcForMode(outputMode))
+    return finalSubs(subs, settings.outputMode, qcFor(settings))
   },
 }))
 

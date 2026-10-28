@@ -6,6 +6,7 @@ import CueTable, { type Filter } from '@/components/editor/CueTable'
 import Header from '@/components/editor/Header'
 import Panel from '@/components/editor/Panel'
 import Steps, { type Pane } from '@/components/editor/Steps'
+import NewSequence from '@/components/editor/NewSequence'
 import Viewer, { type ViewerMode } from '@/components/editor/Viewer'
 import s from '@/components/editor/editor.module.css'
 import CommandPalette from '@/components/palette/CommandPalette'
@@ -14,6 +15,7 @@ import TeamPanel from '@/components/team/TeamPanel'
 import Timeline from '@/components/timeline/Timeline'
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import type { Entitlement } from '@/lib/entitlement'
+import type { SequenceSettings } from '@/lib/subtitles/settings'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
 import type { Playback } from '@/types/media'
@@ -52,6 +54,8 @@ interface Props {
     comments: ProjectComment[]
     /** Its upload, signed on the server, when there is one to play. */
     playback: Playback | null
+    settings: SequenceSettings
+    srcLang: string | null
   } | null
 }
 
@@ -72,6 +76,8 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   const [team, setTeam] = useState(false)
   const [palette, setPalette] = useState(false)
   const [shortcuts, setShortcuts] = useState(false)
+  // A sequence that does not exist yet is asked what it is made to before anything goes in it.
+  const [creating, setCreating] = useState(!sequence)
   const [filter, setFilter] = useState<Filter>(null)
   // The viewer starts open and the sidebar folded: the rail is icons, and
   // the empty table has its own button to the first step.
@@ -89,6 +95,8 @@ export default function TranslateClient({ user, entitlement, project, sequence }
   useEffect(() => useSubtitleStore.subscribe((st, prev) => {
     const file = st.playback?.file
     if (file && file !== prev.playback?.file && !st.subtitles.length) setPane('transcribe')
+    // "Nueva secuencia" from the header's menu leaves the one that was open.
+    if (prev.sequenceId && !st.sequenceId && !st.subtitles.length) setCreating(true)
   }), [])
 
   /**
@@ -109,6 +117,8 @@ export default function TranslateClient({ user, entitlement, project, sequence }
         subtitles: sequence.subtitles,
         translations: sequence.translations,
         playback: sequence.playback,
+        settings: sequence.settings,
+        srcLang: sequence.srcLang,
         projectId: project.id,
         projectName: project.name,
         glossary: project.glossary,
@@ -163,6 +173,7 @@ export default function TranslateClient({ user, entitlement, project, sequence }
       {team && <TeamPanel currentUserId={user.id} role={user.role} onClose={() => setTeam(false)} />}
       {palette && <CommandPalette onClose={() => setPalette(false)} />}
       {shortcuts && <Shortcuts onClose={() => setShortcuts(false)} />}
+      {creating && <NewSequence onClose={() => setCreating(false)} />}
 
       <Header user={user} project={project} onPalette={() => setPalette(true)} onTeam={() => setTeam(true)} onShortcuts={() => setShortcuts(true)} />
 

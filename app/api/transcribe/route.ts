@@ -11,7 +11,8 @@ import {
   compileVariants,
   cuesFromWords,
   keyterms,
-  qcForMode,
+  qcFor,
+  readSettings,
   reflowText,
   type TimedWord,
 } from '@/lib/subtitles'
@@ -63,7 +64,8 @@ export async function POST(req: NextRequest) {
 
   const language = typeof body?.language === 'string' ? body.language : ''
   const sequenceId = typeof body?.sequenceId === 'string' && body.sequenceId ? body.sequenceId : null
-  const outputMode = body?.outputMode === 'vertical' ? 'vertical' : 'horizontal'
+  // What the cues are cut to, and whether they are for viewers who cannot hear.
+  const settings = readSettings(body)
 
   // The project's terms and its client's, as the editor holds them, unsaved
   // edits included — the same list the translation is sent. It steers what
@@ -105,6 +107,8 @@ export async function POST(req: NextRequest) {
   // The point of this provider: without it, two people talking share a cue.
   form.append('diarize', 'true')
   form.append('timestamps_granularity', 'word')
+  // The sounds a deaf viewer needs written, "(risas)", "(música)"; off for everyone else.
+  form.append('tag_audio_events', settings.sdh ? 'true' : 'false')
   if (language) form.append('language_code', language)
   // A list in multipart is the field repeated, once per term.
   for (const term of terms) form.append('keyterms', term)
@@ -126,25 +130,25 @@ export async function POST(req: NextRequest) {
   const data = await res.json()
 
   // Scribe interleaves spacing and audio-event entries with the words; only
-  // the words carry text worth showing.
+  // the words carry text worth showing — and, for SDH, the events. An event
+  // belongs to whoever was speaking, so it does not break their cue in two.
+  let voice: string | null = null
   const words: TimedWord[] = (Array.isArray(data?.words) ? data.words : [])
-    .filter((w: { type?: string }) => w?.type === 'word')
-    .map((w: { text: string; start: number; end: number; speaker_id?: string }) => ({
-      text: w.text,
-      start: w.start,
-      end: w.end,
-      speakerId: w.speaker_id ?? null,
-    }))
+    .filter((w: { type?: string }) => w?.type === 'word' || (settings.sdh && w?.type === 'audio_event'))
+    .map((w: { type: string; text: string; start: number; end: number; speaker_id?: string }) => {
+      if (w.type === 'word') voice = w.speaker_id ?? null
+      return { text: w.text, start: w.start, end: w.end, speakerId: w.type === 'word' ? voice : voice ?? w.speaker_id ?? null }
+    })
 
   // Respelled after the cues are cut, and reflowed where the text changed: the
   // right spelling is rarely the same length as the wrong one.
-  const qc = qcForMode(outputMode)
+  const qc = qcFor(settings)
   const respell = compileVariants(glossary)
   // Each cue remembers what was written for it here, so the hand corrections
   // that follow can be told apart — see lib/subtitles/corrections.ts.
-  const segments = cuesFromWords(words, qc).map(cue => {
+  const segments = cuesFromWords(words, qc, undefined, settings.sdh ? n => `(HABLANTE ${n})` : undefined).map(cue => {
     const respelled = respell(cue.text)
-    const text = respelled === cue.text ? cue.text : reflowText(respelled, qc.maxChars)
+    const text = respelled === cue.text ? cue.text : reflowText(respelled, qc.maxChars, qc.maxLines)
     return { ...cue, text, machine: text }
   })
 

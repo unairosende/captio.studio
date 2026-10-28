@@ -15,7 +15,7 @@ import {
   finalSubs,
   formatSubs,
   parseContent,
-  qcForMode,
+  qcFor,
   recall,
   rowsToCsv,
   rowsToXlsx,
@@ -100,7 +100,7 @@ export function useTranslate() {
   const spent = useSpent()
 
   async function start(lang: string) {
-    const { subtitles, srcLang, outputMode, sequenceId, mediaId, projectId, setTranslateJob, setTranslation } =
+    const { subtitles, srcLang, settings, sequenceId, mediaId, projectId, setTranslateJob, setTranslation } =
       useSubtitleStore.getState()
     const glossary = termsInForce(useSubtitleStore.getState())
     if (!lang || !subtitles.length) return
@@ -152,7 +152,8 @@ export function useTranslate() {
             cueNumbers: batch.map(s => s.index),
             targetLang: lang,
             sourceLang: srcLang,
-            outputMode,
+            // Orientation, lines and line length: what each translation must fit.
+            ...settings,
             // Which material this belongs to. Plans are sold in minutes, so a
             // translation that names neither an upload nor a saved sequence
             // has nothing the server can charge — and is refused.
@@ -206,10 +207,10 @@ export function useTranscribe() {
    * Nothing to choose: the file the timeline was handed is the one that goes,
    * already playing and already decoded — its waveform and length are the
    * ones the row records. A sequence opened from the bucket has no file here
-   * and is asked for one.
+   * and is asked for one. The language is the sequence's own, when it has one.
    */
-  async function start(language: string) {
-    const { outputMode, playback, setTranscribeJob, setMediaId, loadSubtitles } = useSubtitleStore.getState()
+  async function start() {
+    const { settings, srcLang, playback, setTranscribeJob, setMediaId, loadSubtitles } = useSubtitleStore.getState()
     const glossary = termsInForce(useSubtitleStore.getState())
     const file = playback?.file
     if (!file) return
@@ -249,8 +250,9 @@ export function useTranscribe() {
         headers: { 'Content-Type': 'application/json' },
         body:    JSON.stringify({
           mediaId,
-          language: language !== 'auto' ? language : undefined,
-          outputMode,
+          language: LANG_CODES[srcLang]?.toLowerCase(),
+          // The cues are cut to these, and SDH asks for the sounds and the speakers.
+          ...settings,
           glossary,
         }),
       })
@@ -340,10 +342,10 @@ function download(filename: string, blob: Blob) {
 
 export function useExport() {
   function tab(fmt: SubtitleFormat) {
-    const { subtitles, translations, activeTab, outputMode } = useSubtitleStore.getState()
+    const { subtitles, translations, activeTab, settings } = useSubtitleStore.getState()
     const cues = activeTab === 'source' ? subtitles : translations[activeTab]
     if (!cues?.length) return
-    const subs = finalSubs(cues, outputMode, qcForMode(outputMode))
+    const subs = finalSubs(cues, settings.outputMode, qcFor(settings))
     // The BOM matters: Excel misreads accented characters in UTF-8 CSV without
     // one, and some players expect it in SRT.
     const content = bomFor(fmt) + formatSubs(subs, fmt, { lang: activeTab, title: activeTab })

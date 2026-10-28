@@ -8,6 +8,7 @@ import { getSequence } from '@/lib/db/sequences'
 import { getEntitlement } from '@/lib/entitlement'
 import { sequencePlayback } from '@/lib/storage/playback'
 import { readCues } from '@/lib/subtitles/data'
+import { readSettings } from '@/lib/subtitles/settings'
 
 import TranslateClient from './TranslateClient'
 
@@ -81,6 +82,8 @@ export default async function TranslatePage({ searchParams }: Props) {
           name: sequence.name,
           version: sequence.version,
           ...readCues(sequence.data),
+          settings: readSettings((sequence.data as { settings?: unknown } | null)?.settings),
+          srcLang: sequence.source_lang,
           comments,
           playback,
         }

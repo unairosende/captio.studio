@@ -20,7 +20,7 @@ import { checkAllowance, paywallResponse } from '@/lib/entitlement'
 import { costUsd } from '@/lib/pricing'
 import { getMedia } from '@/lib/db/media'
 import { getSequence } from '@/lib/db/sequences'
-import { MAX_CHARS_HORIZONTAL, MAX_CHARS_VERTICAL, materialSeconds, reflowText } from '@/lib/subtitles'
+import { materialSeconds, qcFor, readSettings, reflowText } from '@/lib/subtitles'
 
 export const maxDuration = 300
 
@@ -232,6 +232,9 @@ interface Body {
   targetLang?: string
   sourceLang?: string
   outputMode?: 'horizontal' | 'vertical'
+  /** The sequence's settings: lines per subtitle and characters per line. See readSettings. */
+  maxLines?: number
+  maxChars?: number | null
   glossary?: GlossaryEntry[]
   extraInstructions?: string
   previousContext?: string[]
@@ -289,7 +292,10 @@ export async function POST(req: NextRequest) {
   // which is worse but still bounded — never an unbounded free-text field.
   const sourceTexts = Array.isArray(body.sourceTexts) ? body.sourceTexts.slice(0, cues.length) : cues
 
-  const maxChars = body.outputMode === 'vertical' ? MAX_CHARS_VERTICAL : MAX_CHARS_HORIZONTAL
+  // The sequence's own limits, checked rather than trusted, so the length the
+  // model is asked for and the breaks put in afterwards are the ones the
+  // editor's checks measure against.
+  const { maxChars, maxLines } = qcFor(readSettings(body))
   const task: Task = body.task ?? 'translate'
   const original = body.original === true
   // Both read the subtitles and answer with notes about them, never with subtitles.
@@ -328,6 +334,7 @@ export async function POST(req: NextRequest) {
         numbers: s.numbers,
         lang: targetLang,
         maxChars,
+        maxLines,
       })
   } else if (task === 'review') {
     build = s =>
@@ -362,6 +369,7 @@ export async function POST(req: NextRequest) {
         numbers: s.numbers,
         lang: targetLang,
         maxChars,
+        maxLines,
         instructions,
         glossary: body.glossary,
       })
@@ -373,6 +381,7 @@ export async function POST(req: NextRequest) {
         targetLang,
         sourceLang: body.sourceLang,
         maxChars,
+        maxLines,
         glossary: body.glossary,
         extraInstructions: body.extraInstructions,
         previousContext: body.previousContext,
@@ -495,7 +504,7 @@ export async function POST(req: NextRequest) {
     // the source, and a line break inserted for a reader it never has would
     // show up as a difference nobody wrote.
     const laidOut =
-      task === 'backTranslate' ? translations : translations.map(t => reflowText(t, maxChars))
+      task === 'backTranslate' ? translations : translations.map(t => reflowText(t, maxChars, maxLines))
 
     return NextResponse.json({ translations: laidOut })
   } catch (err) {

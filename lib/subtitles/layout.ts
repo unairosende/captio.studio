@@ -40,10 +40,13 @@ const NATURAL_BREAK_BEFORE =
  *
  * A single word longer than `limit` is returned whole. Hyphenating mid-word is
  * wrong in subtitles, so the human decides what to do with it.
+ *
+ * A sequence of one-line subtitles gets one line, whatever its length: the
+ * same reasoning, one line lower.
  */
-export function reflowText(text: string, limit: number): string {
+export function reflowText(text: string, limit: number, lines = 2): string {
   const flat = text.replace(/\r?\n|\r/g, ' ').replace(/ {2,}/g, ' ').trim()
-  if (flat.length <= limit) return flat
+  if (flat.length <= limit || lines < 2) return flat
 
   const words = flat.split(' ')
   if (words.length < 2) return flat

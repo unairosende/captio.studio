@@ -18,6 +18,8 @@ export interface TranslationRequest {
   /** Omitted or 'Auto-detect' lets the model work it out. */
   sourceLang?: string
   maxChars: number
+  /** Lines a subtitle may take: 1 or 2. Two when omitted. */
+  maxLines?: number
   glossary?: GlossaryEntry[]
   extraInstructions?: string
   /** Already-translated cues, for terminology consistency across batches. */
@@ -171,7 +173,7 @@ export function buildTranslationPrompt(req: TranslationRequest): string {
     // and one run answered with the deliberation itself — «"test confirmador"
     // (16) vs "prueba confirmatoria" (20)» — where the JSON was supposed to be.
     'LENGTH BUDGET:',
-    `• Keep each subtitle under ${req.maxChars * 2} characters — prefer shorter wording, never drop meaning`,
+    `• Keep each subtitle under ${req.maxChars * (req.maxLines ?? 2)} characters — prefer shorter wording, never drop meaning`,
     '',
     ...FIXED_COUNT_RULES,
     'TRANSLATION RULES:',
@@ -244,13 +246,15 @@ export function buildShortenPrompt(req: {
   numbers: number[]
   lang: string
   maxChars: number
+  /** Lines a subtitle may take: 1 or 2. Two when omitted. */
+  maxLines?: number
 }): string {
   const items = subtitleObjects(req.numbers, req.cues, req.sourceTexts)
   return [
     `You are a professional subtitle editor. Each subtitle in ${req.lang} is too long.`,
     '',
     'LENGTH BUDGET:',
-    `• Keep each subtitle under ${req.maxChars * 2} characters in total`,
+    `• Keep each subtitle under ${req.maxChars * (req.maxLines ?? 2)} characters in total`,
     '',
     'RULES:',
     '• Rephrase only as much as needed to fit — keep the exact same meaning',
@@ -300,6 +304,8 @@ export interface RevisionRequest {
   numbers: number[]
   lang: string
   maxChars: number
+  /** Lines a subtitle may take: 1 or 2. Two when omitted. */
+  maxLines?: number
   /** What to change. The reviewer's own words. */
   instructions: string
   glossary?: GlossaryEntry[]
@@ -311,7 +317,7 @@ export function buildRevisionPrompt(req: RevisionRequest): string {
     `You are a professional subtitle editor. Revise these subtitles in ${req.lang} by applying the corrections below.`,
     '',
     'LENGTH BUDGET:',
-    `• Keep each subtitle under ${req.maxChars * 2} characters — prefer shorter wording, never drop meaning`,
+    `• Keep each subtitle under ${req.maxChars * (req.maxLines ?? 2)} characters — prefer shorter wording, never drop meaning`,
     '',
     ...FIXED_COUNT_RULES,
     'REVISION RULES:',

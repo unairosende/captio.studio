@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { api, send } from '@/lib/api'
+import { readSettings } from '@/lib/subtitles'
 import { useSubtitleStore } from '@/store/useSubtitleStore'
 import type { ProjectComment } from '@/types/comment'
 import type { Playback } from '@/types/media'
@@ -20,6 +21,7 @@ interface Saved {
   name: string
   version: number
   project_id: string
+  source_lang?: string | null
   data?: {
     subtitles?: Subtitle[]
     translations?: TranslationStore
@@ -80,7 +82,8 @@ export function useSave() {
       name: st.sequenceName.trim() || 'Sin título',
       sourceLang: st.srcLang,
       targetLangs: Object.keys(st.translations),
-      data: { subtitles: st.subtitles, translations: st.translations },
+      // The settings travel with the cues they were cut to, into every version.
+      data: { subtitles: st.subtitles, translations: st.translations, settings: st.settings },
       ...(id ? {} : { projectId: st.projectId }),
       ...(id && !force ? { version: st.sequenceVersion } : {}),
       ...(id && st.anchorOps.length ? { anchorOps: st.anchorOps } : {}),
@@ -126,6 +129,8 @@ export function useSave() {
       translations: s.data?.translations ?? {},
       glossary,
       playback: r.json.playback ?? null,
+      settings: readSettings((s.data as { settings?: unknown } | undefined)?.settings),
+      srcLang: s.source_lang,
     })
     setConflict(false)
     const notes = await api<{ comments?: ProjectComment[] }>(`/api/sequences/${id}/comments`)

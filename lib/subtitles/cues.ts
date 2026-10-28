@@ -48,6 +48,12 @@ export function cuesFromWords(
   words: TimedWord[],
   cfg: QcConfig = DEFAULT_QC,
   fps?: number,
+  /**
+   * For the deaf and hard of hearing: a label naming the voice, put in front
+   * of each cue where a different one starts speaking — only when there is
+   * more than one voice, numbered in the order they are first heard.
+   */
+  speaker?: (n: number) => string,
 ): Subtitle[] {
   const usable = words.filter(w => w.text.trim().length > 0)
   if (usable.length === 0) return []
@@ -85,6 +91,13 @@ export function cuesFromWords(
   }
   if (current.length > 0) groups.push(current)
 
+  const voices = [...new Set(usable.map(w => w.speakerId).filter(Boolean))]
+  const label = (group: TimedWord[], i: number) => {
+    const id = group[0].speakerId
+    if (!speaker || voices.length < 2 || !id || (i > 0 && groups[i - 1][0].speakerId === id)) return ''
+    return speaker(voices.indexOf(id) + 1) + ' '
+  }
+
   const cues = groups.map((group, i) => ({
     index: i + 1,
     start: secToSrt(group[0].start, fps),
@@ -93,7 +106,7 @@ export function cuesFromWords(
     // and wrong for Chinese and Japanese, where words are not separated. If
     // those are ever supported, keep the recogniser's own spacing tokens
     // rather than reconstructing the gaps here.
-    text: reflowText(group.map(w => w.text).join(' '), cfg.maxChars),
+    text: reflowText(label(group, i) + group.map(w => w.text).join(' '), cfg.maxChars, cfg.maxLines),
   }))
 
   return holdShortCues(cues, cfg, fps)

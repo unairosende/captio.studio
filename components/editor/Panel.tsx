@@ -3,15 +3,14 @@
 import { useMemo, useState } from 'react'
 
 import CommentsPanel from '@/components/comments/CommentsPanel'
-import GlossaryRows from '@/components/glossary/GlossaryRows'
-import { SOURCE_LANGUAGES } from '@/lib/providers'
-import { qcForMode, qcTrack, wordDiff } from '@/lib/subtitles'
+import { qcFor, qcTrack, wordDiff } from '@/lib/subtitles'
 import { termsInForce, useSubtitleStore } from '@/store/useSubtitleStore'
 
 import s from './editor.module.css'
 import type { Filter } from './CueTable'
+import SequenceFields, { GlossaryFields, type Changed } from './SequenceFields'
 import { SECTIONS, Sidebar, type Pane } from './Steps'
-import { langCode } from './useJobs'
+import { langCode, useTranscribe, useTranslate } from './useJobs'
 import { usePasses } from './usePasses'
 
 interface Props {
@@ -38,14 +37,17 @@ interface Props {
  */
 export default function Panel({ userId, open, onOpen, filter, onFilter }: Props) {
   const {
-    subtitles, translations, backTranslations, reviewNotes, activeTab, outputMode, srcLang, allowRephrase, glossary, client, comments, sequenceId,
-    selected, select, translateJob, reviewJob, backTranslateJob,
-    setSrcLang, setOutputMode, setAllowRephrase, setGlossary, setComments, clearReviewNotes,
+    subtitles, translations, backTranslations, reviewNotes, activeTab, settings, allowRephrase, glossary, client, comments, sequenceId,
+    selected, select, playback, translateJob, reviewJob, backTranslateJob, transcribeJob,
+    setAllowRephrase, setGlossary, setComments, clearReviewNotes,
   } = useSubtitleStore()
   const passes = usePasses()
+  const translate = useTranslate()
+  const transcribe = useTranscribe()
+  const langs = Object.keys(translations)
 
   const isSource = activeTab === 'source'
-  const qc = useMemo(() => qcForMode(outputMode), [outputMode])
+  const qc = useMemo(() => qcFor(settings), [settings])
   const track = useMemo(() => (isSource ? subtitles : translations[activeTab] ?? []), [isSource, subtitles, translations, activeTab])
   const quality = useMemo(
     () => qcTrack(track, qc, isSource ? [] : termsInForce({ glossary, client })),
@@ -75,6 +77,34 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
 
   const [reviseText, setReviseText] = useState('')
   const [thread, setThread] = useState(false)
+
+  /*
+   * What moved in Propiedades since the cues were made, so the panel can offer
+   * the way to adapt them: re-cut the lines locally, transcribe again, or
+   * translate again. Nothing to adapt while there are no cues.
+   */
+  const [changed, setChanged] = useState<Set<Changed | 'glossary'>>(new Set())
+  const [adapted, setAdapted] = useState<string | null>(null)
+  const mark = (what: Changed | 'glossary') => {
+    if (!subtitles.length) return
+    setChanged(c => new Set(c).add(what))
+    setAdapted(null)
+  }
+  const reanalyze = () => {
+    const left = passes.relayout()
+    setChanged(c => { const n = new Set(c); n.delete('layout'); return n })
+    setAdapted(left ? `Líneas rehechas. ${left} cues siguen sin caber: acórtalos en Revisar o retranscribe.` : 'Líneas rehechas: todas caben en la nueva medida.')
+  }
+  const retranscribe = () => {
+    if (!confirm('Retranscribir sustituye todos los cues y borra las traducciones, y gasta minutos. ¿Seguir?')) return
+    setChanged(new Set())
+    void transcribe.start()
+  }
+  const retranslate = async () => {
+    if (!confirm(`Retraducir ${langs.map(langCode).join(', ')} pisa lo corregido a mano en esos idiomas. ¿Seguir?`)) return
+    setChanged(new Set())
+    for (const lang of langs) await translate.start(lang)
+  }
 
   const section = SECTIONS.find(x => x.id === open)
   const showing = (sec: Pane) => open === sec
@@ -220,36 +250,43 @@ export default function Panel({ userId, open, onOpen, filter, onFilter }: Props)
           <>
             <div className={s.section}>
               <span className="caps">Secuencia</span>
-              <div>
-                <label className="caps" htmlFor="pSrcLang">Idioma de origen</label>
-                <div className="select-wrap">
-                  <select id="pSrcLang" className="field" value={srcLang} onChange={e => setSrcLang(e.target.value)}>
-                    {SOURCE_LANGUAGES.map(l => <option key={l}>{l}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <span className="caps">Formato de salida</span>
-                <div className={s.radios}>
-                  <label><input type="radio" name="pMode" checked={outputMode === 'horizontal'} onChange={() => setOutputMode('horizontal')} /> Horizontal</label>
-                  <label><input type="radio" name="pMode" checked={outputMode === 'vertical'} onChange={() => setOutputMode('vertical')} /> Vertical (parte los largos al exportar)</label>
-                </div>
-              </div>
-              <div className={s.hint}>Máximo {qc.maxChars} caracteres por línea · aviso a partir de {qc.cpsWarn} cps · error a partir de {qc.cpsError} cps.</div>
+              <SequenceFields key={sequenceId ?? 'new'} idPrefix="p" onChange={mark} />
               <div className={s.radios}>
                 <label><input type="checkbox" checked={allowRephrase} onChange={e => setAllowRephrase(e.target.checked)} /> Permitir reformular para que quepa</label>
               </div>
             </div>
-            <div className={s.section}>
-              <span className="caps"><span>Glosario del proyecto</span><span>{glossary.length}</span></span>
-              <div className={s.hint}>Cada secuencia de este proyecto traduce estos términos igual. Deja la traducción vacía para conservar el término tal cual. La transcripción los espera, y sus variantes mal escritas se corrigen solas.</div>
-              <GlossaryRows entries={glossary} onChange={setGlossary} />
-              <div><button className="btn" data-cmd="Añadir un término al glosario" onClick={() => setGlossary([...glossary, { term: '', translation: '' }])}>Añadir término</button></div>
-              {client && (
-                <div className={s.hint}>
-                  También rigen {client.glossary.length} {client.glossary.length === 1 ? 'término' : 'términos'} de {client.name}, que se editan en la página del proyecto. Donde coinciden, gana el del proyecto.
+            {changed.size > 0 && (
+              <div className={s.section}>
+                <span className="caps">Adaptar el contenido</span>
+                <div className={s.hint}>Los cues que hay se hicieron con la configuración anterior.</div>
+                <div className={s.adapt}>
+                  {changed.has('layout') && (
+                    <>
+                      <button className="btn" onClick={reanalyze}>Reanalizar</button>
+                      <span className={s.hint}>Vuelve a partir las líneas de todos los cues a la nueva medida. Sin modelo, no gasta.</span>
+                    </>
+                  )}
+                  {playback && (
+                    <>
+                      <button className="btn" disabled={!playback.file || transcribeJob.running} aria-busy={transcribeJob.running || undefined} onClick={retranscribe}>Retranscribir</button>
+                      <span className={s.hint}>{playback.file
+                        ? 'Vuelve a transcribir el audio con la nueva configuración. Sustituye los cues y las traducciones; gasta minutos.'
+                        : 'Para retranscribir, vuelve a cargar el vídeo o el audio con Sustituir, en la barra de la onda.'}</span>
+                    </>
+                  )}
+                  {langs.length > 0 && !(changed.size === 1 && changed.has('sdh')) && (
+                    <>
+                      <button className="btn" disabled={translateJob.running} aria-busy={translateJob.running || undefined} onClick={() => void retranslate()}>Retraducir</button>
+                      <span className={s.hint}>Traduce de nuevo {langs.map(langCode).join(' · ')}. Pisa lo corregido a mano.</span>
+                    </>
+                  )}
                 </div>
-              )}
+                <div><button className="btn btn-quiet" onClick={() => setChanged(new Set())}>Dejarlo así</button></div>
+              </div>
+            )}
+            {adapted && <div className={s.section}><div className={s.jobMsg} data-tone="ok" role="status">{adapted}</div></div>}
+            <div className={s.section}>
+              <GlossaryFields commands onChange={() => mark('glossary')} />
             </div>
           </>
         )}

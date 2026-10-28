@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 
 import CommentsPanel from '@/components/comments/CommentsPanel'
-import { cueCps, qcForMode, qcTrack, srtToSec } from '@/lib/subtitles'
+import { cueCps, qcFor, qcTrack, srtToSec } from '@/lib/subtitles'
 import { playheadSeconds, seekTo } from '@/lib/timeline/playhead'
 import { termsInForce, useSubtitleStore } from '@/store/useSubtitleStore'
 import type { Subtitle } from '@/types/subtitle'
@@ -45,11 +45,11 @@ interface Editing { index: number; col: Col; caret: number }
  */
 export default function CueTable({ userId, filter, onFilter, onImport, viewer, onViewer }: Props) {
   const {
-    subtitles, translations, activeTab, viewMode, outputMode, srcLang, glossary, client, comments, reviewNotes, translateJob, sequenceId,
+    subtitles, translations, activeTab, viewMode, settings, srcLang, glossary, client, comments, reviewNotes, translateJob, sequenceId,
     selected, select, switchToTab, closeTab, setViewMode, updateSubtitle, updateSource, pushUndo, splitSubtitle, deleteSubtitle, setComments,
   } = useSubtitleStore()
 
-  const qc = useMemo(() => qcForMode(outputMode), [outputMode])
+  const qc = useMemo(() => qcFor(settings), [settings])
   const langs = Object.keys(translations)
   const allCols: Col[] = ['source', ...langs]
   /* Comparing, a language can be folded into a strip with its name down it,

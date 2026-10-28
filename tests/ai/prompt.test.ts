@@ -121,6 +121,13 @@ describe('buildTranslationPrompt', () => {
   })
 })
 
+describe('the length budget', () => {
+  it('follows the lines a subtitle may take', () => {
+    assert.match(buildTranslationPrompt(base), /under 84 characters/)
+    assert.match(buildTranslationPrompt({ ...base, maxLines: 1 }), /under 42 characters/)
+  })
+})
+
 describe('buildRevisionPrompt', () => {
   const revision = {
     cues: ['A nivel varietal, a nivel de producciones', 'Lo embotellamos'],

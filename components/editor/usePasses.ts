@@ -1,7 +1,7 @@
 'use client'
 
 import type { ReviewNote } from '@/lib/ai/prompt'
-import { charStatus, qcForMode, reflowText } from '@/lib/subtitles'
+import { charStatus, qcFor, reflowText } from '@/lib/subtitles'
 import { termsInForce, useSubtitleStore } from '@/store/useSubtitleStore'
 
 import { must } from '@/lib/api'
@@ -43,10 +43,10 @@ export function usePasses() {
   /** Shorten every cue over the limit, by reflow or, if allowed, by the model. */
   async function fixOverlength() {
     const s = useSubtitleStore.getState()
-    const { outputMode, allowRephrase } = s
+    const { settings, allowRephrase } = s
     const { original, subs, lang, sourceOf, write } = onScreen(s)
     if (!subs) return
-    const qc    = qcForMode(outputMode)
+    const qc    = qcFor(settings)
     const toFix = subs.filter(c => charStatus(c.text, qc) === 'error')
     if (!toFix.length) return
 
@@ -55,7 +55,7 @@ export function usePasses() {
       // and taking that back one cue at a time would be its own punishment.
       s.pushUndo()
       toFix.forEach(c => {
-        const reflowed = reflowText(c.text, qc.maxChars)
+        const reflowed = reflowText(c.text, qc.maxChars, qc.maxLines)
         if (reflowed !== c.text) write(c.index, reflowed)
       })
       return
@@ -77,7 +77,7 @@ export function usePasses() {
             original,
             cueNumbers: batch.map(c => c.index),
             targetLang: lang,
-            outputMode,
+            ...settings,
           }),
         })
         if (data.error) throw new Error(data.error)
@@ -100,7 +100,7 @@ export function usePasses() {
    */
   async function revise(instructions: string) {
     const s = useSubtitleStore.getState()
-    const { outputMode, translateJob } = s
+    const { settings, translateJob } = s
     const glossary = termsInForce(s)
     const { original, subs, lang, sourceOf, write } = onScreen(s)
     if (!subs?.length || !instructions.trim() || translateJob.running) return
@@ -126,7 +126,7 @@ export function usePasses() {
             cueNumbers: batch.map(c => c.index),
             instructions,
             targetLang: lang,
-            outputMode,
+            ...settings,
             glossary,
           }),
         })
@@ -253,5 +253,29 @@ export function usePasses() {
     spent()
   }
 
-  return { fixOverlength, revise, review, backTranslate }
+  /**
+   * Fit every track — the original and each translation — to the settings in
+   * force, without a model: each cue broken again into the lines and the
+   * length now allowed. Nothing is rewritten, so nothing is spent. One undo
+   * step. Returns how many cues still do not fit, which need shortening or
+   * cutting again from the audio.
+   */
+  function relayout(): number {
+    const s = useSubtitleStore.getState()
+    const qc = qcFor(s.settings)
+    s.pushUndo()
+    let left = 0
+    const fit = (subs: typeof s.subtitles, write: (index: number, text: string) => void) => {
+      for (const c of subs) {
+        const text = reflowText(c.text, qc.maxChars, qc.maxLines)
+        if (text !== c.text) write(c.index, text)
+        if (charStatus(text, qc) === 'error') left++
+      }
+    }
+    fit(s.subtitles, s.updateSource)
+    for (const [lang, subs] of Object.entries(s.translations)) fit(subs, (index, text) => s.updateSubtitle(lang, index, text))
+    return left
+  }
+
+  return { fixOverlength, revise, review, backTranslate, relayout }
 }

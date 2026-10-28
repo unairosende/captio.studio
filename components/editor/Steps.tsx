@@ -85,7 +85,6 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
 
   const [hint, setHint] = useState<ParseHint>('auto')
   const [paste, setPaste] = useState('')
-  const [xcLang, setXcLang] = useState('auto')
   const [custom, setCustom] = useState('')
   const [showCustom, setShowCustom] = useState(false)
   const [exportFmt, setExportFmt] = useState<SubtitleFormat>('srt')
@@ -159,12 +158,12 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
             {/* 02 · Transcribir */}
             {open === 'transcribe' && (
               <>
+                {/* The sequence's own language, the one Traducir reads from too: one value, wherever it is chosen. */}
                 <div>
                   <label className="caps" htmlFor="xcLang">Idioma del audio</label>
                   <div className="select-wrap">
-                    <select id="xcLang" className="field" value={xcLang} onChange={e => setXcLang(e.target.value)}>
-                      <option value="auto">Detectar</option>
-                      {['es','en','fr','de','it','pt','nl','pl','ru','tr','ar','ja','ko','zh','ca'].map(c => <option key={c} value={c}>{c.toUpperCase()}</option>)}
+                    <select id="xcLang" className="field" value={srcLang} onChange={e => setSrcLang(e.target.value)}>
+                      {SOURCE_LANGUAGES.map(l => <option key={l}>{l}</option>)}
                     </select>
                   </div>
                 </div>
@@ -182,7 +181,7 @@ export default function Steps({ entitlement, open, onOpen }: Props) {
                 )}
                 <div>
                   <button className="btn btn-primary" data-cmd="Transcribir el audio" disabled={!media || transcribeJob.running} aria-busy={transcribeJob.running || undefined}
-                    onClick={() => void transcribe.start(xcLang)}>Transcribir</button>
+                    onClick={() => void transcribe.start()}>Transcribir</button>
                 </div>
                 {transcribeJob.running && <div className={s.jobMsg}>{transcribeJob.message}</div>}
                 {!transcribeJob.running && transcribeJob.message && <div className={s.jobMsg} data-tone="ok">{transcribeJob.message}</div>}
