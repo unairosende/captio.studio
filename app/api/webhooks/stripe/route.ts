@@ -66,6 +66,11 @@ export async function POST(req: NextRequest) {
     (sub as unknown as { current_period_end?: number }).current_period_end ??
     sub.items?.data?.[0]?.current_period_end
 
+  // Cancelling in the portal schedules the end rather than ending it: on this API
+  // version as cancel_at, on older ones as cancel_at_period_end. Either way it
+  // stays live, and paid for, until then.
+  const cancelAt = sub.cancel_at ?? (sub.cancel_at_period_end ? periodEnd : null)
+
   await upsertSubscription({
     id: sub.id,
     orgId,
@@ -79,6 +84,7 @@ export async function POST(req: NextRequest) {
     plan: planId,
     seats,
     currentPeriodEnd: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+    cancelAt: cancelAt ? new Date(cancelAt * 1000).toISOString() : null,
   })
 
   return NextResponse.json({ received: true })

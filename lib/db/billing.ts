@@ -12,6 +12,8 @@ export interface SubscriptionRow {
   plan: string
   seats: number
   current_period_end: string | null
+  /** When a cancelled-but-still-live subscription ends; null while it renews. */
+  cancel_at: string | null
   created_at: string
   updated_at: string
 }
@@ -80,16 +82,18 @@ export async function upsertSubscription(input: {
   plan: string
   seats?: number
   currentPeriodEnd?: string | null
+  cancelAt?: string | null
 }): Promise<SubscriptionRow> {
   const rows = await query<SubscriptionRow>(
     `insert into subscriptions
-       (id, org_id, stripe_customer_id, status, plan, seats, current_period_end)
-     values ($1, $2, $3, $4, $5, $6, $7)
+       (id, org_id, stripe_customer_id, status, plan, seats, current_period_end, cancel_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8)
      on conflict (id) do update set
        status             = excluded.status,
        plan               = excluded.plan,
        seats              = excluded.seats,
        current_period_end = excluded.current_period_end,
+       cancel_at          = excluded.cancel_at,
        updated_at         = now()
      returning *`,
     [
@@ -100,6 +104,7 @@ export async function upsertSubscription(input: {
       input.plan,
       input.seats ?? 1,
       input.currentPeriodEnd ?? null,
+      input.cancelAt ?? null,
     ],
   )
   return rows[0]

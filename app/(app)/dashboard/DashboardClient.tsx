@@ -30,6 +30,8 @@ interface Props {
     status: string
     seats: number
     currentPeriodEnd: string | null
+    /** Set once it has been cancelled and will not renew; it stays live until then. */
+    cancelAt: string | null
   } | null
   /** Newest month first. Empty for an organisation that has run nothing. */
   usage: MonthUsage[]
@@ -354,14 +356,14 @@ export default function DashboardClient({
                 <div className={`muted ${s.planLine}`}>
                   {members.length} de {subscription.seats} plaza{subscription.seats === 1 ? '' : 's'} usadas
                 </div>
-                {subscription.currentPeriodEnd && (
+                {(subscription.cancelAt ?? subscription.currentPeriodEnd) && (
                   <div className={`muted ${s.planLine}`}>
                     {/* Formatted in UTC on purpose: the same instant rendered in
                         the server's timezone and again in the reader's is two
                         different strings, and React calls that a hydration
                         mismatch on a date nobody was reading that closely. */}
-                    Renueva el{' '}
-                    {new Date(subscription.currentPeriodEnd).toLocaleDateString('es-ES', {
+                    {subscription.cancelAt ? 'Termina el' : 'Renueva el'}{' '}
+                    {new Date((subscription.cancelAt ?? subscription.currentPeriodEnd)!).toLocaleDateString('es-ES', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',

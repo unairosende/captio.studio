@@ -55,6 +55,7 @@ export default async function DashboardPage() {
           status: subscription.status,
           seats: subscription.seats,
           currentPeriodEnd: subscription.current_period_end,
+          cancelAt: subscription.cancel_at,
         }
       }
       usage={summariseUsage(usage)}
