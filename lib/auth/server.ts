@@ -1,15 +1,17 @@
 import { betterAuth, type BetterAuthOptions } from 'better-auth'
+import { APIError } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import { organization } from 'better-auth/plugins/organization'
 
 import { db } from '../db/client.ts'
-import { firstMembershipForUser } from '../db/organizations.ts'
+import { firstMembershipForUser, soleOwnerships } from '../db/organizations.ts'
 import {
   invitationEmail,
   resetPasswordEmail,
   sendMail,
   verificationEmail,
 } from '../email/send.ts'
+import { eraseOrganization } from '../erasure.ts'
 import { INVITATION_EXPIRY_SECONDS, RESET_EXPIRY_SECONDS } from './expiry.ts'
 
 /**
@@ -75,6 +77,37 @@ export const authOptions = {
   },
 
   socialProviders: google,
+
+  /**
+   * A person can delete their own account.
+   *
+   * Better Auth asks for the password, or for a session under a day old when
+   * there is none (Google). The cascade takes the sessions, the linked accounts
+   * and every membership; shared work stays with its organisation, and what the
+   * person wrote there loses its author's name.
+   *
+   * An organisation they are the only owner of would be left with nobody able to
+   * run it. Where they are alone in it, it is erased with them — media, Stripe
+   * and all, as if they had deleted it first, which is what somebody leaving on
+   * their own means. Where other people are in it, the deletion is refused until
+   * they name another owner: that work is not only theirs to destroy.
+   */
+  user: {
+    deleteUser: {
+      enabled: true,
+      beforeDelete: async user => {
+        const owned = await soleOwnerships(user.id)
+        const shared = owned.filter(o => o.members > 1)
+        if (shared.length > 0) {
+          throw new APIError('BAD_REQUEST', {
+            code: 'SOLE_OWNER',
+            message: `Only owner of: ${shared.map(o => o.name).join(', ')}`,
+          })
+        }
+        for (const org of owned) await eraseOrganization(org.id)
+      },
+    },
+  },
 
   /**
    * Every new session starts in the organisation the user belongs to.

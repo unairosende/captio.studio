@@ -1,11 +1,11 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useState } from 'react'
+import { type InputHTMLAttributes, type ReactNode, useCallback, useEffect, useState } from 'react'
 
 import Dialog from '@/components/Dialog'
 import { send } from '@/lib/api'
-import { organization } from '@/lib/auth/client'
+import { deleteUser, organization } from '@/lib/auth/client'
 import { INVITATION_EXPIRY_DAYS } from '@/lib/auth/expiry'
 import { ROLES, type Role, roleLabel } from '@/lib/roles'
 
@@ -35,13 +35,18 @@ const ROLE_HELP: Record<Role, string> = {
 }
 
 /**
- * The two refusals a person is likely to meet, in their language. Better Auth
+ * The refusals a person is likely to meet, in their language. Better Auth
  * answers in English; anything else falls through as it came, which beats a
  * translation that hides what actually happened.
  */
 const REFUSAL: Record<string, string> = {
   USER_IS_ALREADY_A_MEMBER_OF_THIS_ORGANIZATION: 'Esa persona ya está en la organización.',
   USER_IS_ALREADY_INVITED_TO_THIS_ORGANIZATION: 'Esa persona ya tiene una invitación pendiente.',
+  INVALID_PASSWORD: 'La contraseña no es correcta.',
+  CREDENTIAL_ACCOUNT_NOT_FOUND: 'Tu cuenta no tiene contraseña porque entras con Google: deja el campo vacío.',
+  SESSION_EXPIRED: 'Por seguridad, cierra sesión, vuelve a entrar y repítelo.',
+  // Ours, from beforeDelete in lib/auth/server.ts.
+  SOLE_OWNER: 'Eres el único propietario de una organización con más gente. Nombra otro propietario antes.',
 }
 const said = (err: { code?: string; message?: string }, fallback: string): string =>
   (err.code && REFUSAL[err.code]) || err.message || fallback
@@ -92,11 +97,12 @@ export default function TeamPanel({ currentUserId, role, orgName, onClose }: Pro
   const [copied, setCopied] = useState<string | null>(null)
   /** Shown when the clipboard is refused: the link itself, to copy by hand. */
   const [linkToCopy, setLinkToCopy] = useState<string | null>(null)
-  /** The danger zone opens in two steps: a plain button, then a typed name. */
-  const [confirming, setConfirming] = useState(false)
   const [confirmText, setConfirmText] = useState('')
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  const [leaving, setLeaving] = useState(false)
+  const [leaveError, setLeaveError] = useState<string | null>(null)
 
   const router = useRouter()
 
@@ -226,6 +232,22 @@ export default function TeamPanel({ currentUserId, role, orgName, onClose }: Pro
     router.refresh()
   }
 
+  async function deleteAccount() {
+    if (leaving) return
+    setLeaving(true)
+    setLeaveError(null)
+    // No password means a Google account: Better Auth then wants a fresh session.
+    const { error } = await deleteUser(password ? { password } : {})
+    if (error) {
+      setLeaving(false)
+      setLeaveError(said(error, 'No se pudo borrar la cuenta'))
+      return
+    }
+    // The session went with the account, so the refresh lands on the public page.
+    router.push('/')
+    router.refresh()
+  }
+
   const expires = (at: string | Date) =>
     new Date(at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' })
 
@@ -344,54 +366,98 @@ export default function TeamPanel({ currentUserId, role, orgName, onClose }: Pro
           )}
 
           {canDelete && (
-            <div className={s.danger}>
-              <span className="caps">Zona de peligro</span>
-              {!confirming ? (
-                <>
-                  <p className={s.dangerText}>
-                    Eliminar la organización borra sus proyectos, subtítulos, comentarios y
-                    archivos, y cancela la suscripción. No se puede deshacer.
-                  </p>
-                  <button className="btn btn-danger" onClick={() => setConfirming(true)}>
-                    Eliminar organización
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p className={s.dangerText}>
-                    Escribe <strong>{orgName}</strong> para confirmar. Esto es definitivo.
-                  </p>
-                  <div className={s.dangerConfirm}>
-                    <input
-                      value={confirmText}
-                      onChange={e => setConfirmText(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); void deleteOrg() } }}
-                      aria-label="Nombre de la organización para confirmar"
-                      className="field"
-                      autoComplete="off"
-                      spellCheck={false}
-                    />
-                    <button
-                      className="btn btn-danger"
-                      onClick={() => void deleteOrg()}
-                      disabled={confirmText.trim() !== orgName}
-                      aria-busy={deleting || undefined}
-                    >
-                      Eliminar
-                    </button>
-                  </div>
-                  <button
-                    className="btn btn-quiet"
-                    onClick={() => { setConfirming(false); setConfirmText(''); setDeleteError(null) }}
-                  >
-                    Cancelar
-                  </button>
-                </>
-              )}
-              {deleteError && <p className="err" role="alert">{deleteError}</p>}
-            </div>
+            <DangerZone
+              title="Zona de peligro"
+              warning="Eliminar la organización borra sus proyectos, subtítulos, comentarios y archivos, y cancela la suscripción. No se puede deshacer."
+              openLabel="Eliminar organización"
+              prompt={<>Escribe <strong>{orgName}</strong> para confirmar. Esto es definitivo.</>}
+              input={{
+                value: confirmText,
+                onChange: e => setConfirmText(e.target.value),
+                'aria-label': 'Nombre de la organización para confirmar',
+              }}
+              ready={confirmText.trim() === orgName}
+              busy={deleting}
+              error={deleteError}
+              onConfirm={() => void deleteOrg()}
+              onReset={() => { setConfirmText(''); setDeleteError(null) }}
+            />
+          )}
+
+          {orgName && (
+            <DangerZone
+              title="Tu cuenta"
+              warning="Borrar tu cuenta borra tu nombre, tu correo y tu acceso. Las organizaciones donde estás solo se borran contigo, con todo lo que contienen y su suscripción; en las que compartes, el trabajo se queda y lo que escribiste pierde tu nombre. No se puede deshacer."
+              openLabel="Borrar mi cuenta"
+              prompt="Escribe tu contraseña para confirmar. Si entras con Google, déjala vacía."
+              input={{
+                type: 'password',
+                value: password,
+                onChange: e => setPassword(e.target.value),
+                'aria-label': 'Tu contraseña',
+                autoComplete: 'current-password',
+              }}
+              ready
+              busy={leaving}
+              error={leaveError}
+              onConfirm={() => void deleteAccount()}
+              onReset={() => { setPassword(''); setLeaveError(null) }}
+            />
           )}
         </div>
     </Dialog>
+  )
+}
+
+/**
+ * A destructive action in two steps: a plain button, then something typed back
+ * to prove it is meant — the organisation's name, or one's own password.
+ */
+function DangerZone({ title, warning, openLabel, prompt, input, ready, busy, error, onConfirm, onReset }: {
+  title: string
+  warning: string
+  openLabel: string
+  prompt: ReactNode
+  input: InputHTMLAttributes<HTMLInputElement>
+  ready: boolean
+  busy: boolean
+  error: string | null
+  onConfirm: () => void
+  onReset: () => void
+}) {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className={s.danger}>
+      <span className="caps">{title}</span>
+      {!open ? (
+        <>
+          <p className={s.dangerText}>{warning}</p>
+          <button className="btn btn-danger" onClick={() => setOpen(true)}>
+            {openLabel}
+          </button>
+        </>
+      ) : (
+        <>
+          <p className={s.dangerText}>{prompt}</p>
+          <div className={s.dangerConfirm}>
+            <input
+              autoComplete="off"
+              {...input}
+              onKeyDown={e => { if (e.key === 'Enter' && ready) { e.preventDefault(); onConfirm() } }}
+              className="field"
+              spellCheck={false}
+            />
+            <button className="btn btn-danger" onClick={onConfirm} disabled={!ready} aria-busy={busy || undefined}>
+              Eliminar
+            </button>
+          </div>
+          <button className="btn btn-quiet" onClick={() => { setOpen(false); onReset() }}>
+            Cancelar
+          </button>
+        </>
+      )}
+      {error && <p className="err" role="alert">{error}</p>}
+    </div>
   )
 }

@@ -24,4 +24,5 @@ export const {
   useActiveOrganization,
   requestPasswordReset,
   resetPassword,
+  deleteUser,
 } = authClient

@@ -169,3 +169,29 @@ export async function firstMembershipForUser(userId: string): Promise<Membership
   )
   return rows[0] ?? null
 }
+
+/**
+ * The organisations this person is the only owner of, and how many people each has.
+ *
+ * Deleting their account must not leave one with nobody who can manage it, pay
+ * for it or delete it. lib/auth/server.ts erases those where they are alone and
+ * refuses while any still has other members.
+ */
+export async function soleOwnerships(
+  userId: string,
+): Promise<{ id: string; name: string; members: number }[]> {
+  return query<{ id: string; name: string; members: number }>(
+    `select o."id", o."name",
+            (select count(*) from member x where x."organizationId" = o."id")::int as members
+       from member m
+       join "organization" o on o."id" = m."organizationId"
+      where m."userId" = $1 and m.role = 'owner'
+        and not exists (
+              select 1 from member other
+               where other."organizationId" = m."organizationId"
+                 and other.role = 'owner' and other."userId" <> $1
+            )
+      order by o."name"`,
+    [userId],
+  )
+}
