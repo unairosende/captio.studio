@@ -129,6 +129,10 @@ export async function POST(req: NextRequest) {
 
   const data = await res.json()
 
+  // Their copy goes as soon as ours exists: on our plan ElevenLabs keeps every
+  // transcript until it is told otherwise, and the privacy policy says it does not.
+  await forgetTranscript(key, data?.transcription_id)
+
   // Scribe interleaves spacing and audio-event entries with the words; only
   // the words carry text worth showing — and, for SDH, the events. An event
   // belongs to whoever was speaking, so it does not break their cue in two.
@@ -177,4 +181,26 @@ export async function POST(req: NextRequest) {
     language: data?.language_code ?? null,
     text: respell(data?.text ?? ''),
   })
+}
+
+/**
+ * Delete ElevenLabs' stored copy of a transcript.
+ *
+ * Best effort: the customer already has their subtitles, and failing the job
+ * over the provider's copy would charge them a retry for nothing. A failure is
+ * logged loudly instead, because it is a broken promise rather than a glitch.
+ */
+async function forgetTranscript(key: string, id: unknown): Promise<void> {
+  if (typeof id !== 'string' || !id) {
+    console.error('transcribe: ElevenLabs returned no transcription_id; its copy was not deleted')
+    return
+  }
+  const res = await fetch(`${ENDPOINT}/transcripts/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+    headers: { 'xi-api-key': key },
+  }).catch(err => {
+    console.error(`transcribe: could not delete ElevenLabs transcript ${id}`, err)
+    return null
+  })
+  if (res && !res.ok) console.error(`transcribe: ElevenLabs kept transcript ${id} (HTTP ${res.status})`)
 }
