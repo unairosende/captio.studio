@@ -80,3 +80,11 @@ export const PLANS: Plan[] = [
     stripePriceId: process.env.STRIPE_PRICE_TEAM ?? '',
   },
 ]
+
+/**
+ * The plan a Stripe price sells. Switching plan in the portal swaps the price
+ * on the subscription and leaves checkout's metadata saying the old one.
+ */
+export function planForPrice(priceId: string | undefined): Plan | undefined {
+  return priceId ? PLANS.find(p => p.stripePriceId === priceId) : undefined
+}

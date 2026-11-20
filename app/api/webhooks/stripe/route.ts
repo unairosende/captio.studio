@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import type Stripe from 'stripe'
 
 import { upsertSubscription, type SubscriptionStatus } from '@/lib/db/billing'
-import { PLANS } from '@/lib/plans'
+import { planForPrice, PLANS } from '@/lib/plans'
 import { getStripe } from '@/lib/stripe'
 
 /**
@@ -53,7 +53,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'No org_id in subscription metadata' }, { status: 400 })
   }
 
-  const planId = sub.metadata?.plan_id ?? 'individual'
+  // The price is what a portal plan switch changes; the metadata keeps whatever
+  // checkout first wrote, so it is only the fallback for a price we do not know.
+  const planId =
+    planForPrice(sub.items?.data?.[0]?.price?.id)?.id ?? sub.metadata?.plan_id ?? 'individual'
   const seats = PLANS.find(p => p.id === planId)?.seats ?? 1
 
   // Stripe moved the period end onto the subscription items; older API versions
