@@ -4,7 +4,8 @@ import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { parseAnchorOps } from '@/lib/db/comments'
 import { markSequencePaid } from '@/lib/db/billing'
 import { attachMedia } from '@/lib/db/media'
-import { ConflictError, deleteSequence, getSequence, updateSequence } from '@/lib/db/sequences'
+import { ConflictError, getSequence, updateSequence } from '@/lib/db/sequences'
+import { eraseSequence } from '@/lib/erasure'
 import { sequencePlayback } from '@/lib/storage/playback'
 
 /**
@@ -108,7 +109,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return authErrorResponse(err)
   }
 
-  const gone = await deleteSequence(ctx.orgId, (await params).id)
+  let gone
+  try {
+    gone = await eraseSequence(ctx.orgId, (await params).id)
+  } catch (err) {
+    // A file refused to delete; the sequence is left whole so this can be retried.
+    console.error(err)
+    return NextResponse.json({ error: 'Could not delete the media files; try again' }, { status: 502 })
+  }
   if (!gone) return NextResponse.json({ error: 'Sequence not found' }, { status: 404 })
 
   return NextResponse.json({ ok: true })

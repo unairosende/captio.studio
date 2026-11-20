@@ -4,8 +4,9 @@ import type { GlossaryEntry } from '@/lib/ai/prompt'
 import { authErrorResponse, requireOrgContext } from '@/lib/auth/session'
 import { isUuid } from '@/lib/db/client'
 import { getClient } from '@/lib/db/clients'
-import { deleteProject, getProject, updateProject } from '@/lib/db/projects'
+import { getProject, updateProject } from '@/lib/db/projects'
 import { listSequences } from '@/lib/db/sequences'
+import { eraseProject } from '@/lib/erasure'
 import { addVariant } from '@/lib/subtitles'
 
 import { MAX_NAME, parseGlossary, parseVariant } from '../route'
@@ -126,7 +127,14 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
   // Everything inside goes too — see lib/db/projects.ts. The count is reported
   // so the caller can say what it is about to destroy rather than "are you
   // sure?", which is a question nobody has the information to answer.
-  const gone = await deleteProject(ctx.orgId, (await params).id)
+  let gone
+  try {
+    gone = await eraseProject(ctx.orgId, (await params).id)
+  } catch (err) {
+    // A file refused to delete; the project is left whole so this can be retried.
+    console.error(err)
+    return NextResponse.json({ error: 'Could not delete the media files; try again' }, { status: 502 })
+  }
   if (!gone) return NextResponse.json({ error: 'Project not found' }, { status: 404 })
 
   return NextResponse.json({ ok: true })

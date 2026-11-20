@@ -38,11 +38,11 @@ Se rellena el día que exista la sociedad, y no antes:
 Los documentos no prometen lo que el software no cumple. Estos huecos bloquean la
 publicación hasta que el código los cierre:
 
-1. **`[BORRADO DE FICHEROS]`** — borrar un proyecto o una secuencia borra la fila
-   `media` en cascada, pero no el objeto de R2. Sin fila, ni el barrido diario ni el
-   borrado de la organización lo vuelven a encontrar: el vídeo se queda en el bucket
-   para siempre. Es el más grave, porque contradice la frase «se borran cuando los
-   borras tú».
+1. **Borrado de ficheros — arreglado el 2026-11-20.** Borrar un proyecto o una
+   secuencia borraba la fila `media` en cascada pero no el objeto de R2. Ahora
+   `eraseProject` y `eraseSequence` (`lib/erasure.ts`) borran los objetos antes que
+   las filas. Queda lo que ya se perdió antes del arreglo: objetos sin fila en el
+   bucket, que solo se encuentran listando el bucket y comparándolo con `media`.
 2. **`[RETENCIÓN DE INVITADOS]`** — el nombre y el correo de quien revisa por enlace
    (`review_guests`) se guardan aunque el enlace haya caducado, hasta que se borra el
    enlace, el proyecto o la organización. Hay que decidir un plazo tras la caducidad

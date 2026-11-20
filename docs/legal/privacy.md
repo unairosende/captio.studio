@@ -121,8 +121,8 @@ de una organización cancelada. Nunca boletines ni publicidad.
 | Datos de la cuenta | Mientras exista la cuenta |
 | Una organización tras cancelar | 90 días desde el final del último periodo pagado; avisamos a los propietarios al menos siete días antes, y después se borra todo |
 
-[BORRADO DE FICHEROS — hoy, borrar un proyecto o una secuencia borra sus filas pero
-no el audio ni el vídeo del almacenamiento. No se publica hasta que se arregle.]
+Borrar una secuencia o un proyecto borra también su audio y su vídeo del
+almacenamiento, no solo de la lista.
 
 Un propietario puede borrar la organización entera cuando quiera desde el panel de
 equipo, y con ella todo lo que contiene. Las facturas se conservan en Stripe el

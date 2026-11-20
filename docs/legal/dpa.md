@@ -182,8 +182,9 @@ Si cancela sin borrarla, el Encargado conserva los datos 90 días desde el final
 último periodo pagado, avisa a los propietarios al menos siete días antes, y
 después los borra.
 
-[BORRADO DE FICHEROS — hoy, borrar un proyecto o una secuencia no borra su audio ni
-su vídeo del almacenamiento. No se firma esta cláusula hasta que se arregle.]
+Borrar una secuencia o un proyecto borra también del almacenamiento los ficheros de
+audio y vídeo que le pertenecen, antes que sus filas: si algún fichero no se deja
+borrar, no se borra nada y la operación puede repetirse.
 
 ## 13 · Auditoría
 

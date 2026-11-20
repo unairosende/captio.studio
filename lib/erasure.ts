@@ -1,6 +1,8 @@
 import { latestSubscription } from './db/billing.ts'
-import { allStorageKeys } from './db/media.ts'
+import { allStorageKeys, projectStorageKeys, sequenceStorageKeys } from './db/media.ts'
 import { deleteOrganization } from './db/organizations.ts'
+import { deleteProject } from './db/projects.ts'
+import { deleteSequence } from './db/sequences.ts'
 import { deleteObject, r2Config } from './storage/r2.ts'
 import { getStripe } from './stripe.ts'
 
@@ -49,25 +51,51 @@ export async function eraseOrganization(orgId: string): Promise<ErasureSummary> 
     }
   }
 
-  // 2 · Clear the bucket.
-  let objectsDeleted = 0
-  let objectsFailed = 0
-  if (r2Config()) {
-    for (const key of await allStorageKeys(orgId)) {
-      if (await deleteObject(key)) objectsDeleted++
-      else objectsFailed++
-    }
-  }
-
-  // 3 · Only now the rows, and only if the bucket is actually clear.
-  if (objectsFailed > 0) {
-    throw new Error(
-      `erasure: ${objectsFailed} object(s) refused to delete for org ${orgId}; ` +
-        'leaving the organisation intact so the erasure can be retried',
-    )
-  }
-
+  // 2 · Clear the bucket. 3 · Only now the rows, and only if it is actually clear.
+  const objectsDeleted = await clearObjects(await allStorageKeys(orgId), `org ${orgId}`)
   await deleteOrganization(orgId)
 
   return { objectsDeleted, subscriptionCanceled }
+}
+
+/**
+ * A project, or a sequence, with the audio and video behind it.
+ *
+ * The same order as an organisation, for the same reason: the cascade takes the
+ * media rows with the sequences, and with them the only record of which keys
+ * exist. Before this, deleting a project left its video in the bucket for ever,
+ * unreachable by the sweep and by erasure alike. False when the row was not
+ * there, as deleteProject and deleteSequence answer.
+ */
+export async function eraseProject(orgId: string, projectId: string): Promise<boolean> {
+  await clearObjects(await projectStorageKeys(orgId, projectId), `project ${projectId}`)
+  return deleteProject(orgId, projectId)
+}
+
+export async function eraseSequence(orgId: string, sequenceId: string): Promise<boolean> {
+  await clearObjects(await sequenceStorageKeys(orgId, sequenceId), `sequence ${sequenceId}`)
+  return deleteSequence(orgId, sequenceId)
+}
+
+/**
+ * Delete these objects, or throw before any row is touched.
+ *
+ * deleteObject is idempotent (S3 answers 204 whether or not the key was there),
+ * so a retry re-deletes the gone ones harmlessly and finishes the rest.
+ */
+async function clearObjects(keys: string[], owner: string): Promise<number> {
+  if (!r2Config()) return 0
+  let deleted = 0
+  let failed = 0
+  for (const key of keys) {
+    if (await deleteObject(key)) deleted++
+    else failed++
+  }
+  if (failed > 0) {
+    throw new Error(
+      `erasure: ${failed} object(s) refused to delete for ${owner}; ` +
+        'leaving it intact so the erasure can be retried',
+    )
+  }
+  return deleted
 }

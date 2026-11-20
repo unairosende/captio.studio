@@ -190,6 +190,31 @@ export async function allStorageKeys(orgId: string): Promise<string[]> {
 }
 
 /**
+ * The objects behind one sequence, or behind every sequence of one project.
+ *
+ * Deleting either cascades the media rows away, and those rows are the only
+ * record of which keys exist — so these are read first, for lib/erasure.ts to
+ * clear the bucket before the rows go.
+ */
+export async function sequenceStorageKeys(orgId: string, sequenceId: string): Promise<string[]> {
+  const rows = await query<{ storage_key: string }>(
+    `select storage_key from media where org_id = $1 and sequence_id = $2`,
+    [requireOrg(orgId), sequenceId],
+  )
+  return rows.map(r => r.storage_key)
+}
+
+export async function projectStorageKeys(orgId: string, projectId: string): Promise<string[]> {
+  const rows = await query<{ storage_key: string }>(
+    `select m.storage_key from media m
+       join sequences s on s.id = m.sequence_id and s.org_id = m.org_id
+      where m.org_id = $1 and s.project_id = $2`,
+    [requireOrg(orgId), projectId],
+  )
+  return rows.map(r => r.storage_key)
+}
+
+/**
  * Forget the rows whose objects the sweeper has just deleted.
  *
  * Called only after the bytes are gone, never before. The other order loses the
