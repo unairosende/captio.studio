@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
-import { authErrorResponse, isAdmin, requireOrgContext } from '@/lib/auth/session'
+import { authErrorResponse, isAdmin, requireOrgContext, requireUser } from '@/lib/auth/session'
 import { latestSubscription } from '@/lib/db/billing'
 import { PLANS } from '@/lib/plans'
 import { getStripe } from '@/lib/stripe'
@@ -58,7 +58,11 @@ export async function POST(req: NextRequest) {
   // a second customer would split the billing history and the saved card.
   let customerId = current?.stripe_customer_id ?? null
   if (!customerId) {
+    // Whoever is paying, so checkout does not ask for an address we already have
+    // and the invoices reach somebody; they can change it later in the portal.
+    const { email } = await requireUser()
     const customer = await stripe.customers.create({
+      email,
       metadata: { org_id: ctx.orgId },
     })
     customerId = customer.id
