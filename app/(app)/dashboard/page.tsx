@@ -3,6 +3,7 @@ import { getLiveSubscription, usageByMonth } from '@/lib/db/billing'
 import { countPendingInvitations, getOrganization, listMembers } from '@/lib/db/organizations'
 import { listProjects } from '@/lib/db/projects'
 import { getEntitlement } from '@/lib/entitlement'
+import { PLANS } from '@/lib/plans'
 import { summariseUsage } from '@/lib/usage'
 
 import DashboardClient from './DashboardClient'
@@ -50,7 +51,7 @@ export default async function DashboardPage() {
       entitlement={entitlement}
       subscription={
         subscription && {
-          plan: subscription.plan,
+          plan: PLANS.find(p => p.id === subscription.plan)?.name ?? subscription.plan,
           status: subscription.status,
           seats: subscription.seats,
           currentPeriodEnd: subscription.current_period_end,

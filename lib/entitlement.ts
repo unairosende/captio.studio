@@ -97,7 +97,7 @@ export function monthlyFrom(plan: Plan, usedSeconds: number): MonthlyAllowance {
  */
 export type Entitlement =
   | { status: 'subscribed'; plan: string; remaining: null; monthly: MonthlyAllowance | null }
-  | { status: 'trial'; plan: 'free'; remaining: TrialRemaining; monthly: null }
+  | { status: 'trial'; plan: 'prueba'; remaining: TrialRemaining; monthly: null }
 
 export async function getEntitlement(orgId: string): Promise<Entitlement> {
   // A subscription with no monthly figure is already the uncapped case — the
@@ -113,7 +113,8 @@ export async function getEntitlement(orgId: string): Promise<Entitlement> {
     const plan = PLANS.find(p => p.id === subscription.plan)
     return {
       status: 'subscribed',
-      plan: subscription.plan,
+      // Shown to the customer, so the name they bought, not the id the row keeps.
+      plan: plan?.name ?? subscription.plan,
       remaining: null,
       // A plan string this build cannot price is left uncapped rather than
       // refused. The row is written from a Stripe webhook, so it can name a plan
@@ -125,7 +126,7 @@ export async function getEntitlement(orgId: string): Promise<Entitlement> {
   }
   return {
     status: 'trial',
-    plan: 'free',
+    plan: 'prueba',
     remaining: remainingFrom(await trialMediaSeconds(orgId)),
     monthly: null,
   }
