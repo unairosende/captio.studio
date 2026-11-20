@@ -1,150 +1,198 @@
-# Data Processing Agreement — DRAFT
+# Acuerdo de encargo de tratamiento
 
-**Not reviewed by a lawyer. Do not publish or sign.** This is the document a
-broadcaster's procurement department reads most carefully, and the one where a
-wrong sentence is a breach rather than an embarrassment.
+**Borrador. No lo ha revisado un abogado; ni se publica ni se firma.** Es el
+documento que el departamento de compras de una cadena lee con más cuidado, y
+donde una frase equivocada es un incumplimiento y no un descuido.
 
-Last updated: [DATE]
+Última actualización: [FECHA]
 
-Between **[LEGAL ENTITY]** ("Processor") and the customer ("Controller"), forming
-part of the Terms of Service.
+Entre **[ENTIDAD]** («el Encargado») y el cliente («el Responsable»), como parte de
+las Condiciones del servicio y conforme al artículo 28 del RGPD.
 
 ---
 
-## 1 · What this covers
+## 1 · Objeto
 
-Captio processes personal data on the Controller's behalf in order to
-transcribe, translate and store subtitle content. The Controller decides what is
-uploaded and why; the Processor acts only on those instructions.
+Captio trata datos personales por cuenta del Responsable para transcribir,
+traducir, revisar y guardar contenido de subtítulos, y para que el Responsable lo
+comparta con sus propios clientes mediante enlaces de revisión. El Responsable
+decide qué se sube y para qué; el Encargado solo sigue sus instrucciones.
 
-## 2 · Subject matter and duration
+## 2 · Duración
 
-Processing lasts as long as the Controller's account, plus any wind-down period
-agreed in the Terms.
+El tratamiento dura lo que dure la cuenta del Responsable y, tras cancelarla, los
+90 días de conservación que fijan las Condiciones, salvo que el Responsable borre
+antes su organización.
 
-## 3 · Nature and purpose
+## 3 · Naturaleza y finalidad
 
-Storing subtitle projects, transcribing uploaded audio into timed text,
-translating that text between languages, and keeping the account and billing
-records the service needs in order to run.
+Guardar proyectos de subtítulos y los ficheros de audio y vídeo que se suben;
+transcribir ese audio a texto con tiempos; traducir, acortar y revisar el texto;
+mostrarlo al equipo del Responsable y a quien este invite a revisarlo; avisar por
+correo de los comentarios; y llevar los registros de uso que el servicio necesita
+para funcionar y facturarse.
 
-## 4 · Types of personal data
+## 4 · Tipos de datos personales
 
-The Controller decides what a recording contains, so the Processor cannot list
-this exhaustively. In practice:
+El Responsable decide qué contiene una grabación, así que el Encargado no puede
+enumerarlo del todo. En la práctica:
 
-- **In the media and subtitles**: voices, names, and whatever the people
-  recorded happen to say about themselves or others. A recorded voice is
-  personal data. Dialogue routinely contains a great deal more.
-- **In the account**: names, email addresses, organisation membership.
-- **In billing**: billing contact details, handled by Stripe.
+- **En los ficheros y los subtítulos**: voces, imagen, nombres y lo que las personas
+  grabadas digan de sí mismas o de otras. Una voz grabada ya es un dato personal, y
+  el diálogo suele contener mucho más.
+- **En la revisión por enlace**: nombre y correo de quien revisa, cuándo abrió el
+  enlace, y sus comentarios y correcciones.
+- **En la cuenta**: nombre, correo y pertenencia a la organización del personal del
+  Responsable.
 
-**Special categories may occur.** A documentary interview can contain health,
-political opinion, religion, sexual orientation or criminal history — not as a
-field somebody filled in, but as something a person said on camera. The
-Controller is responsible for recognising when that is so and for having a
-lawful basis under Article 9. The Processor cannot detect it and does not try.
+**Pueden aparecer categorías especiales.** Una entrevista documental puede contener
+salud, opiniones políticas, religión, orientación sexual o antecedentes penales —no
+como un campo que alguien rellena, sino como algo que una persona dice ante la
+cámara—. Corresponde al Responsable saber cuándo ocurre y tener una base legal
+conforme al artículo 9. El Encargado no puede detectarlo y no lo intenta.
 
-## 5 · Categories of data subject
+## 5 · Categorías de interesados
 
-Anybody appearing or named in the Controller's recordings, and the Controller's
-own staff who hold accounts.
+Cualquier persona que aparezca o se nombre en las grabaciones del Responsable, el
+personal del Responsable con cuenta en Captio, y las personas a las que el
+Responsable envía un enlace de revisión.
 
-## 6 · Processor obligations
+## 6 · Obligaciones del Encargado
 
-The Processor will:
+El Encargado:
 
-- process only on documented instructions, including as to transfers;
-- keep everybody with access under a duty of confidentiality;
-- apply the measures in section 9;
-- engage subprocessors only as section 7 allows;
-- assist with data subject requests, given the Controller's own limited access
-  to the underlying material;
-- assist with security incidents, impact assessments and prior consultation;
-- delete or return the data at the end, per section 10;
-- make available what is needed to demonstrate all of the above.
+- trata los datos solo siguiendo instrucciones documentadas del Responsable,
+  también en lo relativo a transferencias;
+- obliga a confidencialidad a todas las personas con acceso;
+- aplica las medidas de la sección 10;
+- recurre a subencargados solo como permite la sección 7;
+- ayuda al Responsable a atender las peticiones de los interesados;
+- ayuda con las brechas de seguridad, las evaluaciones de impacto y las consultas
+  previas;
+- borra o devuelve los datos al terminar, según la sección 12;
+- pone a disposición del Responsable lo necesario para demostrar todo lo anterior.
 
-## 7 · Subprocessors
+## 7 · Subencargados
 
-The Controller gives general authorisation to the subprocessors listed at
-[/subprocessors], which is kept current and cites the code it was derived from.
+El Responsable da una autorización general a los subencargados que figuran en
+[/subprocessors], que se mantiene al día y cita el código del que se obtuvo.
 
-The Processor will give **[NOTICE PERIOD]** notice before adding or replacing
-one. The Controller may object on reasonable data-protection grounds; if the
-objection cannot be resolved, the Controller may terminate the affected service
-without penalty for the remainder of the term.
+El Encargado avisará con **30 días** de antelación antes de añadir o sustituir uno.
+El Responsable puede oponerse por motivos razonables de protección de datos; si la
+objeción no se resuelve, puede dar por terminado el servicio afectado sin
+penalización por el resto del periodo.
 
-Each subprocessor is bound by obligations no weaker than these.
-**[Confirm this is actually true of each — see review-checklist.md item 3.]**
+Cada subencargado está obligado por un acuerdo de tratamiento que forma parte de
+sus propias condiciones, con obligaciones de confidencialidad, seguridad, ayuda y
+borrado equivalentes a las de este acuerdo. Las direcciones de cada uno están al
+final de [/subprocessors]. El de Vercel solo cubre sus planes Pro y Enterprise, y
+Captio está en Pro.
 
-## 8 · International transfers
+[CONFIRMAR AJUSTES DE PROVEEDORES — plan de Vercel incluido; ver
+`review-checklist.md`.]
 
-Compute, database and media storage are in the EU: functions in Stockholm, the
-database in `eu-north-1`, media in an EU-jurisdiction bucket that the non-EU
-endpoint cannot reach.
+## 8 · Transferencias internacionales
 
-Some AI providers are outside the EU, and audio and subtitle text are sent to
-them to be processed.
+El cálculo, la base de datos y el almacenamiento de ficheros están en la UE: las
+funciones en Estocolmo, la base de datos en `eu-north-1` y los ficheros en un
+almacenamiento con jurisdicción europea, que el punto de acceso no europeo ni
+siquiera puede ver.
 
-**[TRANSFER MECHANISM — see review-checklist.md item 2. Name, per provider,
-either the EU–US Data Privacy Framework or Standard Contractual Clauses, and
-attach a transfer impact assessment if one is required. Do not write this
-paragraph from assumption; it is the one most likely to be checked against the
-provider's published terms.]**
+Los proveedores de IA están fuera de la UE, y el audio o el vídeo y el texto de los
+subtítulos se les envían para procesarlos. Cada transferencia se ampara en las
+cláusulas contractuales tipo de la Comisión Europea incluidas en el acuerdo de
+tratamiento del proveedor y, cuando está certificado, también en el Marco de
+Privacidad de Datos UE-EE. UU.:
 
-**[MODEL TRAINING — see review-checklist.md item 1. The Controller will want an
-unambiguous statement that their unreleased dialogue is not used to train third
-party models. Write it only once every provider's terms have been read.]**
+| Subencargado | Datos | Mecanismo |
+|---|---|---|
+| ElevenLabs (Eleven Labs Inc., EE. UU.) | Audio y vídeo, para transcribir | Marco de Privacidad y cláusulas tipo |
+| Google, Gemini API de pago (Google Cloud EMEA Ltd., Irlanda) | Texto de subtítulos; puede almacenarse temporalmente en cualquier país donde Google tenga instalaciones | Marco de Privacidad (Google LLC) y cláusulas tipo |
+| Groq (Groq UK Ltd.; datos en EE. UU.) | Texto de subtítulos, solo si Gemini falla | Cláusulas tipo |
+| Resend (Plus Five Five, Inc., EE. UU.) | Correos, incluido el texto de los comentarios | Cláusulas tipo |
+| Vercel (Vercel Inc., EE. UU.) | Todo, de paso por las funciones | Marco de Privacidad y cláusulas tipo |
+| Supabase (Supabase Pte. Ltd., Singapur) | Base de datos alojada en `eu-north-1` | Cláusulas tipo |
+| Cloudflare (Cloudflare, Inc., EE. UU.) | Ficheros guardados en la UE | Marco de Privacidad y cláusulas tipo |
 
-Where a Controller requires EU-only processing, the provider is selected per
-request and can therefore be restricted — a configuration change rather than a
-rewrite. **[Whether that is offered, and on which plans, is a product
-decision.]**
+Con los proveedores que usa no hay hoy procesamiento solo en la UE, y este acuerdo
+no lo ofrece.
 
-## 9 · Security measures
+## 9 · Entrenamiento de modelos
 
-Stated as what the software does, so each can be verified rather than believed:
+Ni el Encargado ni sus subencargados usan el contenido del Responsable para
+entrenar o mejorar modelos de IA:
 
-- **Tenant isolation.** Every database query is scoped by organisation. An
-  automated test reads the SQL in the data-access layer and fails the build if
-  any statement touching customer tables lacks that filter, which makes
-  isolation a checked property rather than a convention.
-- **Upload authorisation.** Media goes straight from the browser to object
-  storage with a URL signed for a single object, a single method and a single
-  declared size, expiring after fifteen minutes. The size is part of the
-  signature, so the storage layer enforces it.
-- **Media minimisation.** Uploaded audio is deleted about a day after upload by
-  a scheduled job, with a lifecycle rule on the bucket underneath as a second
-  mechanism. Audio is not retained after transcription.
-- **Data residency.** As set out in section 8.
-- **Encryption.** In transit over TLS throughout; at rest by the storage and
-  database providers.
-- **Access control.** Organisation membership is re-checked on every request
-  rather than trusted from the session, so removing somebody takes effect on
-  their next request instead of whenever their session happens to expire.
-- **Secrets.** Provider credentials live as environment variables in the hosting
-  platform and never reach the browser.
+- **Google** lo excluye en las condiciones de la Gemini API de pago. Guarda las
+  peticiones 55 días solo para vigilar usos prohibidos.
+- **Groq** lo tiene prohibido por su contrato salvo permiso expreso, que no se ha
+  dado, y con la retención cero activada no guarda ni siquiera registros.
+- **ElevenLabs** lo haría por defecto según sus condiciones; el Encargado lo tiene
+  desactivado en su cuenta. [RETENCIÓN EN ELEVENLABS — hoy guarda el audio y la
+  transcripción sin plazo definido.]
 
-**[Add: personnel access controls, backup and restore, and an incident response
-procedure. Those are organisational rather than code, so they cannot be read out
-of the repository — they have to be decided, then written.]**
+[CONFIRMAR AJUSTES DE PROVEEDORES — esta sección solo es verdad con los ajustes de
+cuenta de `review-checklist.md` hechos.]
 
-## 10 · Deletion and return
+## 10 · Medidas de seguridad
 
-Subtitles and translations can be exported by the Controller at any time from
-the editor, in every supported format, without asking the Processor.
+Descritas como lo que hace el software, para que cada una se pueda comprobar en vez
+de creerse:
 
-On termination, [PERIOD] to export, then deletion.
-**[Undecided, and account deletion is not implemented — see review-checklist.md
-item 6. Do not sign this clause before the software can honour it.]**
+- **Aislamiento entre clientes.** Cada consulta a la base de datos se limita a una
+  organización. Una prueba automática lee el SQL de la capa de datos y hace fallar
+  la compilación si alguna sentencia sobre tablas de clientes no lleva ese filtro:
+  el aislamiento es una propiedad comprobada, no una costumbre.
+- **Subidas.** Los ficheros van del navegador al almacenamiento con una dirección
+  firmada para un único objeto, una única operación y un tamaño declarado, que
+  caduca a los quince minutos. El tamaño forma parte de la firma, así que lo impone
+  el propio almacenamiento.
+- **Reproducción.** Las direcciones para ver un fichero se firman en el servidor y
+  caducan; el proveedor de transcripción recibe una que caduca a los quince minutos.
+- **Revisión por enlace.** El enlace es una credencial aleatoria de 24 bytes que
+  caduca a los 30 días o al revocarse, solo da acceso a lo que comparte y solo
+  puede escribir texto de subtítulos y comentarios; nunca la forma de la pista ni
+  nada de facturación o de IA.
+- **Residencia.** La de la sección 8.
+- **Cifrado.** En tránsito con TLS en todo el recorrido; en reposo, el de los
+  proveedores de almacenamiento y de base de datos.
+- **Control de acceso.** La pertenencia a la organización se vuelve a comprobar en
+  cada petición en vez de fiarse de la sesión, así que quitar a alguien surte
+  efecto en su petición siguiente.
+- **Secretos.** Las credenciales de los proveedores viven en variables de entorno
+  de la plataforma y nunca llegan al navegador.
 
-## 11 · Audit
+[MEDIDAS ORGANIZATIVAS — quién tiene acceso a producción y cómo, copias de
+seguridad de la base de datos y su plazo, y procedimiento ante incidentes. No se
+leen del código: hay que decidirlas y escribirlas.]
 
-The Processor will make available the information needed to demonstrate
-compliance and will contribute to audits, on reasonable notice and no more than
-[FREQUENCY], at the Controller's cost unless a material breach is found.
+## 11 · Brechas de seguridad
 
-## 12 · Liability
+El Encargado notificará al Responsable cualquier brecha que afecte a sus datos sin
+dilación indebida y, en todo caso, dentro de las **48 horas** siguientes a tener
+conocimiento de ella, con la información disponible para que el Responsable pueda
+cumplir su propio plazo de 72 horas ante la autoridad.
 
-Follows the Terms of Service. **[Clause 9 of the Terms is unwritten, so this
-cross-reference is worthless until it exists.]**
+## 12 · Borrado y devolución
+
+El Responsable puede exportar sus subtítulos y traducciones cuando quiera desde el
+editor, en todos los formatos disponibles, sin pedírselo al Encargado.
+
+Puede borrar su organización en cualquier momento, y con ella todo lo que contiene.
+Si cancela sin borrarla, el Encargado conserva los datos 90 días desde el final del
+último periodo pagado, avisa a los propietarios al menos siete días antes, y
+después los borra.
+
+[BORRADO DE FICHEROS — hoy, borrar un proyecto o una secuencia no borra su audio ni
+su vídeo del almacenamiento. No se firma esta cláusula hasta que se arregle.]
+
+## 13 · Auditoría
+
+El Encargado pondrá a disposición la información necesaria para demostrar el
+cumplimiento y colaborará en las auditorías, con un preaviso de **30 días** y no
+más de **una vez al año**, a costa del Responsable salvo que se descubra un
+incumplimiento grave.
+
+## 14 · Responsabilidad
+
+La de las Condiciones del servicio. [La cláusula 9 de las Condiciones aún no está
+escrita, así que esta remisión no vale nada hasta que exista.]

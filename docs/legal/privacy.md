@@ -1,137 +1,190 @@
-# Privacy Policy — DRAFT
+# Política de privacidad
 
-**Not reviewed by a lawyer. Do not publish.** The placeholders in `[BRACKETS]`
-and the open questions in `review-checklist.md` have to be settled first.
+**Borrador. No lo ha revisado un abogado; no se publica.** Los huecos entre
+`[CORCHETES]` y las decisiones de `review-checklist.md` se cierran antes.
 
-Last updated: [DATE] · Entity: [LEGAL ENTITY, ADDRESS, VAT NUMBER]
-
----
-
-## The short version
-
-Captio turns recordings into subtitles and translates them. To do that we store
-your subtitles, send them to AI providers, and keep an account for you.
-
-We do not track you. There is no analytics, no advertising, no session
-recording, and the only cookie we set is the one that keeps you signed in.
-
-Your audio is deleted about a day after it is transcribed. Your subtitles stay
-until you delete them.
+Última actualización: [FECHA] · Responsable: [ENTIDAD, DOMICILIO, NIF]
 
 ---
 
-## Two different roles
+## En pocas palabras
 
-**Your subtitle content is yours.** The video, the audio, the cues and the
-translations belong to your production. We are a processor for that material: we
-handle it on your instructions and for no purpose of our own. If somebody
-appearing in your recording wants to know what is held about them, that request
-goes to you rather than to us — you are the one who filmed them. We will help you
-answer it.
+Captio convierte grabaciones en subtítulos y los traduce. Para eso guardamos tus
+grabaciones y tus subtítulos, se los enviamos a proveedores de IA y te mantenemos
+una cuenta.
 
-**Your account is ours to be responsible for.** Your email address, your name,
-who belongs to your organisation and what you have been billed — for those we
-are the controller, and this policy is our own.
+No te seguimos. No hay analítica, ni publicidad, ni grabación de sesiones, y las
+únicas cookies son las que mantienen abierta tu sesión.
 
----
-
-## What we hold
-
-**Account** — email address, name, organisation membership and role, and a
-hashed password if you did not sign in with Google.
-
-**Your work** — projects, source subtitles, translations, comments, and the audio
-you upload for transcription.
-
-**Usage** — for each AI job: which kind, which model, how many tokens or seconds
-of audio, how many subtitles, and when. This is what a bill is calculated from
-and what the free trial is measured against.
-
-**Billing** — handled by Stripe. Card numbers never reach our servers.
-
-We ask for nothing else, and there is no hidden collection: every item in this
-list corresponds to a table you could point at in the schema.
+Tus grabaciones y tus subtítulos se quedan mientras tú los conserves, y se borran
+cuando los borras tú.
 
 ---
 
-## Who else sees it
+## Dos papeles distintos
 
-The full list, with locations and what reaches each one, is at
-[/subprocessors]. In summary:
+**Tu contenido es tuyo.** El vídeo, el audio, los subtítulos y las traducciones son
+de tu producción. Con ese material somos encargados del tratamiento: lo tratamos
+siguiendo tus instrucciones y para nada propio. Si alguien que aparece en tu
+grabación quiere saber qué se guarda sobre él, esa petición te corresponde a ti —
+lo grabaste tú—, y te ayudaremos a responderla. Lo mismo vale para las personas a
+las que envías un enlace de revisión: su nombre y su correo los tratamos por
+cuenta de tu organización.
 
-Hosting, database and media storage are all in the EU — compute in Stockholm,
-database in Stockholm, media in an EU-jurisdiction bucket. Transactional email
-goes through Resend in Ireland. Payments go through Stripe.
-
-Transcription and translation are done by AI providers, and some of them are
-outside the EU: **[PROVIDER TRANSFER BASIS — see review-checklist.md item 2]**.
-The audio you upload and the subtitle text you translate are sent to those
-providers to be processed.
-
-**[TRAINING CLAUSE — see review-checklist.md item 1. Do not fill this in until
-each provider's terms have been read. This is the sentence customers care about
-most, and it has to be exactly true.]**
+**Tu cuenta es responsabilidad nuestra.** Tu correo, tu nombre, a qué
+organizaciones perteneces y lo que se te ha facturado: de eso somos responsables
+del tratamiento, y esta política es la nuestra.
 
 ---
 
-## How long
+## Qué guardamos
+
+**Cuenta** — nombre y correo; la contraseña cifrada con un hash, o el vínculo con
+tu cuenta de Google si entras con ella; y, de cada sesión abierta, la dirección IP
+y el navegador, para poder cerrarla y detectar accesos raros.
+
+**Organización** — su nombre, quién pertenece a ella y con qué papel, y las
+invitaciones pendientes.
+
+**Tu trabajo** — proyectos, clientes y sus glosarios, secuencias, subtítulos,
+traducciones, el historial de versiones, comentarios, y el audio o el vídeo que
+subes, con su forma de onda.
+
+**Revisión por enlace** — de quien abre un enlace de revisión: el nombre y el
+correo que escribe, cuándo lo abrió por última vez, y sus comentarios y
+correcciones.
+
+**Uso** — de cada trabajo de IA: de qué tipo, con qué modelo, cuántas unidades,
+cuántos subtítulos, cuánto nos costó y cuándo. Con eso se mide la prueba y el
+consumo de cada plan.
+
+**Facturación** — la gestiona Stripe. Los números de tarjeta nunca llegan a
+nuestros servidores; guardamos el estado de la suscripción, el plan y las fechas
+del periodo.
+
+No pedimos nada más, y no hay recogida escondida: cada punto de esta lista
+corresponde a una tabla de la base de datos.
+
+---
+
+## Quién más lo ve
+
+La lista completa, con dónde está cada uno y qué le llega, está en
+[/subprocessors]. En resumen:
+
+El alojamiento, la base de datos y el almacenamiento de ficheros están en la UE:
+el cálculo y la base de datos en Estocolmo, los ficheros en un almacenamiento con
+jurisdicción europea. Los correos los envía Resend desde Irlanda, aunque guarda
+sus registros en Estados Unidos durante 30 días. Los pagos, Stripe.
+
+La transcripción y la traducción las hacen proveedores de IA de fuera de la UE. Les
+llegan el audio o el vídeo que subes, para transcribirlo, y el texto de los
+subtítulos, para traducirlo y revisarlo; no les llegan tu nombre ni el de tu
+organización ni el de tus proyectos.
+
+Esos proveedores, y Resend, están en Estados Unidos o guardan allí los datos. Esas
+transferencias se amparan en las cláusulas contractuales tipo de la Comisión
+Europea, que todos incluyen en su acuerdo de tratamiento, y además en el Marco de
+Privacidad de Datos UE-EE. UU. cuando el proveedor está certificado. El detalle,
+proveedor por proveedor, está en [/subprocessors].
+
+**Ningún proveedor usa tus grabaciones ni tus subtítulos para entrenar sus
+modelos.** Google y Groq lo excluyen en las condiciones de pago que tenemos
+contratadas; ElevenLabs lo haría por defecto, y lo tenemos desactivado en nuestra
+cuenta. Lo que sí hacen es guardar una copia durante un tiempo: Google, hasta 55
+días, solo para vigilar usos prohibidos; Groq, nada, porque tenemos activada su
+retención cero; ElevenLabs, [RETENCIÓN EN ELEVENLABS — hoy, sin plazo definido].
+
+[CONFIRMAR AJUSTES DE PROVEEDORES — este párrafo solo es verdad con los ajustes de
+cuenta de `review-checklist.md` hechos.]
+
+---
+
+## Qué correos enviamos
+
+Solo los que hace falta: confirmar tu dirección, restablecer la contraseña, invitar
+a alguien a tu organización, avisar de un comentario nuevo —al equipo que trabaja
+en esa secuencia y a los invitados que han comentado en ella, como mucho uno cada
+media hora por cada persona que comenta— y avisar de que se van a borrar los datos
+de una organización cancelada. Nunca boletines ni publicidad.
+
+---
+
+## Cuánto tiempo
 
 | | |
 |---|---|
-| Uploaded audio | Deleted about a day after upload, automatically |
-| Projects, subtitles, translations, comments | Until you delete them |
-| Usage records | Kept — they are the billing record |
-| Account data | While your account exists |
+| Audio y vídeo subidos | Mientras exista la secuencia a la que pertenecen. Lo que se sube y no llega a usarse se borra al día siguiente |
+| Proyectos, subtítulos, traducciones, versiones, comentarios | Hasta que los borras tú |
+| Nombre y correo de quien revisa por enlace | [RETENCIÓN DE INVITADOS — ahora se guardan hasta que se borra el enlace, el proyecto o la organización, aunque el enlace haya caducado] |
+| Registros de uso | Mientras exista la organización |
+| Datos de la cuenta | Mientras exista la cuenta |
+| Una organización tras cancelar | 90 días desde el final del último periodo pagado; avisamos a los propietarios al menos siete días antes, y después se borra todo |
 
-Audio is genuinely deleted rather than merely hidden: a scheduled job removes
-the objects from storage and the rows that point at them, and a rule on the
-bucket removes anything that job missed.
+[BORRADO DE FICHEROS — hoy, borrar un proyecto o una secuencia borra sus filas pero
+no el audio ni el vídeo del almacenamiento. No se publica hasta que se arregle.]
 
-**[RETENTION AFTER CANCELLATION — undecided. See review-checklist.md item 6.]**
+Un propietario puede borrar la organización entera cuando quiera desde el panel de
+equipo, y con ella todo lo que contiene. Las facturas se conservan en Stripe el
+tiempo que exige la ley.
 
 ---
 
-## Your rights
+## Tus derechos
 
-You can ask for a copy of your data, ask us to correct it, ask us to delete it,
-or object to how we use it. Write to [PRIVACY CONTACT] and we will answer within
-a month.
+Puedes pedirnos una copia de tus datos, que los corrijamos, que los borremos o que
+dejemos de usarlos de una forma concreta, y llevártelos. Escribe a [CONTACTO DE
+PRIVACIDAD] y te responderemos en el plazo de un mes.
 
-Your subtitles are exportable from the editor at any time, in every format the
-product supports, without asking us — including after a free trial has run out.
+Tus subtítulos se exportan desde el editor cuando quieras, en todos los formatos
+del producto, sin pedirnos nada — también después de agotar la prueba.
 
-**[ACCOUNT DELETION — not implemented yet. See review-checklist.md item 6. Do not
-publish a deletion promise the software cannot keep.]**
+[BORRAR LA CUENTA PERSONAL — hoy se puede borrar una organización, pero no la
+cuenta de una persona. Hasta que exista, la petición se atiende a mano por el
+contacto de arriba.]
 
-You can also complain to your data protection authority. In Spain that is the
+También puedes reclamar ante la autoridad de protección de datos. En España es la
 AEPD.
 
 ---
 
-## Security
+## Seguridad
 
-Access is scoped to your organisation by construction: every database query
-filters on it, and an automated test reads the SQL to check that none has been
-written without it.
+El acceso está limitado a tu organización por construcción: cada consulta a la base
+de datos filtra por ella, y una prueba automática lee el SQL para comprobar que
+ninguna se ha escrito sin ese filtro.
 
-Uploads go straight from your browser to storage using a signed URL good for one
-file, one method and one size, which expires after fifteen minutes.
+Los ficheros van directamente de tu navegador al almacenamiento con una dirección
+firmada válida para un fichero, una operación y un tamaño, que caduca a los quince
+minutos. Las direcciones para reproducirlos también van firmadas y caducan.
 
-We have no support tool that reads your projects. **[Confirm, and keep it true —
-see review-checklist.md item 7.]**
+Quien entra por un enlace de revisión solo ve lo que ese enlace comparte, y el
+enlace caduca a los 30 días o cuando lo revocas.
+
+No tenemos ninguna herramienta de soporte que lea tus proyectos. Si algún día la
+tuviéramos, lo diríamos aquí antes de usarla.
 
 ---
 
 ## Cookies
 
-One: the session cookie that keeps you signed in. It is strictly necessary and
-does not need your consent. We set no other cookie, and no third party sets one
-through us — the fonts are served from our own domain precisely so that loading
-a page tells nobody else you were here.
+Dos, y las dos son estrictamente necesarias, así que no hace falta tu
+consentimiento:
+
+- **La de la sesión**, que te mantiene dentro de tu cuenta.
+- **La de la revisión** (`review_guest_…`), solo para quien abre un enlace de
+  revisión: recuerda quién es durante 30 días para no preguntárselo cada vez.
+
+El navegador guarda además algunas preferencias de la interfaz —tema claro u
+oscuro, tamaño de los paneles— que no contienen datos personales ni salen de tu
+ordenador. Ningún tercero pone cookies a través de nosotros: las fuentes se sirven
+desde nuestro propio dominio precisamente para que cargar una página no le diga a
+nadie más que has estado aquí.
 
 ---
 
-## Changes
+## Cambios
 
-If we add a subprocessor, or change what we do with your content, we will update
-this page and tell account owners before the change takes effect.
+Si añadimos un subencargado o cambiamos lo que hacemos con tu contenido,
+actualizaremos esta página y avisaremos a los propietarios de las organizaciones
+antes de que el cambio se aplique.

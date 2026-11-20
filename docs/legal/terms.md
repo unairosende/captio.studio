@@ -1,123 +1,143 @@
-# Terms of Service — DRAFT
+# Condiciones del servicio
 
-**Not reviewed by a lawyer. Do not publish.** The placeholders in `[BRACKETS]`
-and the open questions in `review-checklist.md` have to be settled first.
+**Borrador. No lo ha revisado un abogado; no se publica.** Los huecos entre
+`[CORCHETES]` y las decisiones de `review-checklist.md` se cierran antes.
 
-Last updated: [DATE] · Entity: [LEGAL ENTITY, ADDRESS, VAT NUMBER]
+Última actualización: [FECHA] · Titular: [ENTIDAD, DOMICILIO, NIF]
 
-Written for business customers. If Captio is ever sold to consumers, mandatory
-consumer-protection rules apply on top of all of this and several clauses below
-stop being enforceable.
+Captio se vende a empresas y profesionales, no a consumidores. Si algún día se
+vendiera a consumidores, se aplicarían además las normas imperativas de consumo y
+varias cláusulas de estas condiciones dejarían de valer.
 
 ---
 
-## 1 · What you get
+## 1 · Qué incluye
 
-An account gives your organisation access to Captio: importing and transcribing
-recordings, translating subtitles, quality checking, and exporting in the
-supported formats. Seats and monthly volume depend on your plan.
+Una cuenta da acceso a tu organización a Captio: importar y transcribir
+grabaciones, traducir y revisar subtítulos, comprobar su calidad, compartirlos con
+tus clientes por enlace y exportarlos en los formatos disponibles. Las plazas y el
+material al mes dependen del plan.
 
-## 2 · The free trial
+## 2 · La prueba gratuita
 
-New organisations get an allowance rather than a period: **one hour of
-transcription and 2,000 translated subtitles**, with no expiry date. The two are
-separate, so using up one does not affect the other.
+Una organización nueva recibe una cantidad, no un plazo: **30 minutos de
+material**, sin fecha de caducidad y sin tarjeta. Esos minutos cubren transcribir y
+traducir ese material a los idiomas que haga falta.
 
-No card is required to start it.
+Cuando se agotan, se paran los trabajos de IA nuevos. **Lo que ya has hecho sigue
+siendo tuyo y sigue a tu alcance**: los proyectos se abren y se exportan en todos
+los formatos. Nada queda retenido a cambio de una suscripción.
 
-When an allowance runs out, new AI jobs stop. **Everything you have already made
-stays yours and stays reachable** — projects still open and still export in every
-format. Nothing is held hostage to a subscription.
+Un trabajo que ya está en marcha puede terminar aunque se pase de la cantidad. La
+duración de una grabación no se sabe hasta que se transcribe, y la alternativa
+sería cortarlo a medias.
 
-A job already under way may finish even if it runs past the allowance. How long
-a recording lasts is not known until it has been transcribed, so the alternative
-would be cutting work off halfway.
+## 3 · Pago
 
-## 3 · Paying
+Los planes y sus precios están en la página de precios. Las suscripciones se cobran
+por meses y por adelantado a través de Stripe, y se renuevan hasta que se cancelan.
 
-Plans and prices are on the pricing page. Subscriptions are billed monthly in
-advance through Stripe and renew until cancelled. Cancelling stops the next
-renewal; it does not refund the current period.
+Cada plan incluye una cantidad de minutos de material por mes natural. Al agotarla
+se paran los trabajos de IA nuevos hasta el mes siguiente, con la misma regla que
+la prueba: lo hecho no se toca.
 
-[VAT TREATMENT — depends on the entity and on whether the customer is a business
-in another member state. Reverse charge for EU B2B outside Spain, in the normal
-case.]
+Cancelar evita la renovación siguiente; no devuelve el periodo en curso, y el plan
+sigue activo hasta que ese periodo termina. Cambiar de plan se hace desde el
+portal de facturación: al subir, la diferencia de lo que queda de mes se suma a la
+factura siguiente.
 
-We may change prices with [NOTICE PERIOD] notice, taking effect at your next
-renewal.
+[TRATAMIENTO DEL IVA — depende de la entidad y de si el cliente es una empresa de
+otro Estado miembro. En el caso normal, inversión del sujeto pasivo para empresas
+de la UE fuera de España.]
 
-## 4 · Your content stays yours
+Podemos cambiar los precios avisando con **30 días** de antelación; el cambio se
+aplica desde tu renovación siguiente.
 
-You keep every right in the recordings you upload, the subtitles you import and
-the translations Captio produces from them. We claim no ownership and no licence
-beyond what running the service requires: storing your files, sending them to
-the AI providers listed at [/subprocessors], and showing them back to your team.
+## 4 · Tu contenido es tuyo
 
-We do not use your content to improve our own product, and we do not use it to
-train anything of ours.
+Conservas todos los derechos sobre las grabaciones que subes, los subtítulos que
+importas y las traducciones que Captio produce a partir de ellos. No reclamamos
+propiedad ni más licencia que la que exige prestar el servicio: guardar tus
+ficheros, enviarlos a los proveedores de IA que figuran en [/subprocessors] y
+mostrárselos a tu equipo y a quien tú invites a revisarlos.
 
-**[Whether the AI providers do — see review-checklist.md item 1. This clause
-cannot be finished until that is answered, and answering it wrongly here is
-worse than leaving it out.]**
+No usamos tu contenido para mejorar nuestro producto ni para entrenar nada nuestro,
+y los proveedores de IA que usamos tampoco lo usan para entrenar sus modelos. El
+detalle, proveedor por proveedor, está en [/subprocessors].
 
-## 5 · What you promise us
+[CONFIRMAR AJUSTES DE PROVEEDORES — la frase anterior solo es verdad con los
+ajustes de cuenta de `review-checklist.md` hechos.]
 
-That you have the right to upload what you upload. Recordings contain people,
-and those people have rights over their voice and image; you filmed them and you
-hold their consent or your own lawful basis. Captio is a tool you point at
-material you are already entitled to process.
+## 5 · Lo que nos garantizas
 
-You will not use the service to break the law, and you will not resell access.
+Que tienes derecho a subir lo que subes. Las grabaciones contienen personas, y esas
+personas tienen derechos sobre su voz y su imagen: las grabaste tú, y tú tienes su
+consentimiento o tu propia base legal. Captio es una herramienta que aplicas a
+material que ya puedes tratar.
 
-## 6 · What machine translation is
+Decides tú a quién envías un enlace de revisión. Quien lo abre ve y puede comentar
+lo que el enlace permite, y eso lo has autorizado tú.
 
-Transcription and translation are produced by AI models, and AI models get
-things wrong — names, numbers, homophones, sarcasm, overlapping speech, anything
-said quietly. The quality checks in the product catch length and timing
-problems. They do not catch meaning.
+No usarás el servicio para infringir la ley ni revenderás el acceso.
 
-**Output is a draft for a professional to review, and is provided as is.** For
-anything broadcast, legally significant or safety related, a person has to check
-it. That is not a disclaimer we bury — it is how the product is meant to be used,
-and it is why the editor exists at all.
+## 6 · Qué es la traducción automática
 
-## 7 · Availability
+La transcripción y la traducción las producen modelos de IA, y esos modelos se
+equivocan: nombres, cifras, homófonos, ironía, voces que se pisan, lo que se dice
+en voz baja. Las comprobaciones de calidad del producto detectan problemas de
+longitud y de tiempos. No detectan problemas de sentido.
 
-We aim to keep Captio running and available, but we do not offer an uptime
-guarantee on standard plans. AI providers have outages and rate limits we do not
-control, and transcription and translation are affected when they do.
+**El resultado es un borrador para que lo revise un profesional, y se entrega tal
+cual.** Para cualquier cosa que se vaya a emitir, que tenga efectos legales o que
+afecte a la seguridad, tiene que revisarlo una persona. No es una advertencia
+escondida: es como está pensado el producto, y es la razón de que exista el editor.
 
-[SLA — only if one is ever sold. Do not imply one here.]
+## 7 · Disponibilidad
 
-## 8 · Suspension
+Procuramos que Captio funcione y esté disponible, pero los planes estándar no
+llevan garantía de disponibilidad. Los proveedores de IA tienen caídas y límites
+que no controlamos, y cuando los tienen afectan a la transcripción y a la
+traducción.
 
-We may suspend an account that is not paying, that is being used unlawfully, or
-that is threatening the service for everybody else. Except where the law
-requires otherwise we will tell you first, and give you a reasonable chance to
-export your work.
+## 8 · Suspensión
 
-## 9 · Liability
+Podemos suspender una cuenta que no paga, que se usa de forma ilícita o que pone en
+riesgo el servicio para los demás. Salvo que la ley exija otra cosa, te avisaremos
+antes y te daremos una oportunidad razonable de exportar tu trabajo.
 
-[TO BE DRAFTED BY A LAWYER. The usual shape is a cap at the fees paid in the
-preceding twelve months plus exclusion of indirect loss. It cannot be copied
-from another company's terms, it interacts directly with clause 6, and it is the
-clause most likely to be tested.]
+## 9 · Responsabilidad
 
-## 10 · Ending it
+[RESPONSABILIDAD — la redacta un abogado. La forma habitual es un tope igual a lo
+pagado en los doce meses anteriores y la exclusión de daños indirectos. No se
+copia de otra empresa, depende directamente de la cláusula 6 y es la que más
+probablemente se discuta.]
 
-You can cancel at any time from billing. We may terminate for a material breach
-that is not fixed within [PERIOD] of us telling you about it.
+## 10 · Fin del contrato
 
-After termination you can export your work for [PERIOD], and then we delete it.
-**[Undecided. See review-checklist.md item 6 — do not name a period the software
-does not enforce.]**
+Puedes cancelar cuando quieras desde la facturación. Podemos resolver el contrato
+por un incumplimiento grave que no se corrija en **30 días** desde que te lo
+comuniquemos.
 
-## 11 · Governing law
+Puedes borrar tu organización en cualquier momento desde el panel de equipo: lo
+hace un propietario escribiendo su nombre para confirmarlo, cancela la suscripción
+y borra todo lo que contiene.
 
-[JURISDICTION — follows the entity. If Spain, Spanish law and the courts of
-[CITY].]
+Si no la borras, tras cancelar conservamos tus datos **90 días** desde el final
+del último periodo pagado, por si vuelves. Al menos siete días antes de borrarla
+escribimos a los propietarios de la organización con la fecha. Después se borra
+todo.
 
-## 12 · Changes to these terms
+## 11 · Ley aplicable y tribunales
 
-We will give notice of material changes before they take effect. Continuing to
-use Captio afterwards means accepting them.
+[LEY Y TRIBUNALES — siguen a la entidad. Si es española, ley española y
+tribunales de su domicilio.]
+
+## 12 · Idioma
+
+Estas condiciones se redactan en español, y la versión en español es la que vale.
+Si alguna vez se publica una traducción, es solo una ayuda para leerlas.
+
+## 13 · Cambios en estas condiciones
+
+Avisaremos de los cambios importantes con **30 días** de antelación. Seguir usando
+Captio después significa aceptarlos.

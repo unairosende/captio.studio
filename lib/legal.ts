@@ -13,10 +13,10 @@ import path from 'node:path'
  * absolute path: terms, privacy and the DPA all point at [/subprocessors].
  */
 export const LEGAL_DOCS = {
-  terms: 'Terms of Service',
-  privacy: 'Privacy Policy',
-  dpa: 'Data Processing Agreement',
-  subprocessors: 'Subprocessors',
+  terms: 'Condiciones del servicio',
+  privacy: 'Política de privacidad',
+  dpa: 'Acuerdo de encargo de tratamiento',
+  subprocessors: 'Subencargados',
 } as const
 
 export type LegalSlug = keyof typeof LEGAL_DOCS
