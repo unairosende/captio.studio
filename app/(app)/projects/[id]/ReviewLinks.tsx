@@ -145,7 +145,7 @@ export default function ReviewLinks({ projectId, initial }: Props) {
                 <div className={s.accessGuests} suppressHydrationWarning>
                   {link.guests.length === 0
                     ? 'Nadie lo ha abierto todavía'
-                    : link.guests.map(g => `${g.name} (${g.email}) · ${day(g.last_seen_at)}`).join(' · ')}
+                    : link.guests.map(g => `${g.name}${g.email ? ` (${g.email})` : ''} · ${day(g.last_seen_at)}`).join(' · ')}
                 </div>
               </div>
               {status === 'active' && (

@@ -1,20 +1,21 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { authorizeCron } from '@/lib/cron'
-import { listMembers } from '@/lib/db/organizations'
+import { listMembers, listOrganizationIds } from '@/lib/db/organizations'
 import {
   markRetentionWarned,
   orgsDueForErasure,
   orgsDueForRetentionWarning,
 } from '@/lib/db/retention'
 import { retentionWarningEmail, sendMail } from '@/lib/email/send'
+import { forgetExpiredGuests } from '@/lib/db/review-links'
 import { eraseOrganization } from '@/lib/erasure'
 import { RETENTION_DAYS } from '@/lib/retention'
 
 /**
  * Retire organisations whose subscription lapsed and never came back.
  *
- * Two passes, in order. First the warning: organisations near the end of the
+ * Two passes, in order, then a third unrelated one (Forget, below). First the warning: organisations near the end of the
  * window whose owners have not been told, each sent one message naming the date
  * their work goes. Only then, in the same run for a different set, the erasure:
  * organisations past the window whose warning has had time to land, handed to
@@ -84,5 +85,13 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ warned, erased, failed })
+  // ── Forget ─────────────────────────────────────────────────────────────
+  // Not about cancelled organisations, but the same promise — keep nothing past
+  // its use — so it rides on the nightly run that already exists.
+  let guestsForgotten = 0
+  for (const orgId of await listOrganizationIds()) {
+    guestsForgotten += await forgetExpiredGuests(orgId)
+  }
+
+  return NextResponse.json({ warned, erased, failed, guestsForgotten })
 }

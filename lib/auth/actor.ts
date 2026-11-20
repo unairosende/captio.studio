@@ -34,7 +34,6 @@ export type Actor =
       linkId: string
       guestId: string
       name: string
-      email: string
       canEdit: boolean
     }
 
@@ -97,7 +96,6 @@ export async function requireActor(req: NextRequest, sequenceId: string): Promis
     linkId: link.id,
     guestId: guest.id,
     name: guest.name,
-    email: guest.email,
     canEdit: link.can_edit,
   }
 }

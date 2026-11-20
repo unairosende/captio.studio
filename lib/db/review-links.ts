@@ -32,7 +32,8 @@ export interface ReviewGuestRow {
   org_id: string
   link_id: string
   name: string
-  email: string
+  /** Null once the link has stopped working; see forgetExpiredGuests. */
+  email: string | null
   created_at: string
   last_seen_at: string
 }
@@ -166,4 +167,25 @@ export async function touchGuest(orgId: string, id: string): Promise<void> {
     requireOrg(orgId),
     id,
   ])
+}
+
+/**
+ * Forget the address of everybody whose review link no longer works.
+ *
+ * The address serves two things, coming back as the same guest and hearing
+ * about replies, and both need a live link (guestRecipients filters on it), so
+ * once the link has expired or been revoked it is kept for nothing. The name
+ * stays, beside the comments it signed. See migration 0017.
+ */
+export async function forgetExpiredGuests(orgId: string): Promise<number> {
+  const rows = await query<{ id: string }>(
+    `update review_guests g set email = null
+       from review_links l
+      where g.org_id = $1 and l.org_id = $1 and l.id = g.link_id
+        and g.email is not null
+        and (l.revoked_at is not null or l.expires_at <= now())
+      returning g.id`,
+    [requireOrg(orgId)],
+  )
+  return rows.length
 }
