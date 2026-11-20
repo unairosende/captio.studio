@@ -93,7 +93,10 @@ modelos.** Google y Groq lo excluyen en las condiciones de pago que tenemos
 contratadas; ElevenLabs lo haría por defecto, y lo tenemos desactivado en nuestra
 cuenta. Lo que sí hacen es guardar una copia durante un tiempo: Google, hasta 55
 días, solo para vigilar usos prohibidos; Groq, nada, porque tenemos activada su
-retención cero; ElevenLabs, [RETENCIÓN EN ELEVENLABS — hoy, sin plazo definido].
+retención cero; ElevenLabs, la transcripción hasta que la recibimos, porque en ese
+momento le pedimos que la borre, y sus copias de seguridad hasta 30 días más.
+[AUDIO EN ELEVENLABS — confirmar con su soporte si borrar la transcripción borra
+también el audio.]
 
 [CONFIRMAR AJUSTES DE PROVEEDORES — este párrafo solo es verdad con los ajustes de
 cuenta de `review-checklist.md` hechos.]
@@ -116,7 +119,8 @@ de una organización cancelada. Nunca boletines ni publicidad.
 |---|---|
 | Audio y vídeo subidos | Mientras exista la secuencia a la que pertenecen. Lo que se sube y no llega a usarse se borra al día siguiente |
 | Proyectos, subtítulos, traducciones, versiones, comentarios | Hasta que los borras tú |
-| Nombre y correo de quien revisa por enlace | [RETENCIÓN DE INVITADOS — ahora se guardan hasta que se borra el enlace, el proyecto o la organización, aunque el enlace haya caducado] |
+| Correo de quien revisa por enlace | Hasta que el enlace caduca o se revoca; se borra esa misma noche |
+| Nombre de quien revisa por enlace | Junto a sus comentarios, mientras exista el proyecto |
 | Registros de uso | Mientras exista la organización |
 | Datos de la cuenta | Mientras exista la cuenta |
 | Una organización tras cancelar | 90 días desde el final del último periodo pagado; avisamos a los propietarios al menos siete días antes, y después se borra todo |
@@ -139,9 +143,12 @@ PRIVACIDAD] y te responderemos en el plazo de un mes.
 Tus subtítulos se exportan desde el editor cuando quieras, en todos los formatos
 del producto, sin pedirnos nada — también después de agotar la prueba.
 
-[BORRAR LA CUENTA PERSONAL — hoy se puede borrar una organización, pero no la
-cuenta de una persona. Hasta que exista, la petición se atiende a mano por el
-contacto de arriba.]
+Puedes borrar tu cuenta tú mismo desde el panel de equipo, confirmándolo con tu
+contraseña. Se borran tu nombre, tu correo, tus sesiones y tu acceso. Las
+organizaciones en las que estás solo se borran contigo, con todo lo que contienen;
+en las que compartes, el trabajo se queda con el resto del equipo y lo que
+escribiste pierde tu nombre. Si eres el único propietario de una organización con
+más gente, antes tienes que nombrar a otro.
 
 También puedes reclamar ante la autoridad de protección de datos. En España es la
 AEPD.

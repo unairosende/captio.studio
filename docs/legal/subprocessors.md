@@ -77,9 +77,11 @@ enviado antes. Guarda el audio y la transcripción por defecto; el modo sin
 retención (`enable_logging=false`) y la residencia en la UE son solo para su plan
 Enterprise.
 
-[RETENCIÓN EN ELEVENLABS — hoy guarda el audio y la transcripción sin plazo
-definido; la API permite borrar cada transcripción en cuanto se recibe, y el código
-aún no lo hace.]
+Por eso Captio le pide que borre cada transcripción en cuanto la recibe
+(`DELETE /v1/speech-to-text/transcripts/{id}`, en `app/api/transcribe/route.ts`);
+comprobado: la transcripción deja de existir. Sus copias de seguridad la conservan
+hasta 30 días más. [AUDIO EN ELEVENLABS — confirmar con su soporte si borrar la
+transcripción borra también el audio.]
 
 **Google.** Con la Gemini API de pago no usa las peticiones ni las respuestas para
 mejorar sus productos. Las guarda 55 días solo para vigilar usos prohibidos, y ese

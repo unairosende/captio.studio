@@ -127,8 +127,10 @@ entrenar o mejorar modelos de IA:
 - **Groq** lo tiene prohibido por su contrato salvo permiso expreso, que no se ha
   dado, y con la retención cero activada no guarda ni siquiera registros.
 - **ElevenLabs** lo haría por defecto según sus condiciones; el Encargado lo tiene
-  desactivado en su cuenta. [RETENCIÓN EN ELEVENLABS — hoy guarda el audio y la
-  transcripción sin plazo definido.]
+  desactivado en su cuenta. El Encargado le pide que borre cada transcripción en
+  cuanto la recibe; sus copias de seguridad la conservan hasta 30 días más.
+  [AUDIO EN ELEVENLABS — confirmar con su soporte si borrar la transcripción borra
+  también el audio.]
 
 [CONFIRMAR AJUSTES DE PROVEEDORES — esta sección solo es verdad con los ajustes de
 cuenta de `review-checklist.md` hechos.]

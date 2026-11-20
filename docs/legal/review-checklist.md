@@ -35,32 +35,34 @@ Se rellena el día que exista la sociedad, y no antes:
 
 ## Lo que necesita código
 
-Los documentos no prometen lo que el software no cumple. Estos huecos bloquean la
-publicación hasta que el código los cierre:
+Los documentos no prometen lo que el software no cumple. Estos eran los huecos de
+código; están cerrados salvo lo que se indica:
 
 1. **Borrado de ficheros — arreglado el 2026-11-20.** Borrar un proyecto o una
    secuencia borraba la fila `media` en cascada pero no el objeto de R2. Ahora
    `eraseProject` y `eraseSequence` (`lib/erasure.ts`) borran los objetos antes que
    las filas. Queda lo que ya se perdió antes del arreglo: objetos sin fila en el
    bucket, que solo se encuentran listando el bucket y comparándolo con `media`.
-2. **`[RETENCIÓN DE INVITADOS]`** — el nombre y el correo de quien revisa por enlace
-   (`review_guests`) se guardan aunque el enlace haya caducado, hasta que se borra el
-   enlace, el proyecto o la organización. Hay que decidir un plazo tras la caducidad
-   y hacer que un barrido lo cumpla.
-3. **`[BORRAR LA CUENTA PERSONAL]`** — se puede borrar una organización, pero no la
-   cuenta de una persona (`user`, `session`, `account` sobreviven). Better Auth lo
-   trae (`deleteUser`); falta activarlo y ponerle un botón.
+2. **Correo de quien revisa por enlace — arreglado el 2026-11-21.** Se guardaba
+   aunque el enlace hubiera caducado. Ahora el barrido nocturno (`sweep-cancelled`,
+   `forgetExpiredGuests`) lo borra en cuanto el enlace caduca o se revoca; el nombre
+   se queda junto a los comentarios, que son del cliente (migración 0017).
+3. **Borrar la cuenta personal — arreglado el 2026-11-21.** Desde el panel de
+   equipo, con la contraseña (o una sesión de menos de un día si entra con Google).
+   Las organizaciones donde la persona está sola se borran con ella
+   (`eraseOrganization`); si es la única propietaria de una con más gente, se niega
+   hasta que nombre a otra.
+4. **Transcripciones en ElevenLabs — arreglado el 2026-11-21.**
+   `app/api/transcribe/route.ts` borra cada transcripción en cuanto llega;
+   comprobado contra la API real (200 antes, 404 después). Sus copias de seguridad
+   la guardan hasta 30 días. **Queda `[AUDIO EN ELEVENLABS]`:** su documentación no
+   dice si ese borrado se lleva también el audio, y no hay forma de comprobarlo
+   desde fuera. Hay que preguntárselo a su soporte.
 
 Menor, sin hueco en los textos: si el correo de aviso antes de borrar una
 organización cancelada falla para todos los propietarios, esa organización no se
 borra nunca (`retention_warned_at` no se marca). Los textos dicen «después se borra
 todo»; casi siempre es verdad.
-
-4. **`[RETENCIÓN EN ELEVENLABS]`** — ElevenLabs guarda el audio y la transcripción
-   por defecto, y su modo sin retención es solo para Enterprise. La API permite
-   borrar cada transcripción (`DELETE /v1/speech-to-text/transcripts/{id}`) en
-   cuanto llega; `app/api/transcribe/route.ts` no lo hace. Falta comprobar si ese
-   borrado se lleva también el audio.
 
 ## Lo que necesita ajustes de cuenta
 
