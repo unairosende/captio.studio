@@ -1,9 +1,15 @@
 import { NextResponse, type NextRequest } from 'next/server'
 
 import { authErrorResponse, isAdmin, requireOrgContext } from '@/lib/auth/session'
-import { getStripeCustomerId } from '@/lib/db/billing'
+import { latestSubscription } from '@/lib/db/billing'
 import { PLANS } from '@/lib/plans'
 import { getStripe } from '@/lib/stripe'
+
+/**
+ * Statuses Stripe still bills, or will once the card is fixed. `past_due` and
+ * `unpaid` are not live for entitlement, but they are very much alive at Stripe.
+ */
+const BILLABLE: string[] = ['active', 'trialing', 'past_due', 'unpaid']
 
 /**
  * Start a checkout for the organisation.
@@ -35,9 +41,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Plan ${plan.id} has no Stripe price` }, { status: 500 })
   }
 
+  // Checkout always opens a NEW subscription. For an organisation that already
+  // pays, that is a second one billed every month next to the first; changing
+  // plan belongs to the portal, which swaps the price on the one it has.
+  const current = await latestSubscription(ctx.orgId)
+  if (current && BILLABLE.includes(current.status)) {
+    return NextResponse.json(
+      { error: 'Organisation already has a subscription; change plan from the billing portal' },
+      { status: 409 },
+    )
+  }
+
   const stripe = getStripe()
 
-  let customerId = await getStripeCustomerId(ctx.orgId)
+  // Any status will do: a cancelled subscription still names the customer, and
+  // a second customer would split the billing history and the saved card.
+  let customerId = current?.stripe_customer_id ?? null
   if (!customerId) {
     const customer = await stripe.customers.create({
       metadata: { org_id: ctx.orgId },

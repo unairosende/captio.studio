@@ -40,7 +40,9 @@ export default function Plans() {
     setError(
       r.status === 403
         ? 'Solo un propietario o administrador de la organización puede cambiar la suscripción.'
-        : r.error,
+        : r.status === 409
+          ? 'Tu organización ya tiene un plan. Para cambiarlo, entra en el panel y pulsa «Gestionar facturación».'
+          : r.error,
     )
     setBusy(null)
 
